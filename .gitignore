@@ -494,3 +494,5 @@ web/dist/
 # IDE
 .vs/
 .idea/
+
+src/Swarnakshi.Api/App_Data/

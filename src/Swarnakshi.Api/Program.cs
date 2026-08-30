@@ -1,41 +1,75 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Swarnakshi.Api.Common;
+using Swarnakshi.Api.Persistence;
+using Swarnakshi.Application;
+using Swarnakshi.Application.Abstractions;
+using Swarnakshi.Infrastructure;
+using Swarnakshi.Infrastructure.Services;
+using Scalar.AspNetCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+var jwt = new JwtOptions();
+builder.Configuration.GetSection("Jwt").Bind(jwt);
+if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
+{
+    if (!builder.Environment.IsDevelopment())
+        throw new InvalidOperationException("Jwt:Key must be set (>=32 chars) outside Development.");
+    jwt.Key = "dev-only-insecure-signing-key-change-me-please-32+";
+}
+builder.Services.AddSingleton(jwt); // authoritative — overrides the Infrastructure default
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+            NameClaimType = System.Security.Claims.ClaimTypes.Name,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+builder.Services.AddAuthorization();
+
+const string CorsPolicy = "web";
+builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
+    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:5173"])
+    .AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseMiddleware<ExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference(); // interactive docs at /scalar/v1
 }
 
-app.UseHttpsRedirection();
+app.UseCors(CorsPolicy);
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+await DbInitializer.InitializeAsync(app.Services, app.Configuration, app.Environment.IsDevelopment());
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
