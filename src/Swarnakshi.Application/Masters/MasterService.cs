@@ -157,15 +157,39 @@ public class MasterService(
     }
 
     public async Task<PagedResult<PartyDto>> PartiesAsync(PartyKind kind, PageQuery page, bool? active, CancellationToken ct = default)
-        => kind switch
+    {
+        var q = page.Q?.Trim();
+        switch (kind)
         {
-            PartyKind.Contractor => await Filter(db.Contractors.AsNoTracking()
-                .Select(c => new PartyDto(c.Id, c.Code, c.Name, c.CompanyName, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin, c.ContractorType, c.IsActive, c.Notes)), page, active, ct),
-            PartyKind.Customer => await Filter(db.Customers.AsNoTracking()
-                .Select(c => new PartyDto(c.Id, c.Code, c.Name, null, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin, null, c.IsActive, c.Notes)), page, active, ct),
-            _ => await Filter(db.Suppliers.AsNoTracking()
-                .Select(c => new PartyDto(c.Id, c.Code, c.Name, null, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin, null, c.IsActive, c.Notes)), page, active, ct),
-        };
+            case PartyKind.Contractor:
+            {
+                var src = db.Contractors.AsNoTracking();
+                if (active is not null) src = src.Where(c => c.IsActive == active);
+                if (!string.IsNullOrWhiteSpace(q)) src = src.Where(c => c.Name.Contains(q) || c.Code.Contains(q));
+                return await src.OrderBy(c => c.Name)
+                    .Select(c => new PartyDto(c.Id, c.Code, c.Name, c.CompanyName, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin, c.ContractorType, c.IsActive, c.Notes))
+                    .ToPagedAsync(page, ct);
+            }
+            case PartyKind.Customer:
+            {
+                var src = db.Customers.AsNoTracking();
+                if (active is not null) src = src.Where(c => c.IsActive == active);
+                if (!string.IsNullOrWhiteSpace(q)) src = src.Where(c => c.Name.Contains(q) || c.Code.Contains(q));
+                return await src.OrderBy(c => c.Name)
+                    .Select(c => new PartyDto(c.Id, c.Code, c.Name, null, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin, null, c.IsActive, c.Notes))
+                    .ToPagedAsync(page, ct);
+            }
+            default:
+            {
+                var src = db.Suppliers.AsNoTracking();
+                if (active is not null) src = src.Where(c => c.IsActive == active);
+                if (!string.IsNullOrWhiteSpace(q)) src = src.Where(c => c.Name.Contains(q) || c.Code.Contains(q));
+                return await src.OrderBy(c => c.Name)
+                    .Select(c => new PartyDto(c.Id, c.Code, c.Name, null, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin, null, c.IsActive, c.Notes))
+                    .ToPagedAsync(page, ct);
+            }
+        }
+    }
 
     public async Task<PartyDto> SavePartyAsync(PartyKind kind, Guid? id, SavePartyRequest req, CancellationToken ct = default)
     {
@@ -211,14 +235,6 @@ public class MasterService(
 
         await db.SaveChangesAsync(ct);
         return (await PartiesAsync(kind, new PageQuery { PageSize = 200 }, null, ct)).Items.First(p => p.Id == savedId);
-    }
-
-    private static async Task<PagedResult<PartyDto>> Filter(IQueryable<PartyDto> q, PageQuery page, bool? active, CancellationToken ct)
-    {
-        if (active is not null) q = q.Where(p => p.IsActive == active);
-        if (!string.IsNullOrWhiteSpace(page.Q))
-            q = q.Where(p => p.Name.Contains(page.Q) || p.Code.Contains(page.Q));
-        return await q.OrderBy(p => p.Name).ToPagedAsync(page, ct);
     }
 
     private static readonly System.Linq.Expressions.Expression<Func<Material, MaterialDto>> MaterialProjection =

@@ -24,11 +24,11 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
                     CurrentStatus = table.Column<int>(type: "INTEGER", nullable: false),
                     RequestedByUserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    RequestedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    RequestedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     DecidedByUserId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    DecidedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    DecidedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -49,7 +49,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Size = table.Column<long>(type: "INTEGER", nullable: false),
                     StoragePath = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     UploadedByUserId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -68,8 +68,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Action = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     DataJson = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     UserId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    At = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    At = table.Column<long>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -95,7 +95,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     ContractorType = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -118,7 +118,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Gstin = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -135,7 +135,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     SortOrder = table.Column<int>(type: "INTEGER", nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -151,7 +151,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -168,7 +168,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     SortOrder = table.Column<int>(type: "INTEGER", nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -184,7 +184,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -200,7 +200,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -223,7 +223,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Gstin = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -240,7 +240,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Prefix = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     Year = table.Column<int>(type: "INTEGER", nullable: false),
                     LastNumber = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -257,7 +257,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Code = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -277,8 +277,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Role = table.Column<int>(type: "INTEGER", nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     RefreshToken = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    RefreshTokenExpiry = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    RefreshTokenExpiry = table.Column<long>(type: "INTEGER", nullable: true),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -297,9 +297,9 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     PreviousStatus = table.Column<int>(type: "INTEGER", nullable: false),
                     NewStatus = table.Column<int>(type: "INTEGER", nullable: false),
                     UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    At = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    At = table.Column<long>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -322,7 +322,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     ExpenseHeadId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -345,7 +345,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     MaterialCategoryId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -375,7 +375,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     StartDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -398,7 +398,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     UserId = table.Column<Guid>(type: "TEXT", nullable: false),
                     PermissionKey = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     Granted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -431,7 +431,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     GstRate = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -477,7 +477,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     ContractSaleValue = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -512,7 +512,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Key = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     Value = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     SiteId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -534,7 +534,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     UserId = table.Column<Guid>(type: "TEXT", nullable: false),
                     SiteId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -565,9 +565,9 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Quantity = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     AverageRate = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     Value = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
-                    LastMovementAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    LastMovementAt = table.Column<long>(type: "INTEGER", nullable: true),
                     LastPurchaseRate = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -606,12 +606,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     WorkStatus = table.Column<int>(type: "INTEGER", nullable: false),
                     TotalPaid = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     Balance = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -647,12 +647,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     PaymentMethodId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Reference = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     Description = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -699,12 +699,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     SourceType = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     SourceId = table.Column<Guid>(type: "TEXT", nullable: true),
                     SourceRef = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -754,12 +754,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     PaymentMethodId = table.Column<Guid>(type: "TEXT", nullable: true),
                     PaymentType = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     RowVersion = table.Column<byte[]>(type: "BLOB", nullable: true)
@@ -800,12 +800,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     RequestedByUserId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -845,12 +845,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     PaymentMethodId = table.Column<Guid>(type: "TEXT", nullable: true),
                     SourceType = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     SourceId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -900,12 +900,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     ReferenceNumber = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     Description = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     PaymentKind = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -952,13 +952,27 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     ApprovedQty = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
                     IssuedQty = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     Rate = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    ExpenseHeadId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    ExpenseSubheadId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_MaterialRequestItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MaterialRequestItems_ExpenseHeads_ExpenseHeadId",
+                        column: x => x.ExpenseHeadId,
+                        principalTable: "ExpenseHeads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_MaterialRequestItems_ExpenseSubheads_ExpenseSubheadId",
+                        column: x => x.ExpenseSubheadId,
+                        principalTable: "ExpenseSubheads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_MaterialRequestItems_MaterialRequests_MaterialRequestId",
                         column: x => x.MaterialRequestId,
@@ -970,13 +984,13 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         column: x => x.MaterialId,
                         principalTable: "Materials",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_MaterialRequestItems_Units_UnitId",
                         column: x => x.UnitId,
                         principalTable: "Units",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -1000,12 +1014,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     PaidAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     BalanceAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     PaymentStatus = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ModifiedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ModifiedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ModifiedBy = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ApprovedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ApprovedAt = table.Column<long>(type: "INTEGER", nullable: true),
                     ApprovedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     Remarks = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
@@ -1053,7 +1067,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Discount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     TaxAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     LineTotal = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -1065,7 +1079,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         column: x => x.MaterialId,
                         principalTable: "Materials",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_PurchaseItems_PurchaseHeaders_PurchaseHeaderId",
                         column: x => x.PurchaseHeaderId,
@@ -1077,7 +1091,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         column: x => x.UnitId,
                         principalTable: "Units",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -1090,7 +1104,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     PaymentMethodId = table.Column<Guid>(type: "TEXT", nullable: true),
                     Reference = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsDemo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
@@ -1262,6 +1276,16 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                 table: "LabourEntries",
                 column: "TxnNumber",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MaterialRequestItems_ExpenseHeadId",
+                table: "MaterialRequestItems",
+                column: "ExpenseHeadId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MaterialRequestItems_ExpenseSubheadId",
+                table: "MaterialRequestItems",
+                column: "ExpenseSubheadId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MaterialRequestItems_MaterialId",

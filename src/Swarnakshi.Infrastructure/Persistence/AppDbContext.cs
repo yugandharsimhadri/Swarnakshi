@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Domain.Common;
 using Swarnakshi.Domain.Entities;
@@ -56,17 +57,32 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     {
         b.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-        // Global conventions.
+        // SQLite cannot ORDER BY / compare DateTimeOffset natively — store it as UTC ticks (sortable, exact).
+        // SQL Server handles DateTimeOffset directly, so this conversion is applied for SQLite only.
+        var isSqlite = Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) ?? false;
+        var dtoConverter = new ValueConverter<DateTimeOffset, long>(
+            v => v.UtcDateTime.Ticks,
+            v => new DateTimeOffset(v, TimeSpan.Zero));
+        var nullableDtoConverter = new ValueConverter<DateTimeOffset?, long?>(
+            v => v.HasValue ? v.Value.UtcDateTime.Ticks : null,
+            v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : null);
+
         foreach (var et in b.Model.GetEntityTypes())
         {
             foreach (var prop in et.GetProperties())
             {
                 if (prop.ClrType == typeof(decimal) || prop.ClrType == typeof(decimal?))
+                {
                     prop.SetPrecision(18);
-                if (prop.ClrType == typeof(decimal) || prop.ClrType == typeof(decimal?))
                     prop.SetScale(2);
+                }
                 if (prop.ClrType == typeof(string) && prop.GetMaxLength() is null)
                     prop.SetMaxLength(512);
+
+                if (isSqlite && prop.ClrType == typeof(DateTimeOffset))
+                    prop.SetValueConverter(dtoConverter);
+                if (isSqlite && prop.ClrType == typeof(DateTimeOffset?))
+                    prop.SetValueConverter(nullableDtoConverter);
             }
         }
     }

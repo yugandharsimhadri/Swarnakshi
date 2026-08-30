@@ -88,4 +88,10 @@ public class MaterialRequestItem : BaseEntity
     public decimal? ApprovedQty { get; set; }
     public decimal IssuedQty { get; set; }
     public decimal? Rate { get; set; }
+
+    /// <summary>Which project expense head/subhead the consumption is booked against.</summary>
+    public Guid? ExpenseHeadId { get; set; }
+    public ExpenseHead? ExpenseHead { get; set; }
+    public Guid? ExpenseSubheadId { get; set; }
+    public ExpenseSubhead? ExpenseSubhead { get; set; }
 }

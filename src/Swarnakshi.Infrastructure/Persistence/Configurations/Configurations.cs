@@ -180,6 +180,26 @@ public class TxnNumberConfigs :
     }
 }
 
+public class MaterialRequestItemConfig : IEntityTypeConfiguration<MaterialRequestItem>
+{
+    public void Configure(EntityTypeBuilder<MaterialRequestItem> e)
+    {
+        e.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.ExpenseHead).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.ExpenseSubhead).WithMany().HasForeignKey(x => x.ExpenseSubheadId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class PurchaseItemConfig : IEntityTypeConfiguration<PurchaseItem>
+{
+    public void Configure(EntityTypeBuilder<PurchaseItem> e)
+    {
+        e.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 public class ContractWorkConfig : IEntityTypeConfiguration<ContractWork>
 {
     public void Configure(EntityTypeBuilder<ContractWork> e)

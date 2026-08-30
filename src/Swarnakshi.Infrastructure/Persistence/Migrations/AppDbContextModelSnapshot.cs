@@ -29,11 +29,11 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ApprovalRequestId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -71,8 +71,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -80,8 +80,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<int>("CurrentStatus")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("DecidedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("DecidedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("DecidedByUserId")
                         .HasColumnType("TEXT");
@@ -108,8 +108,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("RequestedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("RequestedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid>("RequestedByUserId")
                         .HasColumnType("TEXT");
@@ -137,8 +137,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -188,11 +188,11 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -229,8 +229,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("ActualCompletion")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
@@ -246,8 +246,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ContractorId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -266,8 +266,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDemo")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -340,8 +340,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -395,8 +395,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
@@ -407,8 +407,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ContractorId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -423,8 +423,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDemo")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -488,8 +488,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -543,14 +543,14 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -568,8 +568,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDemo")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -619,8 +619,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -650,8 +650,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -688,8 +688,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -697,8 +697,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDemo")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("LastMovementAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("LastMovementAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<decimal?>("LastPurchaseRate")
                         .HasPrecision(18, 2)
@@ -738,14 +738,14 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -759,8 +759,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("MaterialId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -833,8 +833,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -865,14 +865,14 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -883,8 +883,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LabourCategoryId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -952,8 +952,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1022,8 +1022,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1053,14 +1053,14 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1071,8 +1071,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDemo")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -1133,10 +1133,16 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ExpenseHeadId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ExpenseSubheadId")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDemo")
@@ -1165,6 +1171,10 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpenseHeadId");
+
+                    b.HasIndex("ExpenseSubheadId");
+
                     b.HasIndex("MaterialId");
 
                     b.HasIndex("MaterialRequestId");
@@ -1180,8 +1190,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1214,8 +1224,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1258,8 +1268,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1326,14 +1336,14 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1357,8 +1367,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDemo")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -1416,8 +1426,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1444,8 +1454,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ApprovedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("TEXT");
@@ -1454,8 +1464,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1480,8 +1490,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("MaterialRequestId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("ModifiedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("TEXT");
@@ -1555,8 +1565,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1610,8 +1620,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1661,8 +1671,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1721,8 +1731,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1776,8 +1786,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1813,8 +1823,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1852,8 +1862,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1883,8 +1893,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1914,8 +1924,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("RefreshTokenExpiry")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("RefreshTokenExpiry")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Role")
                         .HasColumnType("INTEGER");
@@ -1934,8 +1944,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -1967,8 +1977,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT");
@@ -2219,10 +2229,20 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialRequestItem", b =>
                 {
+                    b.HasOne("Swarnakshi.Domain.Entities.ExpenseHead", "ExpenseHead")
+                        .WithMany()
+                        .HasForeignKey("ExpenseHeadId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Swarnakshi.Domain.Entities.ExpenseSubhead", "ExpenseSubhead")
+                        .WithMany()
+                        .HasForeignKey("ExpenseSubheadId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Swarnakshi.Domain.Entities.Material", "Material")
                         .WithMany()
                         .HasForeignKey("MaterialId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Swarnakshi.Domain.Entities.MaterialRequest", "Request")
@@ -2234,8 +2254,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.HasOne("Swarnakshi.Domain.Entities.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ExpenseHead");
+
+                    b.Navigation("ExpenseSubhead");
 
                     b.Navigation("Material");
 
@@ -2351,7 +2375,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.HasOne("Swarnakshi.Domain.Entities.Material", "Material")
                         .WithMany()
                         .HasForeignKey("MaterialId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Swarnakshi.Domain.Entities.PurchaseHeader", "Header")
@@ -2363,7 +2387,7 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.HasOne("Swarnakshi.Domain.Entities.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Header");

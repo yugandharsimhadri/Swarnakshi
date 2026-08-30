@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
-using Swarnakshi.Application.Security;
+using Swarnakshi.Application.Common;
 using Swarnakshi.Domain.Entities;
 using Swarnakshi.Domain.Enums;
 
@@ -19,6 +19,8 @@ public static class MasterDataSeeder
         await SeedOwnerAsync(db, hasher, ownerEmail, ownerPassword, ct);
         await db.SaveChangesAsync(ct);
     }
+
+    // (SettingKeys moved to Swarnakshi.Application.Common)
 
     private static async Task SeedUnitsAsync(AppDbContext db, CancellationToken ct)
     {
@@ -233,12 +235,4 @@ public static class MasterDataSeeder
             IsActive = true
         });
     }
-}
-
-public static class SettingKeys
-{
-    public const string ValuationMethod = "inventory.valuation_method";
-    public const string AllowNegativeStock = "inventory.allow_negative_stock";
-    public const string PurchaseNeedsApproval = "purchase.needs_approval";
-    public const string InventoryAdjustmentNeedsApproval = "inventory.adjustment_needs_approval";
 }
