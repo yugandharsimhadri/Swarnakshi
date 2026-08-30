@@ -4,6 +4,60 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P1 inventory + procurement + approvals (backend + frontend)
+
+**Done — backend**
+- **Approval engine**: `ApprovalService` + `IApprovalHandler` registry (keyed by entity type).
+  `SubmitAsync` / `DecideAsync`; approve runs the handler's side effects inside one DB transaction
+  then marks `Posted`. `PurchaseApprovalHandler`, `MaterialRequestApprovalHandler`.
+- **Inventory** (`InventoryService`): weighted-average `Receive`/`Issue` on `InventoryBalance`,
+  signed `InventoryTransaction` ledger with full source traceability, opening stock, adjustments
+  (Owner-gated when `inventory.adjustment_needs_approval`), returns (reverse project cost).
+  Negative-stock blocked unless `inventory.allow_negative_stock` per site.
+- **Purchases** (`PurchaseService` + `PurchasePoster`): draft → submit → (approval if
+  `purchase.needs_approval`) → post. Each item posts a `PurchaseReceipt` at *landed* rate
+  (line total incl. tax/discount ÷ qty). Supplier payments track `PaidAmount`/`BalanceAmount`.
+- **Material requests** (`MaterialRequestService` + `MaterialRequestIssuer`): draft → submit →
+  Owner approve (sets `ApprovedQty`) → issue. Issue moves stock as `ProjectConsumption` and books
+  project material cost via `ProjectCostWriter` at the weighted-avg rate. Supports partial issue.
+- **`ProjectCostWriter`**: the single writer of posted `ProjectExpense` rows → no double counting.
+- **`SimpleMasterService`**: CRUD for units / material & expense categories+subheads / labour cats /
+  payment methods / project types. Delete blocked when referenced.
+- **`SettingsService`**: per-site → global fallback; typed getters.
+- SQLite `DateTimeOffset` → UTC-ticks value converter (SQLite can't `ORDER BY` DateTimeOffset).
+  Migrations collapsed to a single clean `InitialCreate`.
+- Controllers: Inventory, Purchases, MaterialRequests, Approvals, SimpleMasters.
+
+**Verified end-to-end** (`scratchpad/p1test.mjs`): 2 purchases (200@400 + 100@450) →
+balance 300 @ ₹416.67 = ₹1,25,000 → request 50 bags → submit → approve → issue →
+consumption −50 @ ₹416.67, project material cost ₹20,833.33, remaining 250 @ ₹416.67 = ₹1,04,167
+(₹1,25,000 = ₹20,833 consumed + ₹1,04,167 in stock — no double counting).
+Negative-stock request blocked with 409. Full ledger + traceability confirmed in the UI.
+
+**Done — frontend**
+- Bottom nav: Home · Sites · Projects · **Stock** · More. Dashboard shows an
+  "Approvals waiting" card for Owners (live count).
+- **Stock** hub → Site Inventory (site picker + low-stock filter + value KPIs),
+  Material Inventory detail (KPIs + full ledger), Material Requests (list / new multi-item /
+  detail with submit+issue+cancel), Purchases (list / new multi-line / detail with submit+pay),
+  **Approval Center** (approve / reject each pending item).
+- Bundle 276 KB / 85 KB gzip.
+
+**Next (P2 — expenses & contractors)**
+- Project direct/other expenses + Labour entries (with approval for labour payments).
+- Contractors master UI; ContractWork; ContractorPayment (Accountant creates → Owner approves →
+  posts project cost + contractor ledger). Handlers: `ContractorPaymentApprovalHandler`,
+  `LabourApprovalHandler`.
+- Project detail: wire Expenses / Materials / Labour / Contracts tabs.
+
+**Gotchas**
+- Browser-pane `computer` clicks time out while the pane is hidden — screenshots, `navigate`,
+  `get_page_text`, `javascript_tool` still work; drive the SPA via those when verifying.
+- `IApprovalHandler` implementations must be idempotent on re-entry (poster checks `Posted`).
+- Landed purchase rate is used for valuation, not the raw line rate.
+
+---
+
 ## 2026-08-31 — P0 vertical slice working (backend + frontend)
 
 **Done**

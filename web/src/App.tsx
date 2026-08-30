@@ -10,6 +10,11 @@ import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Materials from "@/pages/Materials";
 import More from "@/pages/More";
+import Stock from "@/pages/Stock";
+import { InventoryList, MaterialInventory } from "@/pages/Inventory";
+import { MaterialRequestList, NewMaterialRequest, MaterialRequestDetail } from "@/pages/MaterialRequests";
+import { PurchaseList, NewPurchase, PurchaseDetail } from "@/pages/Purchases";
+import Approvals from "@/pages/Approvals";
 
 export default function App() {
   const { user, loading, bootstrap } = useAuth();
@@ -31,7 +36,19 @@ export default function App() {
             <Route path="sites" element={<Sites />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetail />} />
+
+            <Route path="stock" element={<Stock />} />
+            <Route path="stock/inventory" element={<InventoryList />} />
+            <Route path="stock/inventory/:siteId/:materialId" element={<MaterialInventory />} />
+            <Route path="stock/requests" element={<MaterialRequestList />} />
+            <Route path="stock/requests/new" element={<NewMaterialRequest />} />
+            <Route path="stock/requests/:id" element={<MaterialRequestDetail />} />
+            <Route path="stock/purchases" element={<PurchaseList />} />
+            <Route path="stock/purchases/new" element={<NewPurchase />} />
+            <Route path="stock/purchases/:id" element={<PurchaseDetail />} />
             <Route path="materials" element={<Materials />} />
+
+            <Route path="approvals" element={<Approvals />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

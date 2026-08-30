@@ -25,7 +25,7 @@ export default function More() {
 
       <Button variant="danger" className="w-full" onClick={logout}>Sign out</Button>
 
-      <p className="px-1 text-center text-xs text-text-dim">Swarnakshi · P0 build</p>
+      <p className="px-1 text-center text-xs text-text-dim">Swarnakshi · P1 build</p>
     </div>
   );
 }
