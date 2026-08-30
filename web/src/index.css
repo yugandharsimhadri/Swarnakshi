@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f6f8;
+  --surface: #ffffff;
+  --surface-2: #f0f0f3;
+  --border: #e4e4ea;
+  --text: #14141a;
+  --text-dim: #6a6a76;
+  --brand: #b8860b;      /* Swarnakshi = "golden-eyed" — muted gold accent */
+  --brand-ink: #7a5a08;
+  --danger: #c0392b;
+  --ok: #1e8e5a;
+  --warn: #b8860b;
+}
+
+:root.dark {
+  --bg: #0b0b0f;
+  --surface: #16161c;
+  --surface-2: #1e1e26;
+  --border: #2a2a33;
+  --text: #f2f2f5;
+  --text-dim: #9a9aa6;
+  --brand: #e0b552;
+  --brand-ink: #f0d08a;
+  --danger: #e5675a;
+  --ok: #35c489;
+  --warn: #e0b552;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+}
+
+/* respect the iOS safe area for the bottom nav */
+.safe-b { padding-bottom: env(safe-area-inset-bottom); }

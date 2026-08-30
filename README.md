@@ -29,15 +29,17 @@ docs/                         architecture, data model, workflows, progress log
 Prerequisites: .NET 10 SDK, Node 20+.
 
 ```bash
-# backend
+# backend — http://localhost:5080, API docs at /scalar/v1
 dotnet restore
-dotnet run --project src/Swarnakshi.Api        # https://localhost:5001, Swagger at /swagger
+dotnet run --project src/Swarnakshi.Api
+# DB (swarnakshi.db) is migrated + seeded automatically on first run in Development.
+# Manual migration: dotnet dotnet-ef database update --project src/Swarnakshi.Infrastructure --startup-project src/Swarnakshi.Api
 
-# database (SQLite file is created + seeded automatically on first run in Development)
-dotnet ef database update --project src/Swarnakshi.Infrastructure --startup-project src/Swarnakshi.Api
-
-# frontend
-cd web && npm install && npm run dev            # http://localhost:5173
+# frontend — http://localhost:5173 (proxies /api to :5080)
+cd web
+npm install
+npm approve-scripts esbuild   # one-time: npm gates the esbuild postinstall
+npm run dev
 ```
 
 Default login (seeded): `owner@swarnakshi.local` / `Owner@123`.
