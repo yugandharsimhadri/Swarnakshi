@@ -40,7 +40,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/projects" className="text-xs text-text-dim">← Projects</Link>
+      <Link to="/projects" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Projects</Link>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -65,7 +65,7 @@ export default function ProjectDetail() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === t ? "bg-surface text-text" : "text-text-dim"}`}
+            className={`min-h-11 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === t ? "bg-surface text-text" : "text-text-dim"}`}
           >
             {label}
           </button>

@@ -91,7 +91,7 @@ export function NewPurchase() {
 
   return (
     <div className="space-y-3">
-      <Link to="/stock/purchases" className="text-xs text-text-dim">← Purchases</Link>
+      <Link to="/stock/purchases" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Purchases</Link>
       <PageHeader title="New purchase" />
 
       <Field label="Site (stock goes here)">
@@ -167,7 +167,7 @@ export function PurchaseDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/stock/purchases" className="text-xs text-text-dim">← Purchases</Link>
+      <Link to="/stock/purchases" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Purchases</Link>
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold">{data.supplierName}</h1>
