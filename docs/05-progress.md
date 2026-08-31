@@ -4,6 +4,33 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P5 polish (round 1)
+
+**Done**
+- **Tests** (`tests/Swarnakshi.Tests`, 10 passing): `InventoryBalance` weighted-average math +
+  no-double-count invariant (pure); SQLite-in-memory integration over the real Application services —
+  purchase → weighted avg → request → approve → issue with `MaterialCost + remaining stock value
+  == purchase value`; issue blocked before approval; labour cost posts only after approval;
+  contractor overpayment blocked without override / negative balance with override;
+  customer receipt requires a project customer. `TestHost` wires real DI + seeded masters.
+- **Audit log**: `AppDbContext.SaveChangesAsync` now writes `AuditLog` rows for `AuditableEntity`
+  creation and every `Status` transition (with remarks), no recursion.
+- **NU1903 noise**: `NuGetAuditMode=direct` in `Directory.Build.props` (transitive
+  SQLitePCLRaw / Cryptography.Xml warnings from EF Core 10 GA — nothing newer to move to).
+- **UX**: reusable `Confirm` dialog; Approval Center approve/reject now confirms and spells out
+  the consequence ("inventory / ledgers / project cost update immediately").
+- **Docs**: `docs/06-deployment.md` (local, migrations, `dotnet publish`, env vars, static frontend,
+  SQLite→SQL Server, backups). README gains Tests + deployment links.
+
+**Next (P5 remaining)**
+- Attachments endpoint + UI (invoice / receipt upload) on the existing `IFileStorage`.
+- `RowVersion` concurrency tokens (app-generated GUID token works cross-provider).
+- Skeleton loaders; confirm dialogs on issue/post/cancel; master-list client caching.
+- GitHub Actions CI (`dotnet test` + `npm run build`).
+- Project edit form (currently create-only in the UI); assign/change customer.
+
+---
+
 ## 2026-08-31 — P4 dashboards & reports (backend + frontend)
 
 **Done — backend**

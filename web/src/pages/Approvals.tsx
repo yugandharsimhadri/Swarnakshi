@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { money, dateStr } from "@/lib/format";
-import { Button, Card, Chip, EmptyState, ErrorText, PageHeader, Spinner } from "@/components/ui";
+import { Button, Card, Chip, Confirm, EmptyState, ErrorText, PageHeader, Spinner } from "@/components/ui";
 import type { ApprovalItem, Paged } from "@/lib/types";
 
 const label: Record<string, string> = {
@@ -19,22 +19,26 @@ export default function Approvals() {
     () => api<Paged<ApprovalItem>>("/approvals", { query: { pendingOnly: true, pageSize: 100 } }),
     [],
   );
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; approve: boolean; ref: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const [actErr, setActErr] = useState<ApiError | null>(null);
 
-  async function decide(id: string, approve: boolean) {
-    setBusyId(id);
+  async function confirmDecision() {
+    if (!pending) return;
+    setBusy(true);
     setActErr(null);
     try {
-      await api(`/approvals/${id}/${approve ? "approve" : "reject"}`, {
+      await api(`/approvals/${pending.id}/${pending.approve ? "approve" : "reject"}`, {
         method: "POST",
-        body: { remarks: approve ? "Approved" : "Rejected", allowOverride: false },
+        body: { remarks: pending.approve ? "Approved" : "Rejected", allowOverride: false },
       });
+      setPending(null);
       reload();
     } catch (e) {
       setActErr(e as ApiError);
+      setPending(null);
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   }
 
@@ -54,14 +58,29 @@ export default function Approvals() {
                 <div className="text-sm font-semibold">{a.entityRef ?? a.entityId.slice(0, 8)}</div>
                 {a.amount != null && <div className="text-sm tabular-nums">{money(a.amount)}</div>}
                 <div className="flex gap-2 pt-1">
-                  <Button className="flex-1" onClick={() => decide(a.id, true)} disabled={busyId === a.id}>Approve</Button>
-                  <Button variant="danger" className="flex-1" onClick={() => decide(a.id, false)} disabled={busyId === a.id}>Reject</Button>
+                  <Button className="flex-1" onClick={() => setPending({ id: a.id, approve: true, ref: a.entityRef ?? "" })}>Approve</Button>
+                  <Button variant="danger" className="flex-1" onClick={() => setPending({ id: a.id, approve: false, ref: a.entityRef ?? "" })}>Reject</Button>
                 </div>
               </Card>
             ))}
           </div>
         )
       )}
+
+      <Confirm
+        open={pending !== null}
+        title={pending?.approve ? "Approve this item?" : "Reject this item?"}
+        body={
+          pending?.approve
+            ? `${pending.ref} will be posted: inventory / ledgers / project cost update immediately.`
+            : `${pending?.ref} will be rejected and cannot be posted.`
+        }
+        confirmLabel={pending?.approve ? "Approve" : "Reject"}
+        danger={!pending?.approve}
+        onConfirm={confirmDecision}
+        onCancel={() => setPending(null)}
+      />
+      {busy && <Spinner />}
     </div>
   );
 }

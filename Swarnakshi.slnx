@@ -5,4 +5,7 @@
     <Project Path="src/Swarnakshi.Domain/Swarnakshi.Domain.csproj" />
     <Project Path="src/Swarnakshi.Infrastructure/Swarnakshi.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Swarnakshi.Tests/Swarnakshi.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -91,19 +91,39 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     {
         var now = DateTimeOffset.UtcNow;
         var uid = currentUser?.UserId;
-        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        var audits = new List<AuditLog>();
+
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>().ToList())
         {
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.CreatedAt = now;
                 entry.Entity.CreatedBy ??= uid;
+                if (entry.Entity is AuditableEntity)
+                    audits.Add(Audit(entry.Entity, "Created", null, uid, now));
             }
-            if (entry.State == EntityState.Modified && entry.Entity is AuditableEntity aud)
+            else if (entry.State == EntityState.Modified && entry.Entity is AuditableEntity aud)
             {
                 aud.ModifiedAt = now;
                 aud.ModifiedBy = uid;
+
+                var statusProp = entry.Property(nameof(AuditableEntity.Status));
+                if (statusProp.IsModified && !Equals(statusProp.OriginalValue, statusProp.CurrentValue))
+                    audits.Add(Audit(aud, $"Status {statusProp.OriginalValue} -> {statusProp.CurrentValue}", aud.Remarks, uid, now));
             }
         }
+
+        if (audits.Count > 0) AuditLogs.AddRange(audits);
         return base.SaveChangesAsync(ct);
     }
+
+    private static AuditLog Audit(BaseEntity entity, string action, string? data, Guid? uid, DateTimeOffset at) => new()
+    {
+        EntityType = entity.GetType().Name,
+        EntityId = entity.Id,
+        Action = action,
+        DataJson = data,
+        UserId = uid,
+        At = at
+    };
 }

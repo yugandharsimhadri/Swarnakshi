@@ -112,6 +112,28 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   );
 }
 
+export function Confirm({
+  open, title, body, confirmLabel = "Confirm", danger, onConfirm, onCancel,
+}: {
+  open: boolean; title: string; body?: ReactNode; confirmLabel?: string; danger?: boolean;
+  onConfirm: () => void; onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal>
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="relative w-full max-w-xs rounded-2xl border border-border bg-surface p-4">
+        <div className="text-base font-bold">{title}</div>
+        {body && <div className="mt-1 text-sm text-text-dim">{body}</div>}
+        <div className="mt-4 flex gap-2">
+          <Button variant="ghost" className="flex-1" onClick={onCancel}>Cancel</Button>
+          <Button variant={danger ? "danger" : "primary"} className="flex-1" onClick={onConfirm}>{confirmLabel}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ErrorText({ error }: { error: { message: string; errors: string[] } | null }) {
   if (!error) return null;
   return (

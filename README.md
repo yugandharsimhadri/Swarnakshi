@@ -44,12 +44,24 @@ npm run dev
 
 Default login (seeded): `owner@swarnakshi.local` / `Owner@123`.
 
+## Tests
+
+```bash
+dotnet test
+```
+
+`tests/Swarnakshi.Tests` covers the financial invariants: weighted-average valuation,
+**no double counting** (purchase value = consumed cost + remaining stock value), approval gates
+(no issue / no posting before Owner approval), negative-stock prevention, contractor
+overpayment block + override, and the customer-required rule.
+
 ## Documentation
 
 - [Architecture & implementation report](docs/01-architecture.md)
 - [Data model](docs/02-data-model.md)
 - [Workflows: approval, inventory, costing](docs/03-workflows.md)
 - [API reference](docs/04-api.md)
+- [Build & deployment](docs/06-deployment.md)
 - [Progress log](docs/05-progress.md) — read this first when picking up work
 
 ## Contributing (team)

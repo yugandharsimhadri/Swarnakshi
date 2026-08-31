@@ -6,5 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Audit only packages we reference directly. The transitive NU1903 warnings come from
+         SQLitePCLRaw / System.Security.Cryptography.Xml pulled by EF Core 10 GA (Xml is design-time
+         only, PrivateAssets); nothing newer exists to move to. Revisit when EF Core ships an update. -->
+    <NuGetAuditMode>direct</NuGetAuditMode>
   </PropertyGroup>
 </Project>
