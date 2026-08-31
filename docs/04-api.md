@@ -14,10 +14,47 @@ List endpoints accept `?page=&pageSize=&sort=&q=` plus resource-specific filters
 | GET  | `/api/auth/me` | any | current user + permissions |
 
 ## Masters (Owner write; all read)
-`/api/units`, `/api/material-categories`, `/api/material-subcategories`, `/api/materials`,
+`/api/units`, `/api/material-categories`, `/api/material-subcategories`,
 `/api/expense-heads`, `/api/expense-subheads`, `/api/labour-categories`, `/api/payment-methods`,
 `/api/project-types`, `/api/suppliers`, `/api/contractors`, `/api/customers`, `/api/settings`
 — standard `GET list`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (delete only if unused & master).
+
+## Party Master — contractors / customers / suppliers (`masters.manage` for writes; all roles read)
+`{party}` is one of `contractors` | `customers` | `suppliers`.
+
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/api/{party}?q=&active=&type=&page=&pageSize=` | paged. `q` searches code, name, company, mobile, email, GSTIN and contractor type, case-insensitively. `active` omitted = all |
+| GET | `/api/{party}/summary` | total / active / inactive |
+| GET | `/api/{party}/types` | distinct contractor types, for the filter (empty for customers/suppliers) |
+| GET | `/api/{party}/{id}` | full record + `codeLocked` + `usage` counts |
+| POST | `/api/{party}` | create — always Active; the payload has no status field |
+| PUT | `/api/{party}/{id}` | update. Code rejected (409) once any transaction references the record |
+| POST | `/api/{party}/{id}/deactivate` | |
+| POST | `/api/{party}/{id}/reactivate` | |
+
+There is **no DELETE**. Deactivation is always allowed (unlike Material there is no stock guard) and
+never touches historical rows. An inactive party is rejected server-side for new contracts
+(`ContractService`), contractor payments and new projects (`ProjectService`), while existing
+contracts, payments and projects keep resolving its name.
+
+## Material Master (`masters.manage` for writes; all roles read)
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/api/materials?q=&categoryId=&subcategoryId=&brand=&unitId=&active=&page=&pageSize=&sort=` | paged list. `q` searches code, name, company/brand, category, subcategory and specification values, case-insensitively |
+| GET | `/api/materials/summary` | total / active / inactive / categories |
+| GET | `/api/materials/brands` | distinct companies, for the filter |
+| GET | `/api/materials/spec-definitions?subcategoryId=` | specification fields the subcategory declares — drives the dynamic form |
+| GET | `/api/materials/{id}` | full record + specs + `codeLocked` / `hasStock` / `totalStock` |
+| GET | `/api/materials/{id}/stock` | stock by site, read from inventory |
+| POST | `/api/materials` | create |
+| PUT | `/api/materials/{id}` | update. Code is rejected (409) once any transaction references the material |
+| POST | `/api/materials/{id}/deactivate` | 409 while stock exists at any site |
+| POST | `/api/materials/{id}/reactivate` | |
+
+There is **no DELETE** — lifecycle is Active ↔ Inactive so transaction history stays intact.
+409 responses: duplicate code, duplicate identity (name + brand + specs), code change after use,
+deactivation with stock.
 
 ## Sites & Projects
 | Method | Route |
