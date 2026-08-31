@@ -77,5 +77,9 @@ List endpoints accept `?page=&pageSize=&sort=&q=` plus resource-specific filters
 | `?format=csv` on any report for export |
 
 ## Attachments
-| POST | `/api/attachments` (multipart: entityType, entityId, file) |
-| GET | `/api/attachments?entityType=&entityId=` |
+| Method | Route | Notes |
+|--------|-------|-------|
+| GET | `/api/attachments?entityType=&entityId=` | list |
+| POST | `/api/attachments` | multipart form: `entityType`, `entityId`, `file` (≤15 MB; pdf/image/office/csv/txt) |
+| GET | `/api/attachments/{id}/download` | streams the file |
+| DELETE | `/api/attachments/{id}` | |

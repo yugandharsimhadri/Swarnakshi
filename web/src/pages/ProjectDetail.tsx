@@ -9,8 +9,9 @@ import {
 } from "@/components/ui";
 import {
   ContractStatusName, ExpenseTypeName, ProjectStatusName, TxnStatusName,
-  type CostByHead, type Contractor, type ContractWork, type ContractorPayment, type CustomerPayment,
-  type LabourEntry, type Lookup, type Paged, type Project, type ProjectExpense, type ProjectSummary,
+  type CostByHead, type Contractor, type ContractWork, type ContractorPayment, type Customer,
+  type CustomerPayment, type LabourEntry, type Lookup, type Paged, type Project, type ProjectExpense,
+  type ProjectSummary,
 } from "@/lib/types";
 
 type Tab = "overview" | "expenses" | "labour" | "contracts" | "payments" | "customer";
@@ -18,7 +19,9 @@ type Tab = "overview" | "expenses" | "labour" | "contracts" | "payments" | "cust
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>("overview");
-  const { data, loading, error } = useAsync(async () => {
+  const [editing, setEditing] = useState(false);
+  const canManage = useAuth((st) => st.can("projects.manage"));
+  const { data, loading, error, reload } = useAsync(async () => {
     const [project, summary] = await Promise.all([
       api<Project>(`/projects/${id}`),
       api<ProjectSummary>(`/projects/${id}/summary`),
@@ -38,13 +41,17 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-4">
       <Link to="/projects" className="text-xs text-text-dim">← Projects</Link>
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold">{p.name}</h1>
-          <Chip tone={p.status === 1 ? "ok" : "neutral"}>{ProjectStatusName[p.status] ?? p.status}</Chip>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold">{p.name}</h1>
+            <Chip tone={p.status === 1 ? "ok" : "neutral"}>{ProjectStatusName[p.status] ?? p.status}</Chip>
+          </div>
+          <div className="text-xs text-text-dim">{p.code} · {p.siteName}{p.customerName ? ` · ${p.customerName}` : ""}</div>
         </div>
-        <div className="text-xs text-text-dim">{p.code} · {p.siteName}{p.customerName ? ` · ${p.customerName}` : ""}</div>
+        {canManage && <Button variant="ghost" onClick={() => setEditing(true)}>Edit</Button>}
       </div>
+      <EditProjectSheet project={p} open={editing} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); }} />
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total cost" value={moneyShort(s.totalCost)} />
@@ -192,6 +199,69 @@ function Overview({ projectId, s }: { projectId: string; s: ProjectSummary }) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return <div className="flex justify-between py-0.5 text-sm"><span className="text-text-dim">{label}</span><span className="tabular-nums">{value}</span></div>;
+}
+
+function EditProjectSheet({ project, open, onClose, onSaved }: { project: Project; open: boolean; onClose: () => void; onSaved: () => void }) {
+  const { data: customers } = useAsync(() => api<Paged<Customer>>("/customers", { query: { pageSize: 200, active: true } }), []);
+  const { data: types } = useAsync(() => api<Lookup[]>("/project-types"), []);
+  const [form, setForm] = useState({
+    name: project.name, villaNumber: project.villaNumber ?? "", customerId: project.customerId ?? "",
+    projectTypeId: project.projectTypeId ?? "", estimatedCost: String(project.estimatedCost),
+    contractSaleValue: project.contractSaleValue != null ? String(project.contractSaleValue) : "",
+    status: String(project.status),
+  });
+  const [err, setErr] = useState<ApiError | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true); setErr(null);
+    try {
+      await api(`/projects/${project.id}`, {
+        method: "PUT",
+        body: {
+          code: project.code, name: form.name, villaNumber: form.villaNumber || null, siteId: project.siteId,
+          customerId: form.customerId || null, projectTypeId: form.projectTypeId || null,
+          estimatedCost: Number(form.estimatedCost || 0),
+          contractSaleValue: form.contractSaleValue ? Number(form.contractSaleValue) : null,
+          status: Number(form.status),
+        },
+      });
+      onSaved();
+    } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Edit project">
+      <div className="space-y-3">
+        <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+        <Field label="Villa number"><Input value={form.villaNumber} onChange={(e) => setForm({ ...form, villaNumber: e.target.value })} /></Field>
+        <Field label="Customer">
+          <Select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
+            <option value="">— none (self-owned) —</option>
+            {customers?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Project type">
+          <Select value={form.projectTypeId} onChange={(e) => setForm({ ...form, projectTypeId: e.target.value })}>
+            <option value="">—</option>
+            {types?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </Select>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Estimated cost"><Input inputMode="decimal" value={form.estimatedCost} onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })} /></Field>
+          <Field label="Sale value"><Input inputMode="decimal" value={form.contractSaleValue} onChange={(e) => setForm({ ...form, contractSaleValue: e.target.value })} /></Field>
+        </div>
+        <Field label="Status">
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <option value="0">Planned</option><option value="1">Active</option><option value="2">On Hold</option>
+            <option value="3">Completed</option><option value="4">Cancelled</option>
+          </Select>
+        </Field>
+        <ErrorText error={err} />
+        <Button className="w-full" onClick={save} disabled={busy || !form.name}>Save</Button>
+      </div>
+    </Sheet>
+  );
 }
 
 // ---- Expenses tab -----------------------------------------------------

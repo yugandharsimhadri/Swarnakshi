@@ -4,6 +4,26 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P5 polish (round 2)
+
+**Done**
+- **CI**: `.github/workflows/ci.yml` — `dotnet build + test` (Release) and `npm ci + build` on
+  push / PR to `main`.
+- **Attachments**: `AttachmentService` on `IFileStorage` (type allow-list, 15 MB cap) +
+  `AttachmentsController` (list / upload multipart / download / delete). Verified upload + list e2e.
+- **Project edit**: ProjectDetail gains an Edit sheet (name, villa no., **customer**, type,
+  estimated cost, sale value, status) → `PUT /projects/{id}`. Fills the gap that blocked customer
+  receipts on non-demo projects.
+
+**Next (P5 remaining / backlog)**
+- Attachments UI (upload control on Purchase + Expense detail).
+- `RowVersion` optimistic concurrency (app-generated token, cross-provider).
+- Site edit form; Supervisor site-assignment management; user admin screen.
+- Skeleton loaders; confirm dialogs on issue / post / cancel actions.
+- Material request "Scenario B" (purchase-type request → auto-linked PO) UI wiring.
+
+---
+
 ## 2026-08-31 — P5 polish (round 1)
 
 **Done**
