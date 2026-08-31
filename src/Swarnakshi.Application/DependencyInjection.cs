@@ -4,6 +4,7 @@ using Swarnakshi.Application.Approvals;
 using Swarnakshi.Application.Auth;
 using Swarnakshi.Application.Common;
 using Swarnakshi.Application.Contractors;
+using Swarnakshi.Application.Customers;
 using Swarnakshi.Application.Expenses;
 using Swarnakshi.Application.Inventory;
 using Swarnakshi.Application.Procurement;
@@ -43,6 +44,9 @@ public static class DependencyInjection
         services.AddScoped<ILabourService, LabourService>();
         services.AddScoped<IContractWorkService, ContractWorkService>();
         services.AddScoped<IContractorPaymentService, ContractorPaymentService>();
+
+        // P3 — customers
+        services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
 
         // approval handlers
         services.AddScoped<IApprovalHandler, PurchaseApprovalHandler>();
