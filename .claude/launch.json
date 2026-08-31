@@ -4,15 +4,24 @@
     {
       "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "cwd": "web",
-      "port": 5173
+      "port": 6050
     },
     {
       "name": "api",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/Swarnakshi.Api", "--no-launch-profile"],
-      "port": 5080
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/Swarnakshi.Api",
+        "--launch-profile",
+        "http"
+      ],
+      "port": 6051
     }
   ]
 }

@@ -4,6 +4,27 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — Dev ports remapped (frontend 6050 / API 6051)
+
+- Vite dev server `5173` → **6050**; API `5080` → **6051**. Updated in `web/vite.config.ts`
+  (port + `/api` proxy target), `appsettings.Development.json` (`Urls`), `appsettings.json`
+  (`Cors:Origins`), the `Program.cs` CORS fallback, both `launchSettings.json` profiles
+  (https stays `7080`), `.claude/launch.json`, and the port references in README / 06 / 07.
+- **`.claude/launch.json` api entry fixed**: was `--no-launch-profile`, which skips
+  `launchSettings.json` and so never sets `ASPNETCORE_ENVIRONMENT=Development` — the `Urls`
+  binding in `appsettings.Development.json` was therefore ignored and the API bound the default
+  port instead of the one Vite proxies to. Now `--launch-profile http`.
+- No production/runtime behaviour change — dev wiring only. Build clean, 11/11 tests pass.
+
+**Gotchas**
+- `npm run dev` here leaves an orphaned `node` child if the wrapper process is killed; the orphan
+  hot-reloads `vite.config.ts` and can re-claim the new port. Kill the child, not just the wrapper.
+- Pre-existing, surfaced when the `P5_ConcurrencyToken` migration applies to an existing DB:
+  EF warns that `PRAGMA foreign_keys = 0` cannot run in a transaction, so an interrupted migration
+  needs manual reversion. Harmless on a throwaway dev DB; worth splitting out before any real one.
+
+---
+
 ## 2026-08-31 — Handover doc refresh (P5-complete)
 
 - [07-handover.md](07-handover.md) brought fully current: status table (all 6 phases ✅, 11 tests),
@@ -321,7 +342,7 @@ Negative-stock request blocked with 409. Full ledger + traceability confirmed in
 - Simple-master CRUD endpoints (units, expense heads, etc.) — currently read-only.
 
 **Gotchas**
-- API dev URL fixed to `http://localhost:5080` via `Urls` in `appsettings.Development.json`
+- API dev URL fixed to `http://localhost:6051` via `Urls` in `appsettings.Development.json`
   (`--no-launch-profile` ignores `launchSettings.json`). Vite proxies `/api` there.
 - Kill stray servers on Windows: `Get-CimInstance Win32_Process` + filter on CommandLine (`pkill` absent).
 - `RowVersion` concurrency tokens deferred — SQLite has no auto `rowversion`; revisit in P5.

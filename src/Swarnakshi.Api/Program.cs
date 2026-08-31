@@ -51,7 +51,7 @@ builder.Services.AddAuthorization();
 
 const string CorsPolicy = "web";
 builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
-    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:5173"])
+    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:6050"])
     .AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();

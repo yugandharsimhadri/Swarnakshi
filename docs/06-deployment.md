@@ -4,8 +4,8 @@
 
 ```bash
 dotnet restore
-dotnet run --project src/Swarnakshi.Api          # http://localhost:5080, docs at /scalar/v1
-cd web && npm install && npm approve-scripts esbuild && npm run dev   # http://localhost:5173
+dotnet run --project src/Swarnakshi.Api          # http://localhost:6051, docs at /scalar/v1
+cd web && npm install && npm approve-scripts esbuild && npm run dev   # http://localhost:6050
 ```
 
 The SQLite DB (`src/Swarnakshi.Api/swarnakshi.db`) is created, migrated and seeded on first run.
@@ -49,7 +49,7 @@ Serve `web/dist/` as static files. Point the build at the API by either:
 - hosting frontend and API on the same origin (recommended — no CORS), or
 - setting a proxy / rewrite so `/api/*` reaches the API.
 
-`web/vite.config.ts` proxies `/api` to `:5080` for dev only.
+`web/vite.config.ts` proxies `/api` to `:6051` for dev only.
 
 ## Switching SQLite → SQL Server
 

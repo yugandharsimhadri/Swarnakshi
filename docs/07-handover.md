@@ -45,15 +45,15 @@ cd Swarnakshi
 
 # backend — creates + migrates + seeds swarnakshi.db on first run
 dotnet run --project src/Swarnakshi.Api
-#   API:  http://localhost:5080
-#   docs: http://localhost:5080/scalar/v1   (interactive, Development only)
+#   API:  http://localhost:6051
+#   docs: http://localhost:6051/scalar/v1   (interactive, Development only)
 
 # frontend (separate terminal)
 cd web
 npm install
 npm approve-scripts esbuild     # one-time: npm gates esbuild's postinstall
 npm run dev
-#   http://localhost:5173  (proxies /api → :5080)
+#   http://localhost:6050  (proxies /api → :6051)
 ```
 
 Login: **`owner@swarnakshi.local` / `Owner@123`**
@@ -291,7 +291,7 @@ ProjectService.SummaryAsync = Σ ProjectExpense grouped by ExpenseType  (single 
 - `TestHost.CreateAsync()` builds the real DI graph (`AddApplication()` + SQLite in-memory +
   seeded masters) and a `FakeCurrentUser` with all permissions. Copy it for any new integration test.
 
-Manual e2e (need the API running on :5080): `node scratchpad/p1test.mjs` … `p4test.mjs`.
+Manual e2e (need the API running on :6051): `node scratchpad/p1test.mjs` … `p4test.mjs`.
 These are throwaway scripts in the git-ignored scratchpad — they exercise the full flow per phase
 (P1 inventory, P2 expenses/contractors, P3 customers, P4 dashboard/reports). Recreate from the
 patterns if lost, or promote them to xUnit.
@@ -307,7 +307,7 @@ CI runs `dotnet build+test` and `npm run build` on every push/PR to `main`.
 | 1 | **SQLite can't `ORDER BY` / compare `DateTimeOffset`.** Handled by a value converter (UTC ticks) applied only under SQLite in `AppDbContext.OnModelCreating`. Don't remove it. |
 | 2 | **EF `GroupBy` with a navigation in the key** (`GroupBy(e => new { e.Head.Name })`) doesn't translate on SQLite. Group by the id, then map names from a second query. |
 | 3 | **EF can't project straight to `object?[]`.** Fetch an anonymous type, map to array in memory (see `ReportsService`). |
-| 4 | **API dev URL is pinned to `http://localhost:5080`** via `"Urls"` in `appsettings.Development.json` — `dotnet run --no-launch-profile` ignores `launchSettings.json`. Vite proxies `/api` there. |
+| 4 | **API dev URL is pinned to `http://localhost:6051`** via `"Urls"` in `appsettings.Development.json` — `dotnet run --no-launch-profile` ignores `launchSettings.json`. Vite proxies `/api` there. |
 | 5 | **`Jwt:Key` must be ≥32 chars in non-Development** or the app refuses to start. Dev uses a hard-coded insecure key. |
 | 6 | **Swashbuckle is broken on .NET 10** — we use the native `AddOpenApi()` + `Scalar.AspNetCore` (`/scalar/v1`). |
 | 7 | **`ProjectStatus` and `TransactionStatus` share int values but mean different things.** Frontend: use `ProjectStatusName`, not `TxnStatusName`, for projects. |
