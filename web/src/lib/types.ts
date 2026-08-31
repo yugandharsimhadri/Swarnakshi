@@ -95,6 +95,13 @@ export const SiteStatusName: Record<number, string> = { 0: "Planned", 1: "Active
 export const ProjectStatusName = SiteStatusName;
 
 export interface Lookup { id: string; name: string; isActive: boolean }
+
+export interface KpiCard { label: string; value: number; format: "money" | "count" }
+export interface RecentTxn { type: string; ref: string; date: string; amount: number; context?: string | null }
+export interface DashboardPayload {
+  role: string; kpis: KpiCard[]; recent: RecentTxn[]; pendingApprovals: number;
+}
+export interface ReportTable { title: string; columns: string[]; rows: (string | number | null)[][] }
 export interface Unit { id: string; code: string; name: string; isActive: boolean }
 
 export interface InventoryBalance {

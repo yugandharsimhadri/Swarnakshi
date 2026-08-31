@@ -4,6 +4,43 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P4 dashboards & reports (backend + frontend)
+
+**Done — backend**
+- `DashboardService`: single `/api/dashboard` endpoint, role-aware KPI set
+  (Owner/SubOwner: projects, sites, inventory value, project cost, month purchases/expenses,
+  receivable, payable, low stock · Accountant: payables/receivables, month receipts, draft
+  counts · Supervisor: my sites/projects, pending & approved-not-issued requests) +
+  recent transactions + pending-approval count.
+- `ReportsService`: inventory stock / low-stock / purchase register / consumption register /
+  project cost summary / contractor outstanding / customer outstanding / company summary.
+  Returns a generic `ReportTable {title, columns, rows}`.
+- `ReportsController` with `?format=csv` (generic table → CSV, RFC-4180 quoting). `ReportsView` gate.
+- Verified (`scratchpad/p4test.mjs`): dashboard payload, every report table, CSV download.
+
+**Done — frontend**
+- Dashboard rewritten to consume `/api/dashboard` (role KPIs + recent activity + approvals card).
+- **Reports** hub (grouped list) + generic `ReportView` (scrollable table + Export CSV via blob).
+- More menu: Reports link. Bundle ~305 KB / 91 KB gzip.
+- Verified dashboard + report view against live data.
+
+**Next (P5 — polish)**
+- Pin `SQLitePCLRaw.bundle_e_sqlite3` + `System.Security.Cryptography.Xml` to clear NU1903 warnings.
+- `RowVersion` concurrency tokens (SQLite trigger or app-generated token).
+- Attachments endpoint + UI (invoices / receipts) on `IFileStorage`.
+- AuditLog writes on posts/approvals; global request logging.
+- UX: skeleton loaders, empty/error states pass, confirm dialogs for irreversible actions,
+  form validation polish, offline-friendly caching of master lists.
+- Production build instructions + `dotnet publish` + static frontend hosting notes.
+- Test project (inventory valuation, approval flow, no-double-count invariants).
+
+**Gotchas**
+- EF can't project straight to `object?[]` — fetch an anonymous type, map to array in memory.
+- `<a download>` blob export works in a real browser; the in-app Browser pane sandbox blocks it
+  (test the endpoint directly instead).
+
+---
+
 ## 2026-08-31 — P3 customers & receivables (backend + frontend)
 
 **Done — backend**

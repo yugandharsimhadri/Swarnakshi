@@ -17,6 +17,7 @@ import { PurchaseList, NewPurchase, PurchaseDetail } from "@/pages/Purchases";
 import Approvals from "@/pages/Approvals";
 import Contractors from "@/pages/Contractors";
 import Customers from "@/pages/Customers";
+import { ReportsHub, ReportView } from "@/pages/Reports";
 
 export default function App() {
   const { user, loading, bootstrap } = useAuth();
@@ -53,6 +54,8 @@ export default function App() {
             <Route path="approvals" element={<Approvals />} />
             <Route path="contractors" element={<Contractors />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="reports" element={<ReportsHub />} />
+            <Route path="reports/:slug" element={<ReportView />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

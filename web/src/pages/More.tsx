@@ -32,6 +32,12 @@ export default function More() {
           <span className="text-text-dim">▸</span>
         </Card>
       </Link>
+      <Link to="/reports">
+        <Card className="flex items-center justify-between">
+          <span className="text-sm">Reports</span>
+          <span className="text-text-dim">▸</span>
+        </Card>
+      </Link>
       {canApprove && (
         <Link to="/approvals">
           <Card className="flex items-center justify-between">
@@ -48,7 +54,7 @@ export default function More() {
 
       <Button variant="danger" className="w-full" onClick={logout}>Sign out</Button>
 
-      <p className="px-1 text-center text-xs text-text-dim">Swarnakshi · P3 build</p>
+      <p className="px-1 text-center text-xs text-text-dim">Swarnakshi · P4 build</p>
     </div>
   );
 }
