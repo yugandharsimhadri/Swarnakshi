@@ -4,6 +4,16 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — Handover doc
+
+- Added **[docs/07-handover.md](07-handover.md)**: run instructions, full repo map, the 10 rules,
+  the approval-engine extension pattern, cost-flow diagram, a step-by-step "add a feature" recipe,
+  frontend conventions, the testing setup, the accumulated gotchas table, a prioritised backlog,
+  and the branch/PR workflow. Linked as the first entry in the README docs list.
+- Everything through this point is committed and pushed to `origin/main`.
+
+---
+
 ## 2026-08-31 — Milestone: P0–P4 complete + P5 in progress
 
 **Status.** The core Construction Business OS is functional end to end:
