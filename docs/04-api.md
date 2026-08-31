@@ -65,6 +65,17 @@ List endpoints accept `?page=&pageSize=&sort=&q=` plus resource-specific filters
 | POST | `/api/approvals/{id}/reject` `{ remarks }` | Owner |
 | GET | `/api/approvals/{id}/history` | Owner |
 
+## Users (Owner / `users.manage`)
+| Method | Route | Notes |
+|--------|-------|-------|
+| GET | `/api/users` | list (name, email, role, active, extra permissions, site ids) |
+| GET | `/api/users/permission-keys` | all assignable permission keys |
+| POST | `/api/users` | `{ name, email, password, role }` |
+| PUT | `/api/users/{id}` | `{ name, role, isActive }` — last-Owner + self-lockout guarded |
+| POST | `/api/users/{id}/password` | `{ password }` (≥8), revokes refresh token |
+| PUT | `/api/users/{id}/permissions` | `{ permissions: [] }` — replaces Sub-Owner overrides |
+| PUT | `/api/users/{id}/sites` | `{ siteIds: [] }` — Supervisor site scoping |
+
 ## Dashboard & Reports
 | Method | Route |
 |--------|-------|

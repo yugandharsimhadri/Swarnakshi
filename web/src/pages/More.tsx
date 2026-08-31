@@ -8,6 +8,8 @@ export default function More() {
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const canApprove = useAuth((s) => s.can("approvals.decide"));
+  const canManageUsers = useAuth((s) => s.can("users.manage"));
+  const canManageMasters = useAuth((s) => s.can("masters.manage"));
   const { theme, toggle } = useTheme();
 
   return (
@@ -20,31 +22,27 @@ export default function More() {
         <div className="mt-1 text-xs text-text-dim">Role: {user ? RoleName[user.role] : "—"}</div>
       </Card>
 
-      <Link to="/contractors">
-        <Card className="flex items-center justify-between">
-          <span className="text-sm">Contractors</span>
-          <span className="text-text-dim">▸</span>
-        </Card>
-      </Link>
-      <Link to="/customers">
-        <Card className="flex items-center justify-between">
-          <span className="text-sm">Customers</span>
-          <span className="text-text-dim">▸</span>
-        </Card>
-      </Link>
-      <Link to="/reports">
-        <Card className="flex items-center justify-between">
-          <span className="text-sm">Reports</span>
-          <span className="text-text-dim">▸</span>
-        </Card>
-      </Link>
-      {canApprove && (
-        <Link to="/approvals">
-          <Card className="flex items-center justify-between">
-            <span className="text-sm">Approval Center</span>
-            <span className="text-text-dim">▸</span>
-          </Card>
-        </Link>
+      {([
+        ["/contractors", "Contractors", true],
+        ["/customers", "Customers", true],
+        ["/reports", "Reports", true],
+        ["/approvals", "Approval Center", canApprove],
+        ["/users", "Users", canManageUsers],
+      ] as [string, string, boolean][])
+        .filter(([, , show]) => show)
+        .map(([to, label]) => (
+          <Link key={to} to={to}>
+            <Card className="flex items-center justify-between">
+              <span className="text-sm">{label}</span>
+              <span className="text-text-dim">▸</span>
+            </Card>
+          </Link>
+        ))}
+      {canManageMasters && (
+        <p className="px-1 text-xs text-text-dim">
+          Tip: manage units, categories, expense heads &amp; other lists via the API
+          (<code>/api/simple-masters</code>) — a UI screen for these is on the backlog.
+        </p>
       )}
 
       <Card className="flex items-center justify-between">
@@ -54,7 +52,7 @@ export default function More() {
 
       <Button variant="danger" className="w-full" onClick={logout}>Sign out</Button>
 
-      <p className="px-1 text-center text-xs text-text-dim">Swarnakshi · P4 build</p>
+      <p className="px-1 text-center text-xs text-text-dim">Swarnakshi · P5 build</p>
     </div>
   );
 }

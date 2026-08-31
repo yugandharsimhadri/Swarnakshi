@@ -4,6 +4,40 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P5 complete (concurrency, user admin, attachments UI, UX polish)
+
+**Backend**
+- **Optimistic concurrency**: `AuditableEntity.ConcurrencyToken` (Guid, cross-provider — SQLite
+  has no `rowversion`), regenerated in `SaveChangesAsync`, `IsConcurrencyToken` on every auditable
+  entity. `DbUpdateConcurrencyException` → clean **409** in the exception middleware.
+  Replaces the unused `byte[] RowVersion`. Migration `P5_ConcurrencyToken`.
+- **User administration** (`UserService` + `UsersController`, `users.manage` gated): list / create /
+  update (name, role, active) / reset password / set extra permissions (Sub-Owner) / set site
+  assignments (Supervisor). Guards: at-least-one-active-Owner, no self role-change / self-deactivate.
+- 11 tests (added `ConcurrencyTests` — stale write rejected).
+
+**Frontend**
+- **Users** admin page (`More → Users`): list, create sheet, edit sheet with role-conditional
+  permission checkboxes (Sub-Owner) and site checkboxes (Supervisor) + password reset.
+- **Site edit** — Sites list rows are now tappable → edit sheet (`PUT /sites/{id}`), status included.
+- **Attachments UI**: `AttachmentPanel` (list + upload via new `apiUpload` FormData helper +
+  download via authed blob + delete) wired into Purchase detail and Material Request detail.
+- **UX**: `SkeletonList` placeholder replaces the spinner on list/detail loads; `Confirm` dialogs
+  now guard Material Request **issue**/**cancel** and Purchase **post** with consequence text.
+- More menu tidied (permission-filtered link list) + hint that simple-master editing is API-only for now.
+- Bundle ~325 KB / 96 KB gzip.
+
+**This closes the 6-phase plan (P0–P5).** Remaining items are the optional P6 backlog in
+[07-handover.md §11](07-handover.md): simple-master admin UI, material-request Scenario-B wiring,
+richer report filters, inter-site transfers, PWA/offline, notifications, multi-company.
+
+**Gotchas**
+- `IMutableProperty` uses the settable `.IsConcurrencyToken` property, not a `Set…` method.
+- `apiUpload` is separate from `api()` — the JSON helper sets `Content-Type: application/json`
+  which breaks multipart; never send `FormData` through `api()`.
+
+---
+
 ## 2026-08-31 — Handover doc
 
 - Added **[docs/07-handover.md](07-handover.md)**: run instructions, full repo map, the 10 rules,

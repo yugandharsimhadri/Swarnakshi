@@ -21,8 +21,10 @@ Everything a new developer needs to pick up Swarnakshi. Read this, then
 | Contractors, contract works, contractor payments (approved), ledger | ✅ done |
 | Customers, receipts, receivables, ledger | ✅ done |
 | Role-aware dashboard + 8 reports + CSV export | ✅ done |
-| Audit log, attachments API, CI, tests (10) | ✅ done |
-| Attachments UI, concurrency tokens, site-edit / user-admin screens | ⬜ backlog (see §11) |
+| Audit log, attachments (API + UI), CI, tests (11) | ✅ done |
+| Optimistic concurrency, user-admin + site-edit screens, skeleton loaders, confirm dialogs | ✅ done |
+| **All 6 phases (P0–P5) complete** | ✅ |
+| P6 nice-to-haves (simple-master admin UI, Scenario-B wiring, richer filters, …) | ⬜ backlog (§11) |
 
 **Proof it works:** `dotnet test` (10 green) + four e2e scripts in
 `scratchpad/` (see §9) pass against a single fresh DB. `dotnet build` and
@@ -295,29 +297,29 @@ CI runs `dotnet build+test` and `npm run build` on every push/PR to `main`.
 
 ---
 
-## 11. Backlog (priority order)
+## 11. Backlog (P6 — optional, none blocking)
 
-**P5 finish**
-1. Attachments UI — upload control on Purchase detail + Project expense sheets
-   (`POST /api/attachments` multipart, list, download link). API is done.
-2. Optimistic concurrency — add an app-generated `Guid` concurrency token to `AuditableEntity`
-   (cross-provider; SQLite has no native `rowversion`), stamp it in `SaveChangesAsync`,
-   configure `.IsConcurrencyToken()`.
-3. Site edit form; user-admin screen (create users, set role, grant/revoke `UserPermission`,
-   assign Supervisor to sites via `UserSiteAssignment`).
-4. Skeleton loaders; `Confirm` dialogs on issue / post / cancel actions (only Approve/Reject
-   have them today).
+The 6-phase plan (P0–P5) is complete. These are enhancements:
 
-**P6 candidates**
-5. Material request **Scenario B** UI — a `RequestType = Purchase` request that, on approval,
-   auto-creates a linked `PurchaseHeader` (backend supports the link; UI doesn't wire it).
-6. Richer report filters (date pickers, site/project selectors) + more reports
+1. **Simple-master admin UI** — screens for units / material categories+subcategories /
+   expense heads+subheads / labour categories / payment methods / project types.
+   Backend is done: `/api/simple-masters/{kind}` (POST/PUT/DELETE), `SimpleMasterKind` enum.
+2. **Material request Scenario B** UI — a `RequestType = Purchase` request that, on approval,
+   auto-creates a linked `PurchaseHeader` (`PurchaseHeader.MaterialRequestId` FK exists;
+   `PurchaseService.CreateAsync` accepts the link; just needs UI + a small service tweak to
+   pre-fill from the request).
+3. Richer report filters (date pickers, site/project selectors) + more reports
    (material ledger, stock valuation by method, project profitability detail).
-7. Inter-site material **Transfer** transaction type (enum exists, no service).
-8. PWA manifest + offline master-data cache.
-9. Multi-tenant / multi-company layer (currently single company per deployment — `CompanyId`
-   is deliberately not modelled; see assumption #1 in [01-architecture](01-architecture.md)).
-10. Notifications (approval pending → Owner; low stock → Supervisor).
+4. Inter-site material **Transfer** (`InventoryTransactionType.Transfer` enum exists, no service):
+   one issue from source site + one receipt at destination, same transaction.
+5. PWA manifest + offline master-data cache (Zustand persist / IndexedDB).
+6. Multi-company layer — currently single company per deployment; `CompanyId` deliberately not
+   modelled (assumption #1 in [01-architecture](01-architecture.md)). Adding it touches every
+   query — plan carefully.
+7. Notifications (approval pending → Owner; low stock → Supervisor) — email or in-app.
+8. Configurable approval for **direct expenses** and **inventory adjustments** (settings keys
+   `expense.needs_approval` / `inventory.adjustment_needs_approval` — the second is honoured today
+   only as an Owner-only gate, not a full approval flow).
 
 ---
 

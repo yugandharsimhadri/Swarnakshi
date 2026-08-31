@@ -4,7 +4,8 @@ import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
 import { money, dateStr } from "@/lib/format";
-import { Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
+import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, SkeletonList, Spinner } from "@/components/ui";
+import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { TxnStatusName, type Material, type Paged, type Purchase, type Site } from "@/lib/types";
 
 interface Supplier { id: string; name: string; code: string }
@@ -145,11 +146,13 @@ export function PurchaseDetail() {
   const [busy, setBusy] = useState(false);
   const [pay, setPay] = useState("");
   const [actErr, setActErr] = useState<ApiError | null>(null);
+  const [confirmPost, setConfirmPost] = useState(false);
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonList />;
   if (error || !data) return <ErrorText error={error} />;
 
   async function submit() {
+    setConfirmPost(false);
     setBusy(true); setActErr(null);
     try { await api(`/purchases/${id}/submit`, { method: "POST" }); reload(); }
     catch (e) { setActErr(e as ApiError); } finally { setBusy(false); }
@@ -190,7 +193,7 @@ export function PurchaseDetail() {
 
       <ErrorText error={actErr} />
       {data.status === 0 && canCreate && (
-        <Button className="w-full" onClick={submit} disabled={busy}>Submit / post</Button>
+        <Button className="w-full" onClick={() => setConfirmPost(true)} disabled={busy}>Submit / post</Button>
       )}
       {data.status === 6 && data.balanceAmount > 0 && canCreate && (
         <div className="flex gap-2">
@@ -198,6 +201,17 @@ export function PurchaseDetail() {
           <Button onClick={addPayment} disabled={busy || !Number(pay)}>Pay</Button>
         </div>
       )}
+
+      <div className="pt-2"><AttachmentPanel entityType="Purchase" entityId={data.id} canEdit={canCreate} /></div>
+
+      <Confirm
+        open={confirmPost}
+        title="Post this purchase?"
+        body={`${data.items.length} line(s), ${money(data.totalAmount)} — stock enters ${data.siteName} inventory at the landed rate and cannot be un-posted.`}
+        confirmLabel="Post"
+        onConfirm={submit}
+        onCancel={() => setConfirmPost(false)}
+      />
     </div>
   );
 }

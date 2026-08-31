@@ -9,6 +9,16 @@ export interface AuthUser {
   permissions: string[];
 }
 
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  extraPermissions: string[];
+  siteIds: string[];
+}
+
 export interface AuthResponse {
   accessToken: string;
   accessTokenExpiresAt: string;

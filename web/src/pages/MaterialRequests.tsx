@@ -4,7 +4,8 @@ import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
 import { num, dateStr } from "@/lib/format";
-import { Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
+import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, SkeletonList, Spinner } from "@/components/ui";
+import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { MatReqStatusName, type Material, type MaterialRequest, type Paged, type Project } from "@/lib/types";
 
 const statusTone = (s: number) =>
@@ -131,14 +132,16 @@ export function MaterialRequestDetail() {
   const { data, loading, error, reload } = useAsync(() => api<MaterialRequest>(`/material-requests/${id}`), [id]);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<ApiError | null>(null);
+  const [pendingAct, setPendingAct] = useState<"issue" | "cancel" | null>(null);
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonList />;
   if (error || !data) return <ErrorText error={error} />;
 
   const canSubmit = data.requestStatus === 0;
   const canDoIssue = (data.requestStatus === 3 || data.requestStatus === 6) && canIssue;
 
   async function act(path: string, body?: unknown) {
+    setPendingAct(null);
     setBusy(true);
     setActionError(null);
     try {
@@ -178,14 +181,30 @@ export function MaterialRequestDetail() {
       <ErrorText error={actionError} />
       <div className="flex gap-2">
         {canSubmit && <Button className="flex-1" onClick={() => act("submit")} disabled={busy}>Submit for approval</Button>}
-        {canDoIssue && <Button className="flex-1" onClick={() => act("issue", { items: null })} disabled={busy}>Issue from stock</Button>}
+        {canDoIssue && <Button className="flex-1" onClick={() => setPendingAct("issue")} disabled={busy}>Issue from stock</Button>}
         {data.requestStatus < 3 && (
-          <Button variant="ghost" onClick={() => act("cancel")} disabled={busy}>Cancel</Button>
+          <Button variant="ghost" onClick={() => setPendingAct("cancel")} disabled={busy}>Cancel</Button>
         )}
       </div>
       {data.requestStatus === 2 && (
         <p className="px-1 text-xs text-text-dim">Waiting for Owner approval in the Approval Center.</p>
       )}
+
+      <div className="pt-2"><AttachmentPanel entityType="MaterialRequest" entityId={data.id} canEdit={canIssue} /></div>
+
+      <Confirm
+        open={pendingAct !== null}
+        title={pendingAct === "issue" ? "Issue material from stock?" : "Cancel this request?"}
+        body={
+          pendingAct === "issue"
+            ? "Stock leaves the site inventory now and is booked as project consumption at the current weighted-average rate."
+            : "The request will be cancelled and cannot be reopened."
+        }
+        confirmLabel={pendingAct === "issue" ? "Issue" : "Cancel request"}
+        danger={pendingAct === "cancel"}
+        onConfirm={() => act(pendingAct === "issue" ? "issue" : "cancel", pendingAct === "issue" ? { items: null } : undefined)}
+        onCancel={() => setPendingAct(null)}
+      />
     </div>
   );
 }

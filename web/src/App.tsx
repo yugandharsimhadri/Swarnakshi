@@ -18,6 +18,7 @@ import Approvals from "@/pages/Approvals";
 import Contractors from "@/pages/Contractors";
 import Customers from "@/pages/Customers";
 import { ReportsHub, ReportView } from "@/pages/Reports";
+import Users from "@/pages/Users";
 
 export default function App() {
   const { user, loading, bootstrap } = useAuth();
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="reports" element={<ReportsHub />} />
             <Route path="reports/:slug" element={<ReportView />} />
+            <Route path="users" element={<Users />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -95,6 +95,20 @@ export function Spinner() {
   );
 }
 
+/** Placeholder cards shown while a list loads. */
+export function SkeletonList({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-border bg-surface p-4">
+          <div className="h-3.5 w-1/2 animate-pulse rounded bg-surface-2" />
+          <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-surface-2" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   if (!open) return null;
   return (

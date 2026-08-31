@@ -97,3 +97,28 @@ export async function api<T>(
   }
   return payload.data as T;
 }
+
+/** Multipart upload — the JSON `api()` helper can't send FormData. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const url = path.startsWith("/api") ? path : `/api${path}`;
+  const headers: Record<string, string> = {};
+  if (tokens.access) headers.Authorization = `Bearer ${tokens.access}`;
+
+  let res = await fetch(url, { method: "POST", headers, body: form });
+  if (res.status === 401 && (await tryRefresh())) {
+    if (tokens.access) headers.Authorization = `Bearer ${tokens.access}`;
+    res = await fetch(url, { method: "POST", headers, body: form });
+  }
+
+  const payload = (await res.json().catch(() => null)) as
+    | { success: boolean; message: string | null; data: T | null; errors: string[] }
+    | null;
+  if (!res.ok || !payload?.success) {
+    throw {
+      message: payload?.message ?? `Upload failed (${res.status})`,
+      errors: payload?.errors ?? [],
+      status: res.status,
+    } satisfies ApiError;
+  }
+  return payload.data as T;
+}
