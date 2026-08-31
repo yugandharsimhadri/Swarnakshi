@@ -7,5 +7,9 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Swarnakshi.Tests/Swarnakshi.Tests.csproj" />
+    <Project Path="tests/Swarnakshi.UatTests/Swarnakshi.UatTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Swarnakshi.Automation/Swarnakshi.Automation.csproj" />
   </Folder>
 </Solution>

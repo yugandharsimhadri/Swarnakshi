@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Not run by a bare `dotnet test` at the solution root: this suite starts servers and drives a
+         real browser, so it takes minutes where the unit suite takes seconds. Run it deliberately:
+             dotnet test tests/Swarnakshi.UatTests
+         The property is read by the CI script; it does not affect a direct invocation. -->
+    <IsUatSuite>true</IsUatSuite>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\Swarnakshi.Automation\Swarnakshi.Automation.csproj" />
+
+    <!-- Build-order dependency only, no assembly reference. The suite starts the API with the
+         "no build" switch, so the API must already be compiled. Declaring it here makes the test
+         run build it, instead of "dotnet run" trying to build it while a stale Swarnakshi.Api.exe
+         may still hold bin, which fails as an unexplained exit code 1. -->
+    <ProjectReference Include="..\..\src\Swarnakshi.Api\Swarnakshi.Api.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
