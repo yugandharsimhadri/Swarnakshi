@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Swarnakshi.Application.Approvals;
 using Swarnakshi.Application.Auth;
 using Swarnakshi.Application.Common;
+using Swarnakshi.Application.Contractors;
+using Swarnakshi.Application.Expenses;
 using Swarnakshi.Application.Inventory;
 using Swarnakshi.Application.Procurement;
 
@@ -36,9 +38,17 @@ public static class DependencyInjection
         services.AddScoped<MaterialRequestIssuer>();
         services.AddScoped<IMaterialRequestService, MaterialRequestService>();
 
+        // P2 — expenses, labour, contractors
+        services.AddScoped<IProjectExpenseService, ProjectExpenseService>();
+        services.AddScoped<ILabourService, LabourService>();
+        services.AddScoped<IContractWorkService, ContractWorkService>();
+        services.AddScoped<IContractorPaymentService, ContractorPaymentService>();
+
         // approval handlers
         services.AddScoped<IApprovalHandler, PurchaseApprovalHandler>();
         services.AddScoped<IApprovalHandler, MaterialRequestApprovalHandler>();
+        services.AddScoped<IApprovalHandler, LabourApprovalHandler>();
+        services.AddScoped<IApprovalHandler, ContractorPaymentApprovalHandler>();
 
         return services;
     }

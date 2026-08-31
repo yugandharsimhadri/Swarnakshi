@@ -104,15 +104,14 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         var expenses = db.ProjectExpenses.AsNoTracking()
             .Where(e => e.ProjectId == id && e.Status == TransactionStatus.Posted);
 
+        // Every costed event (consumption, labour, contractor payment, manual expense) writes exactly one
+        // posted ProjectExpense row, so summing by type here cannot double count.
         var material = await expenses.Where(e => e.ExpenseType == ProjectExpenseType.Material).SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
         var labour = await expenses.Where(e => e.ExpenseType == ProjectExpenseType.Labour).SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
+        var contractor = await expenses.Where(e => e.ExpenseType == ProjectExpenseType.Contractor).SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
         var other = await expenses.Where(e => e.ExpenseType != ProjectExpenseType.Material
             && e.ExpenseType != ProjectExpenseType.Labour && e.ExpenseType != ProjectExpenseType.Contractor)
             .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
-
-        var contractor = await db.ContractorPayments.AsNoTracking()
-            .Where(cp => cp.ProjectId == id && cp.Status == TransactionStatus.Posted)
-            .SumAsync(cp => (decimal?)cp.Amount, ct) ?? 0m;
 
         var received = await db.CustomerPayments.AsNoTracking()
             .Where(cp => cp.ProjectId == id && cp.Status == TransactionStatus.Posted)
