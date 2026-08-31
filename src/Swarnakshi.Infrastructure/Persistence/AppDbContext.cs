@@ -18,6 +18,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<MaterialCategory> MaterialCategories => Set<MaterialCategory>();
     public DbSet<MaterialSubcategory> MaterialSubcategories => Set<MaterialSubcategory>();
     public DbSet<Material> Materials => Set<Material>();
+    public DbSet<MaterialSpecDefinition> MaterialSpecDefinitions => Set<MaterialSpecDefinition>();
+    public DbSet<MaterialSpecValue> MaterialSpecValues => Set<MaterialSpecValue>();
     public DbSet<ExpenseHead> ExpenseHeads => Set<ExpenseHead>();
     public DbSet<ExpenseSubhead> ExpenseSubheads => Set<ExpenseSubhead>();
     public DbSet<LabourCategory> LabourCategories => Set<LabourCategory>();

@@ -15,6 +15,8 @@ public interface IAppDbContext
     DbSet<MaterialCategory> MaterialCategories { get; }
     DbSet<MaterialSubcategory> MaterialSubcategories { get; }
     DbSet<Material> Materials { get; }
+    DbSet<MaterialSpecDefinition> MaterialSpecDefinitions { get; }
+    DbSet<MaterialSpecValue> MaterialSpecValues { get; }
     DbSet<ExpenseHead> ExpenseHeads { get; }
     DbSet<ExpenseSubhead> ExpenseSubheads { get; }
     DbSet<LabourCategory> LabourCategories { get; }

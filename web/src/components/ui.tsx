@@ -58,8 +58,10 @@ export function Field({ label, error, children }: { label: string; error?: strin
   );
 }
 
+// text-base on phones is deliberate: iOS Safari auto-zooms the page whenever a focused field
+// is under 16px. Drops back to text-sm from the sm breakpoint up.
 const inputClass =
-  "w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm outline-none focus:border-brand";
+  "w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={inputClass} {...props} />;
@@ -158,6 +160,76 @@ export function ErrorText({ error }: { error: { message: string; errors: string[
           {error.errors.map((e, i) => <li key={i}>{e}</li>)}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Wide variant of Sheet for multi-section master forms. Bottom sheet on phones, dialog on desktop. */
+export function FormSheet({ open, onClose, title, subtitle, footer, children }: {
+  open: boolean; onClose: () => void; title: string; subtitle?: string;
+  footer?: ReactNode; children: ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal>
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col rounded-t-3xl border border-border bg-surface sm:max-h-[88vh] sm:rounded-3xl">
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-bold">{title}</h2>
+            {subtitle && <p className="truncate text-xs text-text-dim">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Close"
+            className="rounded-lg px-2 py-1 text-text-dim active:bg-surface-2">✕</button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
+        {footer && <div className="shrink-0 border-t border-border px-4 py-3 pb-6 sm:pb-3">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+/** Titled group of form fields. */
+export function FormSection({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="mb-5 last:mb-0">
+      <div className="mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-dim">{title}</h3>
+        {hint && <p className="mt-0.5 text-xs text-text-dim">{hint}</p>}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+/** Horizontally scrollable table shell — the page body must never scroll sideways. */
+export function TableWrap({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+      <table className="w-full min-w-[54rem] border-collapse text-sm">{children}</table>
+    </div>
+  );
+}
+
+export function Th({ children, className = "" }: { children?: ReactNode; className?: string }) {
+  return (
+    <th className={`border-b border-border px-3 py-2.5 text-left text-xs font-semibold text-text-dim ${className}`}>
+      {children}
+    </th>
+  );
+}
+
+export function Td({ children, className = "" }: { children?: ReactNode; className?: string }) {
+  return <td className={`border-b border-border px-3 py-2.5 align-middle ${className}`}>{children}</td>;
+}
+
+/** Label/value pair for read-only detail views. */
+export function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-border py-2 last:border-0">
+      <span className="shrink-0 text-xs text-text-dim">{label}</span>
+      <span className="min-w-0 break-words text-right text-sm">{value ?? "—"}</span>
     </div>
   );
 }
