@@ -4,6 +4,35 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P3 customers & receivables (backend + frontend)
+
+**Done — backend**
+- `CustomerPaymentService`: record receipts against a project's assigned customer (posts directly,
+  Accountant permission), cancel = amount 0 + `Cancelled` for audit, per-customer `LedgerAsync`
+  (sale value / received / outstanding + Sale + Receipt rows across all the customer's projects).
+- Blocks receipts when the project has no customer (409). `CustomerPaymentsController`. No migration.
+- Verified e2e (`scratchpad/p3test.mjs`): ₹10L + ₹15L receipts → project summary received ₹25L /
+  outstanding ₹55L, customer ledger matches, no-customer guard 409.
+
+**Done — frontend**
+- Project detail: **Customer tab** — sale/received/outstanding card, receipt list, "Record receipt" sheet.
+- **Customers** master page (More → Customers): list, create, expandable ledger row.
+- Verified against live P3 data. Bundle ~298 KB / 89 KB gzip.
+
+**Next (P4 — reporting & dashboards)**
+- `/api/dashboard` role-aware payload (owner / supervisor / accountant) — replace the client-side
+  aggregation the Dashboard does now.
+- Reports: inventory (stock, valuation, ledger, purchase register, consumption, low-stock),
+  project (cost summary, budget vs actual, profitability), contractor & customer outstanding,
+  company (purchase summary, expense summary, inventory value). `?format=csv` export.
+- Report screens + a company-level financial overview for the Owner.
+
+**Gotchas**
+- Customer receipts require `Project.CustomerId`; the Customer tab shows an empty state prompting
+  a project edit when it's missing.
+
+---
+
 ## 2026-08-31 — P2 expenses, labour, contractors (backend + frontend)
 
 **Done — backend**

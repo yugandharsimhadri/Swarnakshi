@@ -9,11 +9,11 @@ import {
 } from "@/components/ui";
 import {
   ContractStatusName, ExpenseTypeName, ProjectStatusName, TxnStatusName,
-  type CostByHead, type Contractor, type ContractWork, type ContractorPayment, type LabourEntry,
-  type Lookup, type Paged, type Project, type ProjectExpense, type ProjectSummary,
+  type CostByHead, type Contractor, type ContractWork, type ContractorPayment, type CustomerPayment,
+  type LabourEntry, type Lookup, type Paged, type Project, type ProjectExpense, type ProjectSummary,
 } from "@/lib/types";
 
-type Tab = "overview" | "expenses" | "labour" | "contracts" | "payments";
+type Tab = "overview" | "expenses" | "labour" | "contracts" | "payments" | "customer";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +32,7 @@ export default function ProjectDetail() {
 
   const tabs: [Tab, string][] = [
     ["overview", "Overview"], ["expenses", "Expenses"], ["labour", "Labour"],
-    ["contracts", "Contracts"], ["payments", "Payments"],
+    ["contracts", "Contracts"], ["payments", "Payments"], ["customer", "Customer"],
   ];
 
   return (
@@ -70,7 +70,83 @@ export default function ProjectDetail() {
       {tab === "labour" && <Labour projectId={p.id} />}
       {tab === "contracts" && <Contracts projectId={p.id} />}
       {tab === "payments" && <Payments projectId={p.id} />}
+      {tab === "customer" && <CustomerTab projectId={p.id} hasCustomer={!!p.customerId} summary={s} />}
     </div>
+  );
+}
+
+// ---- Customer tab -------------------------------------------------
+function CustomerTab({ projectId, hasCustomer, summary }: { projectId: string; hasCustomer: boolean; summary: ProjectSummary }) {
+  const canCreate = useAuth((s) => s.can("customer_payment.create"));
+  const [open, setOpen] = useState(false);
+  const { data, loading, error, reload } = useAsync(
+    () => api<Paged<CustomerPayment>>("/customer-payments", { query: { projectId, pageSize: 100 } }),
+    [projectId],
+  );
+
+  if (!hasCustomer) return <EmptyState title="No customer assigned" hint="Edit the project to link a customer." />;
+
+  return (
+    <div className="space-y-2">
+      <Card>
+        <Row label="Sale value" value={money(summary.contractSaleValue)} />
+        <Row label="Received" value={money(summary.customerReceived)} />
+        <div className="flex justify-between border-t border-border pt-1 text-sm font-semibold">
+          <span>Outstanding</span><span className="tabular-nums text-warn">{money(summary.customerOutstanding)}</span>
+        </div>
+      </Card>
+      {canCreate && <Button className="w-full" onClick={() => setOpen(true)}>+ Record receipt</Button>}
+      {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
+        (data?.items.length ?? 0) === 0 ? <EmptyState title="No receipts yet" /> : data!.items.map((r) => (
+          <Card key={r.id} className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold">{r.paymentMethodName}{r.reference ? ` · ${r.reference}` : ""}</div>
+              <div className="text-xs text-text-dim">{dateStr(r.date)} · {r.txnNumber}</div>
+            </div>
+            <span className={`text-sm tabular-nums ${r.status === 5 ? "text-text-dim line-through" : "text-ok"}`}>{money(r.amount)}</span>
+          </Card>
+        ))
+      )}
+      <RecordReceiptSheet projectId={projectId} open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
+    </div>
+  );
+}
+
+function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
+  const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
+  const [form, setForm] = useState({ amount: "", methodId: "", reference: "" });
+  const [err, setErr] = useState<ApiError | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true); setErr(null);
+    try {
+      await api("/customer-payments", {
+        method: "POST",
+        body: {
+          projectId, date: new Date().toISOString().slice(0, 10), amount: Number(form.amount),
+          paymentMethodId: form.methodId, reference: form.reference || null,
+        },
+      });
+      onSaved();
+    } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Record customer receipt">
+      <div className="space-y-3">
+        <Field label="Amount"><Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+        <Field label="Received via">
+          <Select value={form.methodId} onChange={(e) => setForm({ ...form, methodId: e.target.value })}>
+            <option value="">Select…</option>
+            {methods?.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Reference"><Input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
+        <ErrorText error={err} />
+        <Button className="w-full" onClick={save} disabled={busy || !form.methodId || !Number(form.amount)}>Save receipt</Button>
+      </div>
+    </Sheet>
   );
 }
 

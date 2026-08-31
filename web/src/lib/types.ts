@@ -257,6 +257,22 @@ export interface ContractorPayment {
 
 export interface CostByHead { expenseHeadId: string; expenseHeadName: string; amount: number }
 
+export interface Customer {
+  id: string; code: string; name: string; mobile?: string | null; email?: string | null; isActive: boolean;
+}
+
+export interface CustomerPayment {
+  id: string; txnNumber: string; projectId: string; projectName: string; customerId: string; customerName: string;
+  date: string; amount: number; paymentMethodName: string; reference?: string | null;
+  description?: string | null; status: number;
+}
+
+export interface CustomerLedger {
+  customerId: string; customerName: string;
+  totalSaleValue: number; totalReceived: number; outstanding: number;
+  rows: { kind: string; ref: string; date: string; charged: number; received: number }[];
+}
+
 export interface ContractorSummary {
   contractorId: string; contractorName: string;
   totalContracted: number; totalPaid: number; outstanding: number;
