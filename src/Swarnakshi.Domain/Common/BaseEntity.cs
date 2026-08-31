@@ -20,5 +20,7 @@ public abstract class AuditableEntity : BaseEntity
     public Guid? ApprovedBy { get; set; }
     public TransactionStatus Status { get; set; } = TransactionStatus.Draft;
     public string? Remarks { get; set; }
-    public byte[]? RowVersion { get; set; }
+
+    /// <summary>Optimistic-concurrency token. Regenerated on every save; cross-provider (SQLite has no rowversion).</summary>
+    public Guid ConcurrencyToken { get; set; } = Guid.NewGuid();
 }

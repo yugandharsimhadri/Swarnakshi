@@ -84,6 +84,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
                 if (isSqlite && prop.ClrType == typeof(DateTimeOffset?))
                     prop.SetValueConverter(nullableDtoConverter);
             }
+
+            // Optimistic concurrency on every transactional (auditable) entity.
+            if (typeof(AuditableEntity).IsAssignableFrom(et.ClrType)
+                && et.FindProperty(nameof(AuditableEntity.ConcurrencyToken)) is { } tokenProp)
+                tokenProp.IsConcurrencyToken = true;
         }
     }
 
@@ -106,6 +111,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
             {
                 aud.ModifiedAt = now;
                 aud.ModifiedBy = uid;
+                aud.ConcurrencyToken = Guid.NewGuid(); // EF keeps the loaded value for the WHERE clause
 
                 var statusProp = entry.Property(nameof(AuditableEntity.Status));
                 if (statusProp.IsModified && !Equals(statusProp.OriginalValue, statusProp.CurrentValue))

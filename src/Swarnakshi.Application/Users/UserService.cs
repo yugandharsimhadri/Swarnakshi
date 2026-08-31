@@ -1,0 +1,133 @@
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Swarnakshi.Application.Abstractions;
+using Swarnakshi.Application.Common;
+using Swarnakshi.Application.Security;
+using Swarnakshi.Domain.Entities;
+using Swarnakshi.Domain.Enums;
+
+namespace Swarnakshi.Application.Users;
+
+public record UserDto(Guid Id, string Name, string Email, UserRole Role, bool IsActive,
+    IReadOnlyList<string> ExtraPermissions, IReadOnlyList<Guid> SiteIds);
+
+public record CreateUserRequest(string Name, string Email, string Password, UserRole Role);
+public record UpdateUserRequest(string Name, UserRole Role, bool IsActive);
+public record SetPasswordRequest(string Password);
+public record SetPermissionsRequest(List<string> Permissions);
+public record SetSitesRequest(List<Guid> SiteIds);
+
+public class CreateUserValidator : AbstractValidator<CreateUserRequest>
+{
+    public CreateUserValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Password).MinimumLength(8).WithMessage("Password must be at least 8 characters.");
+    }
+}
+
+public interface IUserService
+{
+    Task<IReadOnlyList<UserDto>> ListAsync(CancellationToken ct = default);
+    Task<UserDto> GetAsync(Guid id, CancellationToken ct = default);
+    Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct = default);
+    Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest req, CancellationToken ct = default);
+    Task SetPasswordAsync(Guid id, SetPasswordRequest req, CancellationToken ct = default);
+    Task<UserDto> SetPermissionsAsync(Guid id, SetPermissionsRequest req, CancellationToken ct = default);
+    Task<UserDto> SetSitesAsync(Guid id, SetSitesRequest req, CancellationToken ct = default);
+    IReadOnlyList<string> AllPermissionKeys();
+}
+
+public class UserService(
+    IAppDbContext db, IPasswordHasher hasher, ICurrentUser currentUser,
+    IValidator<CreateUserRequest> createValidator) : IUserService
+{
+    public async Task<IReadOnlyList<UserDto>> ListAsync(CancellationToken ct = default)
+        => (await db.Users.AsNoTracking()
+                .Include(u => u.Permissions).Include(u => u.SiteAssignments)
+                .OrderBy(u => u.Name).ToListAsync(ct))
+            .Select(Map).ToList();
+
+    public async Task<UserDto> GetAsync(Guid id, CancellationToken ct = default)
+        => Map(await Load(id, ct));
+
+    public async Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct = default)
+    {
+        await createValidator.ValidateAndThrowAsync(req, ct);
+        var email = req.Email.Trim().ToLowerInvariant();
+        if (await db.Users.AnyAsync(u => u.Email == email, ct))
+            throw new AppException($"A user with email '{email}' already exists.", 409);
+
+        var user = new User
+        {
+            Name = req.Name.Trim(), Email = email, PasswordHash = hasher.Hash(req.Password),
+            Role = req.Role, IsActive = true
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(user.Id, ct);
+    }
+
+    public async Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest req, CancellationToken ct = default)
+    {
+        var user = await Load(id, ct);
+        if (user.Id == currentUser.UserId && (user.Role != req.Role || !req.IsActive))
+            throw new AppException("You cannot change your own role or deactivate yourself.", 409);
+        if (user.Role == UserRole.Owner && req.Role != UserRole.Owner
+            && !await db.Users.AnyAsync(u => u.Role == UserRole.Owner && u.Id != id && u.IsActive, ct))
+            throw new AppException("There must be at least one active Owner.", 409);
+
+        user.Name = req.Name.Trim();
+        user.Role = req.Role;
+        user.IsActive = req.IsActive;
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task SetPasswordAsync(Guid id, SetPasswordRequest req, CancellationToken ct = default)
+    {
+        if ((req.Password ?? "").Length < 8) throw new AppException("Password must be at least 8 characters.", 400);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct) ?? throw new NotFoundException("User", id);
+        user.PasswordHash = hasher.Hash(req.Password!);
+        user.RefreshToken = null;
+        user.RefreshTokenExpiry = null;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<UserDto> SetPermissionsAsync(Guid id, SetPermissionsRequest req, CancellationToken ct = default)
+    {
+        var user = await Load(id, ct);
+        var valid = req.Permissions.Where(Permissions.All.Contains).Distinct().ToList();
+
+        db.UserPermissions.RemoveRange(user.Permissions);
+        foreach (var key in valid)
+            db.UserPermissions.Add(new UserPermission { UserId = user.Id, PermissionKey = key, Granted = true });
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<UserDto> SetSitesAsync(Guid id, SetSitesRequest req, CancellationToken ct = default)
+    {
+        var user = await Load(id, ct);
+        var siteIds = await db.Sites.Where(s => req.SiteIds.Contains(s.Id)).Select(s => s.Id).ToListAsync(ct);
+
+        db.UserSiteAssignments.RemoveRange(user.SiteAssignments);
+        foreach (var sid in siteIds)
+            db.UserSiteAssignments.Add(new UserSiteAssignment { UserId = user.Id, SiteId = sid });
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public IReadOnlyList<string> AllPermissionKeys() => Permissions.All;
+
+    private async Task<User> Load(Guid id, CancellationToken ct)
+        => await db.Users.Include(u => u.Permissions).Include(u => u.SiteAssignments)
+               .FirstOrDefaultAsync(u => u.Id == id, ct)
+           ?? throw new NotFoundException("User", id);
+
+    private static UserDto Map(User u) => new(
+        u.Id, u.Name, u.Email, u.Role, u.IsActive,
+        u.Permissions.Where(p => p.Granted).Select(p => p.PermissionKey).ToList(),
+        u.SiteAssignments.Select(a => a.SiteId).ToList());
+}

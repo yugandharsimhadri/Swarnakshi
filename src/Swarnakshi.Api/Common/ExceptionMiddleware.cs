@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Common;
 
 namespace Swarnakshi.Api.Common;
@@ -19,6 +20,10 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
         catch (AppException ex)
         {
             await Write(ctx, ex.StatusCode, ex.Message, ex.Errors);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await Write(ctx, 409, "This record was changed by someone else. Reload and try again.", Array.Empty<string>());
         }
         catch (Exception ex)
         {
