@@ -4,6 +4,16 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — Handover doc refresh (P5-complete)
+
+- [07-handover.md](07-handover.md) brought fully current: status table (all 6 phases ✅, 11 tests),
+  repo map now lists every context / controller / web page, concurrency added as rule #10,
+  gotchas 14–17 (IsConcurrencyToken property, `apiUpload` vs `api()`, 409 middleware, NuGet audit),
+  new **§14 screen ↔ endpoint ↔ permission map** for quick orientation.
+- No code change.
+
+---
+
 ## 2026-08-31 — P5 complete (concurrency, user admin, attachments UI, UX polish)
 
 **Backend**
