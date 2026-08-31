@@ -15,6 +15,7 @@ import { InventoryList, MaterialInventory } from "@/pages/Inventory";
 import { MaterialRequestList, NewMaterialRequest, MaterialRequestDetail } from "@/pages/MaterialRequests";
 import { PurchaseList, NewPurchase, PurchaseDetail } from "@/pages/Purchases";
 import Approvals from "@/pages/Approvals";
+import Contractors from "@/pages/Contractors";
 
 export default function App() {
   const { user, loading, bootstrap } = useAuth();
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="materials" element={<Materials />} />
 
             <Route path="approvals" element={<Approvals />} />
+            <Route path="contractors" element={<Contractors />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

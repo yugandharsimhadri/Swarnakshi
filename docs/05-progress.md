@@ -4,6 +4,49 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — P2 expenses, labour, contractors (backend + frontend)
+
+**Done — backend**
+- `ProjectExpenseService`: manual direct/transport/machinery/other expenses (Contractor & Labour
+  types rejected here — they flow from their own screens); cancel = set amount 0 + `Cancelled`
+  (keeps the row for audit, drops it from roll-ups); `cost-by-head` grouping.
+- `LabourService` + `LabourApprovalHandler`: draft → submit → Owner approve → posts
+  `ProjectExpense(Labour)` under the "Labour" head. Category + period + amount, no worker master.
+- `ContractWorkService`: contract works with live `TotalPaid` / `Balance`; contract amount can't
+  drop below amount already paid.
+- `ContractorPaymentService` + `ContractorPaymentApprovalHandler`: Accountant creates → Owner
+  approves → posts `ProjectExpense(Contractor)` + updates the contract balance. Payment over the
+  contract balance is blocked unless the Owner approves **with override**. `LedgerAsync` returns
+  contracted / paid / outstanding + rows.
+- `ProjectService.SummaryAsync` now derives every cost bucket from `ProjectExpense` by type only
+  (single source of truth → provably no double counting).
+- Controllers: Expenses, Labour, Contracts, ContractorPayments. No migration (entities unchanged).
+
+**Verified e2e** (`scratchpad/p2test.mjs`): labour ₹8,000 + transport ₹3,500 + contract ₹2,50,000
+with a ₹50,000 payment → project summary material 0 / labour 8,000 / contractor 50,000 / other 3,500
+/ total 61,500; contract balance ₹2,00,000; cost-by-head {Miscellaneous 50k, Labour 8k, Transport 3.5k};
+contractor ledger contracted 250k / paid 50k / outstanding 200k; overpayment approval → 409.
+
+**Done — frontend**
+- **Project detail** rebuilt with tabs: Overview (cost-by-type + cost-by-head + customer),
+  Expenses (add sheet), Labour (add + submit), Contracts (new sheet, live balance),
+  Payments (contractor payment sheet with contract picker + submit).
+- **Contractors** master page (More → Contractors): list, create, expandable ledger row.
+- More menu adds Contractors + Approval Center links. Bundle 293 KB / 87 KB gzip.
+- Verified project detail + contractors render against live P2 data.
+
+**Next (P3 — customers & receivables)**
+- Customer master UI (Party CRUD already exists in backend).
+- `CustomerPaymentService` (+ optional approval) → posts to customer ledger; project receivables.
+- Customer tab on project detail; customer ledger screen.
+
+**Gotchas**
+- `GroupBy` with a navigation property in the key (`e.Head.Name`) doesn't translate on SQLite —
+  group by id, then map names from a second query.
+- Project status chip must use `ProjectStatusName`, not `TxnStatusName` (different enums, same ints).
+
+---
+
 ## 2026-08-31 — P1 inventory + procurement + approvals (backend + frontend)
 
 **Done — backend**

@@ -216,6 +216,53 @@ export interface MaterialRequestItem {
   expenseSubheadId?: string | null;
 }
 
+export interface Contractor {
+  id: string; code: string; name: string; companyName?: string | null;
+  mobile?: string | null; email?: string | null; type?: string | null; isActive: boolean;
+}
+
+export interface ProjectExpense {
+  id: string; txnNumber: string; projectId: string; date: string;
+  expenseHeadId: string; expenseHeadName: string; expenseSubheadName?: string | null;
+  description?: string | null; amount: number; expenseType: number; paymentStatus: number;
+  sourceType?: string | null; status: number;
+}
+export const ExpenseTypeName: Record<number, string> = {
+  1: "Material", 2: "Labour", 3: "Contractor", 4: "Direct", 5: "Transport", 6: "Machinery", 7: "Other",
+};
+
+export interface LabourEntry {
+  id: string; txnNumber: string; projectId: string; projectName: string;
+  labourCategoryId: string; labourCategoryName: string; periodType: number;
+  periodStart: string; periodEnd: string; amount: number; paymentType?: string | null;
+  remarks?: string | null; status: number;
+}
+
+export interface ContractWork {
+  id: string; projectId: string; projectName: string; contractorId: string; contractorName: string;
+  workCategory: string; description?: string | null; estimatedCost: number; contractAmount: number;
+  startDate?: string | null; expectedCompletion?: string | null; workStatus: number;
+  totalPaid: number; balance: number;
+}
+export const ContractStatusName: Record<number, string> = {
+  0: "Planned", 1: "Active", 2: "Completed", 3: "Cancelled", 4: "On Hold",
+};
+
+export interface ContractorPayment {
+  id: string; txnNumber: string; contractorId: string; contractorName: string;
+  projectId: string; projectName: string; contractWorkId?: string | null;
+  date: string; amount: number; paymentMethodName: string; referenceNumber?: string | null;
+  description?: string | null; paymentKind: number; status: number;
+}
+
+export interface CostByHead { expenseHeadId: string; expenseHeadName: string; amount: number }
+
+export interface ContractorSummary {
+  contractorId: string; contractorName: string;
+  totalContracted: number; totalPaid: number; outstanding: number;
+  rows: { kind: string; ref: string; date: string; contracted: number; paid: number }[];
+}
+
 export interface ApprovalItem {
   id: string;
   entityType: string;
