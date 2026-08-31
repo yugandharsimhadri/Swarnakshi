@@ -4,6 +4,26 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-08-31 — Milestone: P0–P4 complete + P5 in progress
+
+**Status.** The core Construction Business OS is functional end to end:
+
+```
+Purchase → Site Inventory → Material Request → Owner Approval → Consumption → Project Cost
+Project  → Expense Head/Subhead → Material / Labour / Contractor / Other
+Project  → Contractor → Contract Work → Payments → Outstanding
+Project  → Customer  → Receipts → Outstanding
+```
+
+Every P1–P4 e2e smoke script passes against one fresh DB (cross-phase integration coherent);
+10 unit/integration tests green; `dotnet build` + `npm run build` clean.
+
+**Left for a v1.0 hardening pass** (backlog, not blocking use):
+attachments UI, optimistic concurrency tokens, site edit + user admin screens, skeleton loaders,
+more confirm dialogs, purchase-type material request UI, richer report filters, PWA manifest.
+
+---
+
 ## 2026-08-31 — P5 polish (round 2)
 
 **Done**
