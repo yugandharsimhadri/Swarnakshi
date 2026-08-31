@@ -48,6 +48,10 @@ public static class DependencyInjection
         // P3 — customers
         services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
 
+        // P4 — dashboard + reports
+        services.AddScoped<Dashboard.IDashboardService, Dashboard.DashboardService>();
+        services.AddScoped<Reports.IReportsService, Reports.ReportsService>();
+
         // approval handlers
         services.AddScoped<IApprovalHandler, PurchaseApprovalHandler>();
         services.AddScoped<IApprovalHandler, MaterialRequestApprovalHandler>();
