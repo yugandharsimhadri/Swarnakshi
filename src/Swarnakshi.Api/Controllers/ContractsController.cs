@@ -14,9 +14,9 @@ namespace Swarnakshi.Api.Controllers;
 public class ContractsController(IContractWorkService contracts) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? projectId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? projectId,
         [FromQuery] Guid? contractorId, [FromQuery] ContractWorkStatus? status, CancellationToken ct)
-        => this.Envelope(await contracts.ListAsync(page, projectId, contractorId, status, ct));
+        => this.Envelope(await contracts.ListAsync(paging, projectId, contractorId, status, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct) => this.Envelope(await contracts.GetAsync(id, ct));
@@ -38,9 +38,9 @@ public class ContractsController(IContractWorkService contracts) : ControllerBas
 public class ContractorPaymentsController(IContractorPaymentService payments) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? projectId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? projectId,
         [FromQuery] Guid? contractorId, [FromQuery] TransactionStatus? status, CancellationToken ct)
-        => this.Envelope(await payments.ListAsync(page, projectId, contractorId, status, ct));
+        => this.Envelope(await payments.ListAsync(paging, projectId, contractorId, status, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct) => this.Envelope(await payments.GetAsync(id, ct));

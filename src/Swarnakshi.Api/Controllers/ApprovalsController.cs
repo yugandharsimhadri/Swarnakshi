@@ -16,9 +16,9 @@ public class ApprovalsController(IApprovalService approvals) : ControllerBase
 {
     [HttpGet]
     [RequiresPermission(Permissions.ApprovalsDecide)]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] string? type,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] string? type,
         [FromQuery] bool pendingOnly = true, CancellationToken ct = default)
-        => this.Envelope(await approvals.ListAsync(page, type, pendingOnly, ct));
+        => this.Envelope(await approvals.ListAsync(paging, type, pendingOnly, ct));
 
     [HttpGet("count")]
     [RequiresPermission(Permissions.ApprovalsDecide)]

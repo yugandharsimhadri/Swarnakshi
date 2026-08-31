@@ -23,10 +23,10 @@ public class InventoryController(IInventoryService inventory) : ControllerBase
         => this.Envelope(await inventory.MaterialDetailAsync(siteId, materialId, ct));
 
     [HttpGet("transactions")]
-    public async Task<IActionResult> Ledger([FromQuery] PageQuery page, [FromQuery] Guid? siteId,
+    public async Task<IActionResult> Ledger([FromQuery] PageQuery paging, [FromQuery] Guid? siteId,
         [FromQuery] Guid? materialId, [FromQuery] Guid? projectId, [FromQuery] InventoryTransactionType? type,
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
-        => this.Envelope(await inventory.LedgerAsync(page, siteId, materialId, projectId, type, from, to, ct));
+        => this.Envelope(await inventory.LedgerAsync(paging, siteId, materialId, projectId, type, from, to, ct));
 
     [HttpPost("opening-stock")]
     [RequiresPermission(Permissions.InventoryAdjust)]
