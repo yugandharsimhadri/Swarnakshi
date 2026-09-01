@@ -61,7 +61,12 @@ jobs:
       # explicit setup step.
       - run: pwsh tests/Swarnakshi.UatTests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
 
+      # The suite runs headed by default so a developer can watch it. There is no display here, and
+      # a headed Chromium on a bare runner fails to launch rather than falling back — so it is turned
+      # off explicitly rather than relying on the CI environment variable being noticed.
       - run: dotnet test tests/Swarnakshi.UatTests -c Release --no-build -p:Uat=true --verbosity minimal
+        env:
+          SWARNAKSHI_UAT_HEADED: "false"
 
       # The failure screenshots are the point of the suite when something breaks in CI.
       - uses: actions/upload-artifact@v4

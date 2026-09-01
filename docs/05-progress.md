@@ -4,6 +4,22 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — UAT runs headed
+
+The suite ran headless, so watching it was impossible and the answer to "did anything happen?" was a
+log line. The browser is now visible by default — this suite is the walkthrough of the product as
+much as its test, and a run nobody can see is one nobody can film or trust.
+
+It turns itself off on CI, where there is no display and a headed Chromium fails to launch rather
+than falling back. The `uat` job also sets `SWARNAKSHI_UAT_HEADED=false` explicitly, so the reason is
+visible where it matters rather than resting on an environment variable being noticed.
+
+Headed is only visibility. Pacing and captions still belong to demo mode
+(`SWARNAKSHI_UAT_RUN_MODE=demo`), which was already there and is unchanged, so an ordinary run is
+still as fast as the browser will go — 24 cases in about 100 seconds headed, against 75 headless.
+
+---
+
 ## 2026-09-01 — Project progress: stage counts and a completion percentage
 
 The Projects screen showed a flat list and one status chip. It now answers the question the office

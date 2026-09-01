@@ -48,6 +48,36 @@ One scenario, one viewport:
 dotnet test tests/Swarnakshi.UatTests -p:Uat=true --filter "FullyQualifiedName~MaterialCatalogueUatTests"
 ```
 
+### Watching it
+
+The browser is **visible by default** — the suite is the walkthrough of the product as much as its
+test, and a run nobody can see is one nobody can film or trust. Nothing to pass:
+
+```bash
+dotnet test tests/Swarnakshi.UatTests -p:Uat=true
+```
+
+It turns itself off on CI, where there is no display and a headed Chromium fails to launch rather
+than falling back. `SWARNAKSHI_UAT_HEADED=false` forces headless anywhere — worth it when you want
+the fastest possible run and do not care to watch.
+
+Headed is only visibility: an ordinary run still goes as fast as the browser will. For a paced run
+with each narration beat drawn on screen as a caption, use demo mode:
+
+```bash
+SWARNAKSHI_UAT_RUN_MODE=demo dotnet test tests/Swarnakshi.UatTests -p:Uat=true
+```
+
+Demo is the same journey, not a second script — the captions are the same strings that name the
+failing step when a run breaks. That is why the scenarios live in the automation library rather than
+the test project: what is demonstrated and what is signed off cannot drift apart.
+
+One journey, both viewports:
+
+```bash
+SWARNAKSHI_UAT_RUN_MODE=demo dotnet test tests/Swarnakshi.UatTests -p:Uat=true --filter "FullyQualifiedName~PurchaseUatTests"
+```
+
 ### Ports
 
 The suite runs on **6070 (client) / 6071 (API)** — deliberately not the 6050/6051 a developer uses.
@@ -73,7 +103,8 @@ Every value has a working default; a bare `dotnet test` needs no configuration.
 |---|---|---|
 | `SWARNAKSHI_UAT_BASE_URL` | `http://localhost:6070` | Where the client is served |
 | `SWARNAKSHI_UAT_API_BASE_URL` | `http://localhost:6071` | Where the API is served |
-| `SWARNAKSHI_UAT_RUN_MODE` | `test` | `test` (headless) or `demo` (headed, captioned) |
+| `SWARNAKSHI_UAT_RUN_MODE` | `test` | `test` (plain) or `demo` (paced, captioned) |
+| `SWARNAKSHI_UAT_HEADED` | `true` (`false` on CI) | Whether the browser is visible |
 | `SWARNAKSHI_UAT_VIEWPORT` | `desktop` | Default viewport; the suite overrides it per case |
 | `SWARNAKSHI_UAT_MANAGE_SERVERS` | `true` | `false` to attach to servers you started yourself |
 | `SWARNAKSHI_UAT_MOBILE_DEVICE` | `iPhone 15 Pro` | Playwright device descriptor for the mobile viewport |

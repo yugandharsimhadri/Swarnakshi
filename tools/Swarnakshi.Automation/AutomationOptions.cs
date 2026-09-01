@@ -87,7 +87,17 @@ public sealed record AutomationOptions
     /// <summary>How long a caption stays on screen before the step it describes runs.</summary>
     public int CaptionHoldMs => RunMode == RunMode.Demo ? 1500 : 0;
 
-    public bool Headed => RunMode != RunMode.Test;
+    /// <summary>
+    /// Whether the browser is visible. Headed by default: this suite is the walkthrough of the
+    /// product as much as its test, and a run nobody can see is one nobody can film or trust.
+    ///
+    /// Forced off on CI, where there is no display — a headed Chromium on a bare runner fails to
+    /// launch rather than quietly falling back. SWARNAKSHI_UAT_HEADED overrides either way.
+    ///
+    /// Headed is only visibility. Pacing and captions belong to Demo mode, so an ordinary headed run
+    /// is still as fast as the browser will go.
+    /// </summary>
+    public bool Headed { get; init; } = true;
 
     public bool ShowCaptions => RunMode != RunMode.Test;
 
@@ -96,7 +106,7 @@ public sealed record AutomationOptions
     /// SWARNAKSHI_UAT_BASE_URL, SWARNAKSHI_UAT_API_BASE_URL, SWARNAKSHI_UAT_RUN_MODE (test|demo),
     /// SWARNAKSHI_UAT_VIEWPORT (desktop|mobile), SWARNAKSHI_UAT_WEB_PATH,
     /// SWARNAKSHI_UAT_MANAGE_SERVERS (true|false), SWARNAKSHI_UAT_MOBILE_DEVICE,
-    /// SWARNAKSHI_UAT_DESKTOP_SIZE (WIDTHxHEIGHT).
+    /// SWARNAKSHI_UAT_DESKTOP_SIZE (WIDTHxHEIGHT), SWARNAKSHI_UAT_HEADED (true|false).
     /// </summary>
     public static AutomationOptions FromEnvironment(
         RunMode defaultRunMode = RunMode.Test,
@@ -114,6 +124,7 @@ public sealed record AutomationOptions
             ManageServers = !string.Equals(Env("SWARNAKSHI_UAT_MANAGE_SERVERS"), "false",
                 StringComparison.OrdinalIgnoreCase),
             MobileDevice = Env("SWARNAKSHI_UAT_MOBILE_DEVICE") ?? "iPhone 15 Pro",
+            Headed = ParseBool(Env("SWARNAKSHI_UAT_HEADED")) ?? !IsContinuousIntegration,
             DesktopWidth = width,
             DesktopHeight = height,
         };
@@ -145,6 +156,13 @@ public sealed record AutomationOptions
         var value = Environment.GetEnvironmentVariable(name);
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
+
+    /// <summary>Both are set by GitHub Actions; either is enough to mean "no display here".</summary>
+    private static bool IsContinuousIntegration
+        => Env("CI") is not null || Env("GITHUB_ACTIONS") is not null;
+
+    private static bool? ParseBool(string? value)
+        => bool.TryParse(value, out var parsed) ? parsed : null;
 
     private static TEnum ParseEnum<TEnum>(string? value, TEnum fallback) where TEnum : struct
         => Enum.TryParse<TEnum>(value, ignoreCase: true, out var parsed) ? parsed : fallback;

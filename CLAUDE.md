@@ -22,7 +22,8 @@ Read `docs/05-progress.md` first, then `docs/01-architecture.md` and `docs/09-sa
 ```
 dotnet build
 dotnet test                                   # unit + integration (fast) — UAT is gated out
-dotnet test tests/Swarnakshi.UatTests -p:Uat=true   # browser UAT (starts its own servers, minutes)
+dotnet test tests/Swarnakshi.UatTests -p:Uat=true   # browser UAT, headed (starts its own servers, minutes)
+SWARNAKSHI_UAT_RUN_MODE=demo dotnet test tests/Swarnakshi.UatTests -p:Uat=true   # paced + captioned
 dotnet run --project src/Swarnakshi.Api
 dotnet ef migrations add <Name> --project src/Swarnakshi.Infrastructure --startup-project src/Swarnakshi.Api
 cd web && npm run dev
