@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "@/store/auth";
 
 const tabs = [
   { to: "/", label: "Home", icon: "⌂", end: true },
@@ -9,8 +10,11 @@ const tabs = [
 ];
 
 export default function AppShell() {
+  const company = useAuth((s) => s.company);
+
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col">
+      <LicenceBanner company={company} />
       <main className="flex-1 px-3 pb-24 pt-3">
         <Outlet />
       </main>
@@ -34,6 +38,27 @@ export default function AppShell() {
           ))}
         </div>
       </nav>
+    </div>
+  );
+}
+
+/**
+ * Warns before a licence lapses rather than after. A builder who loses access mid-month has to
+ * chase somebody; a fortnight of notice lets them renew on their own schedule.
+ */
+function LicenceBanner({ company }: { company: { name: string; daysToExpiry: number } | null }) {
+  if (!company || company.daysToExpiry > 14) return null;
+
+  const urgent = company.daysToExpiry <= 3;
+  const days = company.daysToExpiry;
+
+  return (
+    <div role="status" className={`px-3 pt-3 text-xs ${urgent ? "text-danger" : "text-warn"}`}>
+      <div className={`rounded-xl px-3 py-2 ${urgent ? "bg-danger/10" : "bg-warn/10"}`}>
+        {days <= 0
+          ? "Your licence has expired. Ask your Swarnakshi administrator to renew it."
+          : `Your licence expires in ${days} day${days === 1 ? "" : "s"}. Ask your Swarnakshi administrator to renew it.`}
+      </div>
     </div>
   );
 }

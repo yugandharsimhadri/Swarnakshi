@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/inventory")]
 [Authorize]
+[TenantOnly]
 public class InventoryController(IInventoryService inventory) : ControllerBase
 {
     [HttpGet]

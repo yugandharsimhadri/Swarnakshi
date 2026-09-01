@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/sites")]
 [Authorize]
+[TenantOnly]
 public class SitesController(ISiteService sites) : ControllerBase
 {
     [HttpGet]

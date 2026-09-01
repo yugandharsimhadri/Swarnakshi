@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/contracts")]
 [Authorize]
+[TenantOnly]
 public class ContractsController(IContractWorkService contracts) : ControllerBase
 {
     [HttpGet]
@@ -35,6 +36,7 @@ public class ContractsController(IContractWorkService contracts) : ControllerBas
 [ApiController]
 [Route("api/contractor-payments")]
 [Authorize]
+[TenantOnly]
 public class ContractorPaymentsController(IContractorPaymentService payments) : ControllerBase
 {
     [HttpGet]

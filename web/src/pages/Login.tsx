@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 import { Button, ErrorText, Field, Input } from "@/components/ui";
 import type { ApiError } from "@/lib/api";
 
 export default function Login() {
   const login = useAuth((s) => s.login);
-  const [email, setEmail] = useState("owner@swarnakshi.local");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -15,7 +16,7 @@ export default function Login() {
     setBusy(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(identifier.trim(), password);
     } catch (err) {
       setError(err as ApiError);
     } finally {
@@ -31,17 +32,38 @@ export default function Login() {
       </div>
 
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Email">
-          <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Field label="Username">
+          <Input
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            placeholder="yourname@companycode"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+          />
         </Field>
         <Field label="Password">
-          <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </Field>
         <ErrorText error={error} />
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </Button>
       </form>
+
+      <p className="mt-6 text-center text-xs text-text-dim">
+        New company?{" "}
+        <Link to="/register" className="font-semibold text-brand-ink underline">
+          Register here
+        </Link>
+      </p>
     </div>
   );
 }

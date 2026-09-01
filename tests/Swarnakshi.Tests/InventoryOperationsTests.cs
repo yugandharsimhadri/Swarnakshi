@@ -135,7 +135,7 @@ public class InventoryOperationsTests
         await inv.OpeningStockAsync(new OpeningStockRequest(site.Id, material.Id, 100, 400, Today, null));
 
         // Drop to a supervisor-like permission set: no approvals.decide.
-        host.CurrentUser.SetUser(host.CurrentUser.UserId!.Value, UserRole.Supervisor,
+        host.ActAs(host.CurrentUser.UserId!.Value, UserRole.Supervisor,
             [Swarnakshi.Application.Security.Permissions.InventoryView,
              Swarnakshi.Application.Security.Permissions.InventoryAdjust]);
 

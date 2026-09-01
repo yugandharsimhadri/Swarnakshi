@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api")]
 [Authorize]
+[TenantOnly]
 public class LookupsController(IMasterService masters) : ControllerBase
 {
     [HttpGet("units")]
@@ -43,6 +44,7 @@ public class LookupsController(IMasterService masters) : ControllerBase
 [ApiController]
 [Route("api/materials")]
 [Authorize]
+[TenantOnly]
 public class MaterialsController(IMaterialService materials) : ControllerBase
 {
     [HttpGet]
@@ -102,6 +104,7 @@ public class MaterialsController(IMaterialService materials) : ControllerBase
 /// </summary>
 [ApiController]
 [Authorize]
+[TenantOnly]
 public class PartiesController(IPartyService parties) : ControllerBase
 {
     private const string PartyRoute = "^(contractors|customers|suppliers)$";

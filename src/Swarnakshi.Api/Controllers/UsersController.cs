@@ -9,6 +9,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize]
+[TenantOnly]
 [RequiresPermission(Permissions.UsersManage)]
 public class UsersController(IUserService users) : ControllerBase
 {

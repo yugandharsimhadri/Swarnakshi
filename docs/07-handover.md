@@ -3,9 +3,10 @@
 Everything a new developer needs to pick up Swarnakshi. Read this, then
 [01-architecture](01-architecture.md) and skim [05-progress](05-progress.md).
 
-> **Status at handover (2026-08-31):** the full 6-phase plan (P0–P5) from the master spec is
-> **complete and verified**. What's left is the optional P6 enhancement backlog (§11).
-> Last commit on `main`: see `git log`. `dotnet build` + `dotnet test` (11) + `npm run build` all green.
+> **Status at handover (2026-09-01):** the 6-phase plan (P0–P5) is complete, and the product has
+> since become **multi-tenant SaaS** — company registration, tenant isolation and an EnterpriseAdmin
+> console. Read **[09-saas-tenancy](09-saas-tenancy.md)** before touching data access.
+> `dotnet build` + `dotnet test` (153) + `npm run build` all green.
 
 ---
 
@@ -13,6 +14,9 @@ Everything a new developer needs to pick up Swarnakshi. Read this, then
 
 | Area | State |
 |------|-------|
+| **Multi-tenancy** — `CompanyId` + global query filters + per-company unique indexes | ✅ done |
+| **Company registration** (public) with per-tenant master-data provisioning | ✅ done |
+| **EnterpriseAdmin console** — licence expiry, company-admin password reset, suspend | ✅ done |
 | Auth (JWT + refresh), users, roles, fine-grained permissions | ✅ done |
 | **User administration** UI (create, role, active, Sub-Owner permissions, Supervisor site scoping, password reset) | ✅ done |
 | Sites (+ edit), projects (+ edit), all master data + Indian-construction seed | ✅ done |
@@ -56,7 +60,8 @@ npm run dev
 #   http://localhost:6050  (proxies /api → :6051)
 ```
 
-Login: **`owner@swarnakshi.local` / `Owner@123`**
+Login: **`owner@swarnakshi` / `Owner@123`**  (logins are `username@companycode`)
+Platform: **`EnterpriseAdmin` / `SivAyAAn@HMS`** — its own console, no company data.
 Dev seeds demo data (`Seed:Demo=true` in `appsettings.Development.json`): 2 sites, 3 villas,
 1 customer — all rows tagged `IsDemo = true`.
 
@@ -147,11 +152,16 @@ scratchpad/ (git-ignored temp)   p1test.mjs … p4test.mjs — Node e2e smoke sc
    value converter in `AppDbContext.OnModelCreating` is applied *only* under SQLite.
 9. **Transaction numbers** come from `ITransactionSequenceService.NextAsync(prefix)` —
    `PUR / MATREQ / INV / EXP / LAB / CONPAY / CUSTPAY`. Never expose DB ids as business refs.
-10. **Optimistic concurrency is automatic** for `AuditableEntity` — `ConcurrencyToken` is
+10. **Tenancy is automatic — do not hand-roll it.** Query normally: the global filter scopes every
+   read to the signed-in company. Insert normally: `SaveChangesAsync` stamps `CompanyId` and
+   **throws** if no tenant is in scope. Only cross the filter deliberately, with
+   `BeginTenantScope` or `IgnoreQueryFilters()`, and expect that to be questioned in review.
+   New uniqueness rules go on `(CompanyId, …)`, never on the column alone.
+11. **Optimistic concurrency is automatic** for `AuditableEntity` — `ConcurrencyToken` is
    regenerated in `SaveChangesAsync` and enforced as a concurrency token. Load entities
    *tracked* (`FirstOrDefaultAsync`, not `AsNoTracking`) in write paths so EF has the original
    token for the `WHERE` clause. A stale write surfaces as HTTP 409.
-11. **Every PR updates `docs/05-progress.md`** in the same commit as the code.
+12. **Every PR updates `docs/05-progress.md`** in the same commit as the code.
 
 ---
 

@@ -19,9 +19,11 @@ import Contractors from "@/pages/Contractors";
 import Customers from "@/pages/Customers";
 import { ReportsHub, ReportView } from "@/pages/Reports";
 import Users from "@/pages/Users";
+import Register from "@/pages/Register";
+import PlatformConsole from "@/pages/PlatformConsole";
 
 export default function App() {
-  const { user, loading, bootstrap } = useAuth();
+  const { user, platformUser, loading, bootstrap } = useAuth();
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
 
@@ -29,8 +31,15 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {!user ? (
+      {platformUser ? (
+        // A platform operator gets its own console and nothing else — there is no company shell
+        // for it to render, and no company route it is allowed to reach.
         <Routes>
+          <Route path="*" element={<PlatformConsole />} />
+        </Routes>
+      ) : !user ? (
+        <Routes>
+          <Route path="/register" element={<Register />} />
           <Route path="*" element={<Login />} />
         </Routes>
       ) : (

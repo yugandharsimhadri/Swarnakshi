@@ -10,6 +10,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/customer-payments")]
 [Authorize]
+[TenantOnly]
 public class CustomerPaymentsController(ICustomerPaymentService payments) : ControllerBase
 {
     [HttpGet]

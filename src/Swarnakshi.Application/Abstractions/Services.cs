@@ -6,7 +6,14 @@ namespace Swarnakshi.Application.Abstractions;
 public interface ICurrentUser
 {
     Guid? UserId { get; }
-    string? Email { get; }
+
+    /// <summary>Tenant of the signed-in user. Null for anonymous requests and for platform operators.</summary>
+    Guid? CompanyId { get; }
+
+    /// <summary>True when the caller is an EnterpriseAdmin — a platform operator, not a company user.</summary>
+    bool IsPlatformAdmin { get; }
+
+    string? Username { get; }
     UserRole? Role { get; }
     bool IsAuthenticated { get; }
     IReadOnlyCollection<string> Permissions { get; }
@@ -23,7 +30,11 @@ public record TokenPair(string AccessToken, DateTimeOffset AccessTokenExpiresAt,
 
 public interface IJwtTokenService
 {
-    TokenPair Issue(User user, IEnumerable<string> permissions);
+    /// <summary>Token for a company user. Carries the tenant id — the API trusts nothing else for scoping.</summary>
+    TokenPair Issue(User user, Company company, IEnumerable<string> permissions);
+
+    /// <summary>Token for a platform operator. Carries no tenant, so tenant endpoints reject it.</summary>
+    TokenPair IssuePlatform(PlatformUser user);
 }
 
 public interface ITransactionSequenceService

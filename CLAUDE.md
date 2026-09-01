@@ -1,8 +1,13 @@
 # CLAUDE.md — working notes for AI assistants
 
-Read `docs/05-progress.md` first, then `docs/01-architecture.md`.
+Read `docs/05-progress.md` first, then `docs/01-architecture.md` and `docs/09-saas-tenancy.md`.
 
 ## Rules
+- **Multi-tenant.** Every tenant row has `CompanyId`; a global query filter scopes reads and
+  `SaveChangesAsync` stamps writes. Never add `WHERE CompanyId` by hand; never bypass the filter
+  except with `BeginTenantScope` / `IgnoreQueryFilters()`. Unique indexes go on `(CompanyId, …)`.
+- Logins are `username@companycode`. `EnterpriseAdmin` is a `PlatformUser`, has no company, and
+  must never reach company data.
 - Clean Architecture: `Domain` (no deps) ← `Application` ← `Infrastructure`/`Api`.
 - Business logic in Domain/Application only. Controllers are thin. No logic in the React UI.
 - Never hard-delete financial/inventory rows — cancel / reverse / void.

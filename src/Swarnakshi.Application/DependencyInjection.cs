@@ -58,6 +58,10 @@ public static class DependencyInjection
         services.AddScoped<Attachments.IAttachmentService, Attachments.AttachmentService>();
         services.AddScoped<Users.IUserService, Users.UserService>();
 
+        // SaaS — tenant registration and the platform (EnterpriseAdmin) console
+        services.AddScoped<Platform.ICompanyRegistrationService, Platform.CompanyRegistrationService>();
+        services.AddScoped<Platform.IPlatformAdminService, Platform.PlatformAdminService>();
+
         // approval handlers
         services.AddScoped<IApprovalHandler, PurchaseApprovalHandler>();
         services.AddScoped<IApprovalHandler, MaterialRequestApprovalHandler>();

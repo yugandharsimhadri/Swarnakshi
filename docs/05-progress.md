@@ -4,6 +4,67 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — SaaS: multi-tenancy, company registration, EnterpriseAdmin
+
+Swarnakshi becomes SaaS. It is now **one customer among many** — a company with several sites —
+and any builder can register their own. Full detail in **[09-saas-tenancy](09-saas-tenancy.md)**.
+
+**Domain**
+- `Company` (tenant) and `PlatformUser` (EnterpriseAdmin) inherit a new `PlatformEntity` — above tenancy.
+- `BaseEntity` gains `CompanyId` via `ITenantOwned`; `User` gains `Username`, `IsCompanyAdmin`,
+  `TokensValidFrom`; `Email` becomes optional contact rather than the login.
+
+**Isolation** (three mechanisms, none of which a new feature can forget)
+- Global query filter on every `ITenantOwned` entity, applied by reflection so a new entity is
+  isolated the moment it joins the model. Null tenant filters to nothing — fail-safe.
+- Insert stamp in `SaveChangesAsync`; a write with no tenant in scope **throws** rather than
+  writing an orphan row.
+- Every unique index is now composite on `(CompanyId, …)` — codes, `SpecSignature`, every
+  `TxnNumber`, and `TransactionSequence`, so each company numbers documents from 00001.
+- `IAppDbContext.BeginTenantScope(companyId)` for the deliberate crossings (login, registration
+  seeding, the platform console).
+
+**Identity** — `username@companycode`. Usernames unique per company; company codes globally unique;
+company names free to repeat. One login box: no `@` means a platform operator.
+
+**Registration** — public `POST /api/register`, 30-day trial, provisions the tenant with its own
+units / 50-category taxonomy / expense heads / labour categories / payment methods / settings.
+
+**EnterpriseAdmin** (`EnterpriseAdmin` / `SivAyAAn@HMS`) — licence expiry and company-admin password
+resets, and nothing else. Structurally barred from company data: no CompanyId, so the filters
+exclude it. Its own console screen.
+
+**Gates** — `[TenantOnly]` / `[PlatformOnly]` on every controller: 403 for the wrong token kind or a
+suspended company, 402 for an expired licence, 401 for a token predating a password reset.
+
+**Frontend** — login by `username@companycode` with live company-code availability on a new
+registration screen; Enterprise console (licence extend / set / suspend / reset password); licence
+banner from 14 days out; Users screen switched to usernames.
+
+**Upgrade path** — `PlatformSeeder` creates the founding `swarnakshi` company and adopts every
+pre-tenancy row into it, so an existing database keeps its business. Seeded owner: `owner@swarnakshi`.
+
+**Verified** — 153 unit/integration tests (21 new in `MultiTenancyTests`) + 25 live-API checks in
+`scratchpad/saastest.mjs`; registration, isolation, console and licence flows checked in the browser.
+
+**Two real defects this work surfaced and fixed**
+1. `AppDbContext` snapshotted the tenant in its constructor. Correct per-request in production, but
+   it froze whatever identity existed when the context was first resolved — nobody, if anything
+   touched it before authentication. Now a property resolved per query.
+2. A password reset cleared the refresh token but left the live access token working for the rest of
+   its hour — the exact hour a compromised session would use. `TokensValidFrom` vs the `swk_iat`
+   claim now kills it immediately.
+
+**Gotchas**
+- Query filters must close over a context **property/field**, and the model is cached — build the
+  filter through a generic helper so EF resolves it against the executing instance.
+- `IgnoreQueryFilters()` is required for any legitimately cross-tenant read (login by refresh token,
+  the platform console) — and should be rare enough to notice in review.
+- The UAT suite launches the API with `-c Debug --no-build`; running `dotnet test` for it in
+  Release fails all cases with "cannot find Swarnakshi.Api.exe".
+
+---
+
 ## 2026-09-01 — A stale `reload` could make a list contradict its own filters
 
 **Product bug, found by the mobile UAT run.** A mutation handler closes over `reload` at the moment

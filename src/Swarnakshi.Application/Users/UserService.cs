@@ -2,16 +2,17 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Application.Common;
+using Swarnakshi.Application.Platform;
 using Swarnakshi.Application.Security;
 using Swarnakshi.Domain.Entities;
 using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Application.Users;
 
-public record UserDto(Guid Id, string Name, string Email, UserRole Role, bool IsActive,
+public record UserDto(Guid Id, string Name, string Username, string Login, string? Email, UserRole Role, bool IsActive, bool IsCompanyAdmin,
     IReadOnlyList<string> ExtraPermissions, IReadOnlyList<Guid> SiteIds);
 
-public record CreateUserRequest(string Name, string Email, string Password, UserRole Role);
+public record CreateUserRequest(string Name, string Username, string Password, UserRole Role, string? Email);
 public record UpdateUserRequest(string Name, UserRole Role, bool IsActive);
 public record SetPasswordRequest(string Password);
 public record SetPermissionsRequest(List<string> Permissions);
@@ -22,7 +23,9 @@ public class CreateUserValidator : AbstractValidator<CreateUserRequest>
     public CreateUserValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Username).Must(u => LoginIdentity.IsValidUsername(LoginIdentity.NormaliseUsername(u)))
+            .WithMessage("Username must be 3-60 characters: lowercase letters, digits, dot, underscore or hyphen.");
+        RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
         RuleFor(x => x.Password).MinimumLength(8).WithMessage("Password must be at least 8 characters.");
     }
 }
@@ -40,29 +43,39 @@ public interface IUserService
 }
 
 public class UserService(
-    IAppDbContext db, IPasswordHasher hasher, ICurrentUser currentUser,
+    IAppDbContext db, IPasswordHasher hasher, ICurrentUser currentUser, IDateTimeProvider clock,
     IValidator<CreateUserRequest> createValidator) : IUserService
 {
     public async Task<IReadOnlyList<UserDto>> ListAsync(CancellationToken ct = default)
-        => (await db.Users.AsNoTracking()
+    {
+        var code = await CompanyCodeAsync(ct);
+        return (await db.Users.AsNoTracking()
                 .Include(u => u.Permissions).Include(u => u.SiteAssignments)
                 .OrderBy(u => u.Name).ToListAsync(ct))
-            .Select(Map).ToList();
+            .Select(u => Map(u, code)).ToList();
+    }
 
     public async Task<UserDto> GetAsync(Guid id, CancellationToken ct = default)
-        => Map(await Load(id, ct));
+        => Map(await Load(id, ct), await CompanyCodeAsync(ct));
 
     public async Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct = default)
     {
         await createValidator.ValidateAndThrowAsync(req, ct);
-        var email = req.Email.Trim().ToLowerInvariant();
-        if (await db.Users.AnyAsync(u => u.Email == email, ct))
-            throw new AppException($"A user with email '{email}' already exists.", 409);
+        var username = LoginIdentity.NormaliseUsername(req.Username);
+
+        // Unique within this company only — the tenant filter scopes the check, and the composite
+        // index (CompanyId, Username) is what actually enforces it.
+        if (await db.Users.AnyAsync(u => u.Username == username, ct))
+            throw new AppException($"A user with username '{username}' already exists in this company.", 409);
 
         var user = new User
         {
-            Name = req.Name.Trim(), Email = email, PasswordHash = hasher.Hash(req.Password),
-            Role = req.Role, IsActive = true
+            Name = req.Name.Trim(),
+            Username = username,
+            Email = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim().ToLowerInvariant(),
+            PasswordHash = hasher.Hash(req.Password),
+            Role = req.Role,
+            IsActive = true
         };
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
@@ -92,6 +105,7 @@ public class UserService(
         user.PasswordHash = hasher.Hash(req.Password!);
         user.RefreshToken = null;
         user.RefreshTokenExpiry = null;
+        user.TokensValidFrom = clock.Now;
         await db.SaveChangesAsync(ct);
     }
 
@@ -126,8 +140,17 @@ public class UserService(
                .FirstOrDefaultAsync(u => u.Id == id, ct)
            ?? throw new NotFoundException("User", id);
 
-    private static UserDto Map(User u) => new(
-        u.Id, u.Name, u.Email, u.Role, u.IsActive,
+    /// <summary>The tenant's code, so each row can show the login exactly as the person types it.</summary>
+    private async Task<string> CompanyCodeAsync(CancellationToken ct)
+    {
+        var companyId = currentUser.CompanyId ?? throw new AppException("No company in scope.", 401);
+        return await db.Companies.AsNoTracking()
+            .Where(c => c.Id == companyId).Select(c => c.Code).FirstOrDefaultAsync(ct) ?? "?";
+    }
+
+    private static UserDto Map(User u, string companyCode) => new(
+        u.Id, u.Name, u.Username, LoginIdentity.Format(u.Username, companyCode), u.Email,
+        u.Role, u.IsActive, u.IsCompanyAdmin,
         u.Permissions.Where(p => p.Granted).Select(p => p.PermissionKey).ToList(),
         u.SiteAssignments.Select(a => a.SiteId).ToList());
 }

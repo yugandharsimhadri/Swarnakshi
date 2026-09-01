@@ -10,6 +10,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/simple-masters")]
 [Authorize]
+[TenantOnly]
 [RequiresPermission(Permissions.MastersManage)]
 public class SimpleMastersController(ISimpleMasterService svc) : ControllerBase
 {

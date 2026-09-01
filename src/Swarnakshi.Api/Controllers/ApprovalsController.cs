@@ -12,6 +12,7 @@ public record DecideBody(string? Remarks, bool AllowOverride);
 [ApiController]
 [Route("api/approvals")]
 [Authorize]
+[TenantOnly]
 public class ApprovalsController(IApprovalService approvals) : ControllerBase
 {
     [HttpGet]

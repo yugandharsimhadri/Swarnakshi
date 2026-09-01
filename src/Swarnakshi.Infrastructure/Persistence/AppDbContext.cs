@@ -10,6 +10,24 @@ namespace Swarnakshi.Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null)
     : DbContext(options), IAppDbContext
 {
+    private Guid? _scopeOverride;
+    private bool _hasScopeOverride;
+
+    /// <summary>
+    /// The tenant this context is currently acting as. Read by every global query filter and by the
+    /// insert stamp in <see cref="SaveChangesAsync"/>. Null means "no tenant" — which filters every
+    /// tenant table down to nothing, so an unauthenticated or platform request cannot see company
+    /// data by accident.
+    ///
+    /// Resolved on every read rather than captured in the constructor. A snapshot would freeze
+    /// whatever the identity happened to be when the context was first resolved — which, if
+    /// anything touches the context before authentication completes, is nobody.
+    /// </summary>
+    private Guid? CompanyScope => _hasScopeOverride ? _scopeOverride : currentUser?.CompanyId;
+
+    public DbSet<Company> Companies => Set<Company>();
+    public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
+
     public DbSet<User> Users => Set<User>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<UserSiteAssignment> UserSiteAssignments => Set<UserSiteAssignment>();
@@ -55,6 +73,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<TransactionSequence> TransactionSequences => Set<TransactionSequence>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
 
+    public IDisposable BeginTenantScope(Guid companyId) => new TenantScope(this, companyId);
+
+    private sealed class TenantScope : IDisposable
+    {
+        private readonly AppDbContext _db;
+        private readonly Guid? _previousOverride;
+        private readonly bool _hadOverride;
+
+        public TenantScope(AppDbContext db, Guid companyId)
+        {
+            _db = db;
+            _hadOverride = db._hasScopeOverride;
+            _previousOverride = db._scopeOverride;
+            db._scopeOverride = companyId;
+            db._hasScopeOverride = true;
+        }
+
+        public void Dispose()
+        {
+            _db._scopeOverride = _previousOverride;
+            _db._hasScopeOverride = _hadOverride;
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
@@ -68,6 +110,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
         var nullableDtoConverter = new ValueConverter<DateTimeOffset?, long?>(
             v => v.HasValue ? v.Value.UtcDateTime.Ticks : null,
             v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : null);
+
+        var applyFilter = typeof(AppDbContext)
+            .GetMethod(nameof(ApplyTenantFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         foreach (var et in b.Model.GetEntityTypes())
         {
@@ -91,8 +136,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
             if (typeof(AuditableEntity).IsAssignableFrom(et.ClrType)
                 && et.FindProperty(nameof(AuditableEntity.ConcurrencyToken)) is { } tokenProp)
                 tokenProp.IsConcurrencyToken = true;
+
+            // Tenant isolation, applied to every ITenantOwned entity rather than one at a time:
+            // a new entity is isolated the moment it is added to the model, with nothing to remember.
+            if (typeof(ITenantOwned).IsAssignableFrom(et.ClrType) && !et.IsOwned())
+            {
+                applyFilter.MakeGenericMethod(et.ClrType).Invoke(this, [b]);
+                b.Entity(et.ClrType).HasIndex(nameof(ITenantOwned.CompanyId));
+            }
         }
     }
+
+    /// <summary>
+    /// Closes over <c>this.CompanyScope</c> deliberately: EF resolves a query filter's context
+    /// reference against the instance EXECUTING the query, so one cached model serves every tenant.
+    /// </summary>
+    private void ApplyTenantFilter<TEntity>(ModelBuilder b) where TEntity : class, ITenantOwned
+        => b.Entity<TEntity>().HasQueryFilter(e => e.CompanyId == CompanyScope);
 
     public override Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
@@ -104,6 +164,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
         {
             if (entry.State == EntityState.Added)
             {
+                // Stamp the tenant rather than trusting each service to remember it. Refusing to
+                // write an unowned row is the point: a row with no company would be visible to
+                // nobody and belong to nobody, and silently losing it is worse than failing here.
+                if (entry.Entity.CompanyId == Guid.Empty)
+                {
+                    entry.Entity.CompanyId = CompanyScope
+                        ?? throw new InvalidOperationException(
+                            $"Cannot insert {entry.Entity.GetType().Name}: no tenant is in scope. " +
+                            "Sign in as a company user, or wrap the write in IAppDbContext.BeginTenantScope.");
+                }
+
                 entry.Entity.CreatedAt = now;
                 entry.Entity.CreatedBy ??= uid;
                 if (entry.Entity is AuditableEntity)
@@ -127,6 +198,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
 
     private static AuditLog Audit(BaseEntity entity, string action, string? data, Guid? uid, DateTimeOffset at) => new()
     {
+        CompanyId = entity.CompanyId,
         EntityType = entity.GetType().Name,
         EntityId = entity.Id,
         Action = action,

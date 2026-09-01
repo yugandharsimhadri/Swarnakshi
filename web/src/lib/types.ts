@@ -4,27 +4,60 @@ export const RoleName: Record<Role, string> = { 1: "Owner", 2: "Sub-Owner", 3: "
 export interface AuthUser {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  /** username@companycode — what the person actually types to sign in. */
+  login: string;
+  email?: string | null;
   role: Role;
+  isCompanyAdmin: boolean;
   permissions: string[];
+}
+
+export interface CompanyInfo {
+  id: string;
+  code: string;
+  name: string;
+  licenseExpiresOn: string;
+  daysToExpiry: number;
+  isActive: boolean;
+}
+
+export interface PlatformUserInfo { id: string; username: string; displayName: string }
+
+export interface CompanyAdmin {
+  userId: string; name: string; username: string; login: string; email?: string | null; isActive: boolean;
+}
+
+export interface CompanyOverview {
+  id: string; code: string; name: string;
+  contactEmail?: string | null; contactMobile?: string | null;
+  licenseExpiresOn: string; daysToExpiry: number; isExpired: boolean; isActive: boolean;
+  createdAt: string; userCount: number; siteCount: number; projectCount: number;
+  admins: CompanyAdmin[];
 }
 
 export interface AdminUser {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  login: string;
+  email?: string | null;
   role: Role;
   isActive: boolean;
+  isCompanyAdmin: boolean;
   extraPermissions: string[];
   siteIds: string[];
 }
 
 export interface AuthResponse {
+  kind: 'tenant' | 'platform';
   accessToken: string;
   accessTokenExpiresAt: string;
   refreshToken: string;
   refreshTokenExpiresAt: string;
-  user: AuthUser;
+  user: AuthUser | null;
+  company: CompanyInfo | null;
+  platformUser: PlatformUserInfo | null;
 }
 
 export interface Paged<T> {

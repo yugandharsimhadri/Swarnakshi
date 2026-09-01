@@ -23,13 +23,17 @@ public sealed class TestHost : IAsyncDisposable
 
     private readonly string _storageRoot;
 
+    /// <summary>The tenant every test in this host writes into.</summary>
+    public Guid CompanyId { get; }
+
     private TestHost(SqliteConnection connection, ServiceProvider services, FakeCurrentUser currentUser,
-        string storageRoot)
+        string storageRoot, Guid companyId)
     {
         _connection = connection;
         Services = services;
         CurrentUser = currentUser;
         _storageRoot = storageRoot;
+        CompanyId = companyId;
     }
 
     public static async Task<TestHost> CreateAsync()
@@ -59,30 +63,56 @@ public sealed class TestHost : IAsyncDisposable
         var storageRoot = Path.Combine(Path.GetTempPath(), "swarnakshi-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(storageRoot);
         svc.AddSingleton<IFileStorage>(new LocalFileStorage(storageRoot));
+        svc.AddSingleton<Swarnakshi.Application.Platform.IRegistrationPolicy>(
+            new Swarnakshi.Infrastructure.RegistrationPolicy(30));
+        svc.AddScoped<Swarnakshi.Application.Platform.ICompanyProvisioner, CompanyProvisioner>();
         svc.AddApplication();
 
         var provider = svc.BuildServiceProvider();
 
+        // Every test runs inside one tenant, seeded the same way registration seeds a real one.
+        // CurrentUser is set BEFORE any tenant write so the query filter and the insert stamp agree.
+        var seedOptions = new PlatformSeedOptions();
+        Guid companyId;
         using (var scope = provider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await db.Database.EnsureCreatedAsync();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await MasterDataSeeder.RunAsync(db, hasher, "owner@test.local", "pw");
+            var clock = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+            companyId = await PlatformSeeder.RunAsync(db, hasher, seedOptions, clock.Today);
+            using (db.BeginTenantScope(companyId))
+                await MasterDataSeeder.RunAsync(db);
         }
 
-        var host = new TestHost(connection, provider, currentUser, storageRoot);
-        // resolve the seeded owner id so writes have a CreatedBy
+        var host = new TestHost(connection, provider, currentUser, storageRoot, companyId);
+        // Act as the seeded owner so writes have both a CreatedBy and a tenant.
         using (var scope = provider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var owner = db.Users.First();
-            currentUser.SetUser(owner.Id, owner.Role, Application.Security.Permissions.All);
+            var owner = db.Users.IgnoreQueryFilters().First(u => u.CompanyId == companyId);
+            currentUser.SetUser(owner.Id, companyId, owner.Role, Application.Security.Permissions.All);
         }
         return host;
     }
 
     public IServiceScope Scope() => Services.CreateScope();
+
+    /// <summary>Acts as another user of the same tenant — the services now read identity from ICurrentUser.</summary>
+    public void ActAs(Guid userId, UserRole role = UserRole.Owner, IEnumerable<string>? permissions = null)
+        => CurrentUser.SetUser(userId, CompanyId, role, permissions ?? Application.Security.Permissions.All);
+
+    public async Task<Application.Auth.AuthUserDto> MeAsAsync(Application.Auth.IAuthService auth, Guid userId)
+    {
+        ActAs(userId);
+        return (await auth.MeAsync()).User!;
+    }
+
+    public async Task LogoutAsAsync(Application.Auth.IAuthService auth, Guid userId)
+    {
+        ActAs(userId);
+        await auth.LogoutAsync();
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -96,16 +126,32 @@ public sealed class FakeCurrentUser : ICurrentUser
 {
     private string[] _permissions = [];
     public Guid? UserId { get; private set; }
-    public string? Email => "owner@test.local";
+    public Guid? CompanyId { get; private set; }
+    public bool IsPlatformAdmin { get; private set; }
+    public string? Username { get; private set; } = "owner";
     public UserRole? Role { get; private set; }
     public bool IsAuthenticated => UserId is not null;
     public IReadOnlyCollection<string> Permissions => _permissions;
-    public bool Has(string permissionKey) => _permissions.Contains(permissionKey);
+    public bool Has(string permissionKey) => !IsPlatformAdmin && _permissions.Contains(permissionKey);
 
-    public void SetUser(Guid id, UserRole role, IEnumerable<string> permissions)
+    public void SetUser(Guid id, Guid companyId, UserRole role, IEnumerable<string> permissions, string username = "owner")
     {
         UserId = id;
+        CompanyId = companyId;
+        IsPlatformAdmin = false;
+        Username = username;
         Role = role;
         _permissions = permissions.ToArray();
+    }
+
+    /// <summary>Acts as an EnterpriseAdmin: no company, so every tenant query filter excludes it.</summary>
+    public void SetPlatformUser(Guid id, string username = "enterpriseadmin")
+    {
+        UserId = id;
+        CompanyId = null;
+        IsPlatformAdmin = true;
+        Username = username;
+        Role = null;
+        _permissions = [];
     }
 }

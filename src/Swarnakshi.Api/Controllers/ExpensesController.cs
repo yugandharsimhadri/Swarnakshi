@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/expenses")]
 [Authorize]
+[TenantOnly]
 public class ExpensesController(IProjectExpenseService expenses) : ControllerBase
 {
     [HttpGet]
@@ -39,6 +40,7 @@ public record CancelBody(string Reason);
 [ApiController]
 [Route("api/labour")]
 [Authorize]
+[TenantOnly]
 public class LabourController(ILabourService labour) : ControllerBase
 {
     [HttpGet]

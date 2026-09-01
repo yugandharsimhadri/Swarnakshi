@@ -16,8 +16,8 @@ namespace Swarnakshi.Tests;
 /// </summary>
 public class AuthAndUserTests
 {
-    private const string OwnerEmail = "owner@test.local";
-    private const string OwnerPassword = "pw";
+    private const string OwnerLogin = "owner@swarnakshi";   // username@companycode
+    private const string OwnerPassword = "Owner@123";
 
     // ---- login -----------------------------------------------------------
 
@@ -28,14 +28,14 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var res = await auth.LoginAsync(new LoginRequest(OwnerEmail, OwnerPassword));
+        var res = await auth.LoginAsync(new LoginRequest(OwnerLogin, OwnerPassword));
 
         res.AccessToken.Should().NotBeNullOrWhiteSpace();
         res.RefreshToken.Should().NotBeNullOrWhiteSpace();
         res.AccessTokenExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow);
-        res.User.Email.Should().Be(OwnerEmail);
-        res.User.Role.Should().Be(UserRole.Owner);
-        res.User.Permissions.Should().Contain(Permissions.MastersManage);
+        res.User!.Login.Should().Be(OwnerLogin);
+        res.User!.Role.Should().Be(UserRole.Owner);
+        res.User!.Permissions.Should().Contain(Permissions.MastersManage);
     }
 
     [Fact]
@@ -45,23 +45,23 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var act = () => auth.LoginAsync(new LoginRequest(OwnerEmail, "wrong-password"));
+        var act = () => auth.LoginAsync(new LoginRequest(OwnerLogin, "wrong-password"));
 
         // Same message for both cases so the endpoint cannot be used to enumerate accounts.
-        (await act.Should().ThrowAsync<AppException>().WithMessage("Invalid email or password."))
+        (await act.Should().ThrowAsync<AppException>().WithMessage("Invalid username or password."))
             .And.StatusCode.Should().Be(401);
     }
 
     [Fact]
-    public async Task Login_with_an_unknown_email_gives_the_identical_error()
+    public async Task Login_with_an_unknown_user_gives_the_identical_error()
     {
         await using var host = await TestHost.CreateAsync();
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var act = () => auth.LoginAsync(new LoginRequest("nobody@test.local", OwnerPassword));
+        var act = () => auth.LoginAsync(new LoginRequest("nobody@swarnakshi", OwnerPassword));
 
-        await act.Should().ThrowAsync<AppException>().WithMessage("Invalid email or password.");
+        await act.Should().ThrowAsync<AppException>().WithMessage("Invalid username or password.");
     }
 
     [Fact]
@@ -74,12 +74,12 @@ public class AuthAndUserTests
         var auth = sp.GetRequiredService<IAuthService>();
 
         var supervisor = await users.CreateAsync(
-            new CreateUserRequest("Site Supervisor", "sup@test.local", "supervisor-pw", UserRole.Supervisor));
+            new CreateUserRequest("Site Supervisor", "sup", "supervisor-pw", UserRole.Supervisor, null));
         await users.UpdateAsync(supervisor.Id, new UpdateUserRequest("Site Supervisor", UserRole.Supervisor, false));
 
-        var act = () => auth.LoginAsync(new LoginRequest("sup@test.local", "supervisor-pw"));
+        var act = () => auth.LoginAsync(new LoginRequest("sup@swarnakshi", "supervisor-pw"));
 
-        await act.Should().ThrowAsync<AppException>().WithMessage("Invalid email or password.");
+        await act.Should().ThrowAsync<AppException>().WithMessage("Invalid username or password.");
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var owner = await db.Users.AsNoTracking().FirstAsync(u => u.Email == OwnerEmail);
+        var owner = await db.Users.AsNoTracking().FirstAsync(u => u.Username == "owner");
 
         owner.PasswordHash.Should().NotBe(OwnerPassword);
         owner.PasswordHash.Should().NotContain(OwnerPassword);
@@ -105,7 +105,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var first = await auth.LoginAsync(new LoginRequest(OwnerEmail, OwnerPassword));
+        var first = await auth.LoginAsync(new LoginRequest(OwnerLogin, OwnerPassword));
         var second = await auth.RefreshAsync(new RefreshRequest(first.RefreshToken));
 
         second.RefreshToken.Should().NotBe(first.RefreshToken, "refresh tokens must rotate");
@@ -133,8 +133,8 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var session = await auth.LoginAsync(new LoginRequest(OwnerEmail, OwnerPassword));
-        await auth.LogoutAsync(session.User.Id);
+        var session = await auth.LoginAsync(new LoginRequest(OwnerLogin, OwnerPassword));
+        await host.LogoutAsAsync(auth, session.User!.Id);
 
         var act = () => auth.RefreshAsync(new RefreshRequest(session.RefreshToken));
         await act.Should().ThrowAsync<AppException>();
@@ -152,25 +152,25 @@ public class AuthAndUserTests
         var auth = sp.GetRequiredService<IAuthService>();
 
         var created = await users.CreateAsync(
-            new CreateUserRequest("Anil Accountant", "anil@test.local", "accounts-pw", UserRole.Accountant));
+            new CreateUserRequest("Anil Accountant", "anil", "accounts-pw", UserRole.Accountant, null));
 
         created.Role.Should().Be(UserRole.Accountant);
         created.IsActive.Should().BeTrue();
 
-        var login = await auth.LoginAsync(new LoginRequest("anil@test.local", "accounts-pw"));
-        login.User.Role.Should().Be(UserRole.Accountant);
-        login.User.Permissions.Should().NotContain(Permissions.MastersManage);
+        var login = await auth.LoginAsync(new LoginRequest("anil@swarnakshi", "accounts-pw"));
+        login.User!.Role.Should().Be(UserRole.Accountant);
+        login.User!.Permissions.Should().NotContain(Permissions.MastersManage);
     }
 
     [Fact]
-    public async Task Duplicate_email_is_rejected()
+    public async Task Duplicate_username_within_a_company_is_rejected()
     {
         await using var host = await TestHost.CreateAsync();
         using var scope = host.Scope();
         var users = scope.ServiceProvider.GetRequiredService<IUserService>();
 
-        await users.CreateAsync(new CreateUserRequest("First", "dupe@test.local", "password1", UserRole.Supervisor));
-        var act = () => users.CreateAsync(new CreateUserRequest("Second", "dupe@test.local", "password2", UserRole.Accountant));
+        await users.CreateAsync(new CreateUserRequest("First", "dupe", "password1", UserRole.Supervisor, null));
+        var act = () => users.CreateAsync(new CreateUserRequest("Second", "dupe", "password2", UserRole.Accountant, null));
 
         await act.Should().ThrowAsync<AppException>().WithMessage("*already exists*");
     }
@@ -182,7 +182,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var users = scope.ServiceProvider.GetRequiredService<IUserService>();
 
-        var act = () => users.CreateAsync(new CreateUserRequest("Weak", "weak@test.local", "short", UserRole.Supervisor));
+        var act = () => users.CreateAsync(new CreateUserRequest("Weak", "weak", "short", UserRole.Supervisor, null));
 
         await act.Should().ThrowAsync<FluentValidation.ValidationException>();
     }
@@ -196,7 +196,7 @@ public class AuthAndUserTests
         var db = sp.GetRequiredService<AppDbContext>();
         var users = sp.GetRequiredService<IUserService>();
 
-        var me = await db.Users.AsNoTracking().FirstAsync(u => u.Email == OwnerEmail);
+        var me = await db.Users.AsNoTracking().FirstAsync(u => u.Username == "owner");
 
         var demoteSelf = () => users.UpdateAsync(me.Id, new UpdateUserRequest(me.Name, UserRole.Supervisor, true));
         var disableSelf = () => users.UpdateAsync(me.Id, new UpdateUserRequest(me.Name, UserRole.Owner, false));
@@ -216,7 +216,7 @@ public class AuthAndUserTests
 
         // A second Owner exists, so demoting them is allowed …
         var second = await users.CreateAsync(
-            new CreateUserRequest("Second Owner", "owner2@test.local", "owner2-pw", UserRole.Owner));
+            new CreateUserRequest("Second Owner", "owner2", "owner2-pw", UserRole.Owner, null));
         await users.UpdateAsync(second.Id, new UpdateUserRequest("Second Owner", UserRole.Supervisor, true));
 
         // … but now only the seeded Owner is left, and self-demotion is blocked anyway.
@@ -257,12 +257,12 @@ public class AuthAndUserTests
         var auth = sp.GetRequiredService<IAuthService>();
 
         var u = await users.CreateAsync(
-            new CreateUserRequest("Reset Me", "reset@test.local", "original-pw", UserRole.Supervisor));
+            new CreateUserRequest("Reset Me", "reset", "original-pw", UserRole.Supervisor, null));
         await users.SetPasswordAsync(u.Id, new SetPasswordRequest("brand-new-pw"));
 
-        (await auth.LoginAsync(new LoginRequest("reset@test.local", "brand-new-pw"))).User.Id.Should().Be(u.Id);
+        (await auth.LoginAsync(new LoginRequest("reset@swarnakshi", "brand-new-pw"))).User!.Id.Should().Be(u.Id);
 
-        var oldPassword = () => auth.LoginAsync(new LoginRequest("reset@test.local", "original-pw"));
+        var oldPassword = () => auth.LoginAsync(new LoginRequest("reset@swarnakshi", "original-pw"));
         await oldPassword.Should().ThrowAsync<AppException>();
     }
 
@@ -276,15 +276,15 @@ public class AuthAndUserTests
         var auth = sp.GetRequiredService<IAuthService>();
 
         var sub = await users.CreateAsync(
-            new CreateUserRequest("Sub Owner", "sub@test.local", "subowner-pw", UserRole.SubOwner));
+            new CreateUserRequest("Sub Owner", "sub", "subowner-pw", UserRole.SubOwner, null));
 
         // SubOwner's role default is deliberately narrow.
-        var before = await auth.MeAsync(sub.Id);
+        var before = await host.MeAsAsync(auth, sub.Id);
         before.Permissions.Should().NotContain(Permissions.MastersManage);
 
         await users.SetPermissionsAsync(sub.Id, new SetPermissionsRequest([Permissions.MastersManage]));
 
-        var after = await auth.MeAsync(sub.Id);
+        var after = await host.MeAsAsync(auth, sub.Id);
         after.Permissions.Should().Contain(Permissions.MastersManage);
         after.Permissions.Should().Contain(Permissions.InventoryView, "role defaults are kept as well");
     }
@@ -299,12 +299,12 @@ public class AuthAndUserTests
         var auth = sp.GetRequiredService<IAuthService>();
 
         var sub = await users.CreateAsync(
-            new CreateUserRequest("Sub Owner", "sub2@test.local", "subowner-pw", UserRole.SubOwner));
+            new CreateUserRequest("Sub Owner", "sub2", "subowner-pw", UserRole.SubOwner, null));
 
         try { await users.SetPermissionsAsync(sub.Id, new SetPermissionsRequest(["not.a.real.permission"])); }
         catch (AppException) { /* rejecting outright is also acceptable */ }
 
-        var me = await auth.MeAsync(sub.Id);
+        var me = await host.MeAsAsync(auth, sub.Id);
         me.Permissions.Should().NotContain("not.a.real.permission");
         me.Permissions.Should().OnlyContain(p => Permissions.All.Contains(p));
     }
@@ -318,10 +318,10 @@ public class AuthAndUserTests
         var db = sp.GetRequiredService<AppDbContext>();
         var auth = sp.GetRequiredService<IAuthService>();
 
-        var owner = await db.Users.AsNoTracking().FirstAsync(u => u.Email == OwnerEmail);
-        var me = await auth.MeAsync(owner.Id);
+        var owner = await db.Users.AsNoTracking().FirstAsync(u => u.Username == "owner");
+        var me = await host.MeAsAsync(auth, owner.Id);
 
-        me.Email.Should().Be(OwnerEmail);
+        me.Login.Should().Be(OwnerLogin);
         me.Permissions.Should().BeEquivalentTo(Permissions.All);
     }
 

@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/purchases")]
 [Authorize]
+[TenantOnly]
 public class PurchasesController(IPurchaseService purchases) : ControllerBase
 {
     [HttpGet]
@@ -41,6 +42,7 @@ public class PurchasesController(IPurchaseService purchases) : ControllerBase
 [ApiController]
 [Route("api/material-requests")]
 [Authorize]
+[TenantOnly]
 public class MaterialRequestsController(IMaterialRequestService requests) : ControllerBase
 {
     [HttpGet]

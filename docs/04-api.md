@@ -5,13 +5,19 @@ Auth: `Authorization: Bearer <jwt>`. Errors use the same envelope with HTTP 4xx/
 List endpoints accept `?page=&pageSize=&sort=&q=` plus resource-specific filters and return
 `{ items, page, pageSize, total }`.
 
+## Company registration (public)
+| Method | Route | Notes |
+|--------|-------|-------|
+| POST | `/api/register` | `{companyName, companyCode, username, password, confirmPassword, contactEmail?, contactMobile?}` → creates the tenant, its Owner and its master data. Code unique; name need not be. |
+| GET | `/api/register/code-available?code=` | live availability for the sign-up form |
+
 ## Auth
 | Method | Route | Role | Notes |
 |--------|-------|------|-------|
-| POST | `/api/auth/login` | anon | → access + refresh token, user profile |
+| POST | `/api/auth/login` | anon | `{login, password}` — `username@companycode` for a company user, a bare username for an EnterpriseAdmin. Returns `kind: "tenant" | "platform"`. |
 | POST | `/api/auth/refresh` | anon | rotate tokens |
 | POST | `/api/auth/logout` | any | revoke refresh token |
-| GET  | `/api/auth/me` | any | current user + permissions |
+| GET  | `/api/auth/me` | any | current user + permissions + company licence state |
 
 ## Masters (Owner write; all read)
 `/api/units`, `/api/material-categories`, `/api/material-subcategories`,
@@ -131,3 +137,26 @@ deactivation with stock.
 | POST | `/api/attachments` | multipart form: `entityType`, `entityId`, `file` (≤15 MB; pdf/image/office/csv/txt) |
 | GET | `/api/attachments/{id}/download` | streams the file |
 | DELETE | `/api/attachments/{id}` | |
+
+
+## Platform console (EnterpriseAdmin only)
+Every route is `[PlatformOnly]` — a company token gets **403**. None of them returns business data.
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| GET | `/api/platform/companies?q=` | every tenant: licence state, counts, admin logins |
+| GET | `/api/platform/companies/{id}` | one tenant |
+| PUT | `/api/platform/companies/{id}/license` | `{expiresOn, notes?}` — exact date |
+| POST | `/api/platform/companies/{id}/license/extend` | `{days}` — extends from today if already lapsed |
+| PUT | `/api/platform/companies/{id}/active` | `{isActive}` — suspend / reactivate |
+| POST | `/api/platform/companies/{id}/reset-password` | `{userId, newPassword, confirmPassword}` — also revokes live sessions |
+| POST | `/api/platform/change-password` | the operator's own password |
+
+## Tenant gates
+Every company endpoint carries `[TenantOnly]`, which answers before the action runs:
+
+| Status | When |
+|--------|------|
+| 401 | not signed in · account deactivated · token predates a password reset |
+| 402 | the company's licence has expired |
+| 403 | a platform token · a suspended company |

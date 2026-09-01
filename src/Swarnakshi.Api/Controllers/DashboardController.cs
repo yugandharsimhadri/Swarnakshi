@@ -12,6 +12,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/dashboard")]
 [Authorize]
+[TenantOnly]
 public class DashboardController(IDashboardService dashboard) : ControllerBase
 {
     [HttpGet]
@@ -21,6 +22,7 @@ public class DashboardController(IDashboardService dashboard) : ControllerBase
 [ApiController]
 [Route("api/reports")]
 [Authorize]
+[TenantOnly]
 [RequiresPermission(Permissions.ReportsView)]
 public class ReportsController(IReportsService reports) : ControllerBase
 {

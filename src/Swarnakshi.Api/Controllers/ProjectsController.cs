@@ -11,6 +11,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/projects")]
 [Authorize]
+[TenantOnly]
 public class ProjectsController(IProjectService projects) : ControllerBase
 {
     [HttpGet]

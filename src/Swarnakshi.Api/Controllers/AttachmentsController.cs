@@ -8,6 +8,7 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/attachments")]
 [Authorize]
+[TenantOnly]
 public class AttachmentsController(IAttachmentService attachments) : ControllerBase
 {
     [HttpGet]

@@ -42,7 +42,8 @@ npm approve-scripts esbuild   # one-time: npm gates the esbuild postinstall
 npm run dev
 ```
 
-Default login (seeded): `owner@swarnakshi.local` / `Owner@123`.
+Default login (seeded): `owner@swarnakshi` / `Owner@123` — logins are `username@companycode`.
+Platform operator: `EnterpriseAdmin` / `SivAyAAn@HMS` (licences and admin passwords only).
 
 ## Tests
 
@@ -73,6 +74,7 @@ mobile viewports. It never touches a dev server you have running. See **[docs/08
 - [Data model](docs/02-data-model.md)
 - [Workflows: approval, inventory, costing](docs/03-workflows.md)
 - [API reference](docs/04-api.md)
+- [SaaS & multi-tenancy](docs/09-saas-tenancy.md)
 - [Build & deployment](docs/06-deployment.md)
 - [Progress log](docs/05-progress.md) — running history, newest first
 

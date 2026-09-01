@@ -7,6 +7,10 @@ namespace Swarnakshi.Application.Abstractions;
 /// <summary>Persistence surface used by the Application layer. Implemented by Infrastructure's AppDbContext.</summary>
 public interface IAppDbContext
 {
+    /// <summary>Tenants. Above the tenant filter — reading this is a platform concern, not a company one.</summary>
+    DbSet<Company> Companies { get; }
+    DbSet<PlatformUser> PlatformUsers { get; }
+
     DbSet<User> Users { get; }
     DbSet<UserPermission> UserPermissions { get; }
     DbSet<UserSiteAssignment> UserSiteAssignments { get; }
@@ -54,4 +58,11 @@ public interface IAppDbContext
 
     DatabaseFacade Database { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Acts as <paramref name="companyId"/> until the returned scope is disposed: reads are filtered
+    /// to it and inserts are stamped with it. Needed where there is no signed-in user yet —
+    /// registration seeding — and by the platform console. Restores the previous tenant on dispose.
+    /// </summary>
+    IDisposable BeginTenantScope(Guid companyId);
 }

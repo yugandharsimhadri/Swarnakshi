@@ -29,7 +29,7 @@ export default function Users() {
                     <span className="text-sm font-semibold">{u.name}</span>
                     {!u.isActive && <Chip tone="danger">Inactive</Chip>}
                   </div>
-                  <div className="text-xs text-text-dim">{u.email}</div>
+                  <div className="text-xs text-text-dim">{u.login}</div>
                 </div>
                 <Chip tone="brand">{RoleName[u.role]}</Chip>
               </div>
@@ -58,7 +58,7 @@ export default function Users() {
 }
 
 function CreateUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "3" });
+  const [form, setForm] = useState({ name: "", username: "", password: "", role: "3", email: "" });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -74,7 +74,18 @@ function CreateUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: (
     <Sheet open={open} onClose={onClose} title="New user">
       <div className="space-y-3">
         <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-        <Field label="Email"><Input inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+        <Field label="Username">
+          <Input
+            autoCapitalize="none"
+            autoCorrect="off"
+            value={form.username}
+            onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
+            placeholder="anil"
+          />
+        </Field>
+        <Field label="Email (optional)">
+          <Input inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </Field>
         <Field label="Temporary password"><Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
         <Field label="Role">
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
@@ -82,7 +93,7 @@ function CreateUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: (
           </Select>
         </Field>
         <ErrorText error={err} />
-        <Button className="w-full" onClick={save} disabled={busy || !form.name || !form.email || form.password.length < 8}>
+        <Button className="w-full" onClick={save} disabled={busy || !form.name || form.username.length < 3 || form.password.length < 8}>
           Create user
         </Button>
       </div>

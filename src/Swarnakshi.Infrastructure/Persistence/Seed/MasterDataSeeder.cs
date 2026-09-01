@@ -9,14 +9,14 @@ namespace Swarnakshi.Infrastructure.Persistence.Seed;
 /// <summary>Idempotent seed of Indian-construction master data + the initial Owner user. Safe to run every startup.</summary>
 public static class MasterDataSeeder
 {
-    public static async Task RunAsync(AppDbContext db, IPasswordHasher hasher, string ownerEmail, string ownerPassword, CancellationToken ct = default)
+    /// <summary>Seeds one company's master data. Requires a tenant scope — every row written is tenant-owned.</summary>
+    public static async Task RunAsync(AppDbContext db, CancellationToken ct = default)
     {
         await SeedUnitsAsync(db, ct);
         await SeedMaterialsAsync(db, ct);
         await SeedExpensesAsync(db, ct);
         await SeedSimpleMastersAsync(db, ct);
         await SeedSettingsAsync(db, ct);
-        await SeedOwnerAsync(db, hasher, ownerEmail, ownerPassword, ct);
         await db.SaveChangesAsync(ct);
     }
 
@@ -220,17 +220,4 @@ public static class MasterDataSeeder
             new Setting { Key = SettingKeys.InventoryAdjustmentNeedsApproval, Value = "true" });
     }
 
-    private static async Task SeedOwnerAsync(AppDbContext db, IPasswordHasher hasher, string email, string password, CancellationToken ct)
-    {
-        email = email.Trim().ToLowerInvariant();
-        if (await db.Users.AnyAsync(u => u.Email == email, ct)) return;
-        db.Users.Add(new User
-        {
-            Name = "Owner",
-            Email = email,
-            PasswordHash = hasher.Hash(password),
-            Role = UserRole.Owner,
-            IsActive = true
-        });
-    }
 }

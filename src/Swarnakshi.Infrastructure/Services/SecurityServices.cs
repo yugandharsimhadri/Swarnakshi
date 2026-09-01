@@ -40,24 +40,69 @@ public sealed class JwtOptions
     public int RefreshTokenDays { get; set; } = 7;
 }
 
+/// <summary>Claim names shared by the token issuer and the request-side <c>ICurrentUser</c>.</summary>
+public static class SwarnakshiClaims
+{
+    /// <summary>Tenant the token is scoped to. Absent on a platform token — that absence IS the isolation.</summary>
+    public const string CompanyId = "company_id";
+    public const string CompanyCode = "company_code";
+    public const string Username = "username";
+    public const string Permission = "perm";
+
+    /// <summary>"tenant" or "platform". Read by the authorization policies.</summary>
+    public const string TokenKind = "token_kind";
+    public const string TenantKind = "tenant";
+    public const string PlatformKind = "platform";
+
+    /// <summary>Issued-at, unix seconds. Compared with User.TokensValidFrom to revoke live tokens.</summary>
+    public const string IssuedAt = "swk_iat";
+}
+
 public sealed class JwtTokenService(JwtOptions options, IDateTimeProvider clock) : IJwtTokenService
 {
-    public TokenPair Issue(User user, IEnumerable<string> permissions)
+    public TokenPair Issue(User user, Company company, IEnumerable<string> permissions)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(SwarnakshiClaims.TokenKind, SwarnakshiClaims.TenantKind),
+            // The tenant is carried IN the token and nowhere else: no header, no route segment and
+            // no request body can change which company a request reads, because only the signature
+            // decides it.
+            new(SwarnakshiClaims.CompanyId, company.Id.ToString()),
+            new(SwarnakshiClaims.CompanyCode, company.Code),
+            new(SwarnakshiClaims.Username, user.Username),
+            new(ClaimTypes.Name, user.Name),
+            new(ClaimTypes.Role, user.Role.ToString()),
+            new(SwarnakshiClaims.IssuedAt, clock.Now.ToUnixTimeSeconds().ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        if (!string.IsNullOrWhiteSpace(user.Email))
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+        claims.AddRange(permissions.Select(p => new Claim(SwarnakshiClaims.Permission, p)));
+
+        return Build(claims);
+    }
+
+    public TokenPair IssuePlatform(PlatformUser user)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(SwarnakshiClaims.TokenKind, SwarnakshiClaims.PlatformKind),
+            new(SwarnakshiClaims.Username, user.Username),
+            new(ClaimTypes.Name, user.DisplayName),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        return Build(claims);
+    }
+
+    private TokenPair Build(List<Claim> claims)
     {
         var now = clock.Now;
         var accessExp = now.AddMinutes(options.AccessTokenMinutes);
         var creds = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Key)), SecurityAlgorithms.HmacSha256);
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new(ClaimTypes.Name, user.Name),
-            new(ClaimTypes.Role, user.Role.ToString()),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-        claims.AddRange(permissions.Select(p => new Claim("perm", p)));
 
         var token = new JwtSecurityToken(options.Issuer, options.Audience, claims,
             expires: accessExp.UtcDateTime, signingCredentials: creds);

@@ -1,11 +1,19 @@
 # 02 — Data Model
 
-Grouped by bounded context. All entities inherit `BaseEntity` (`Id: Guid`, `CreatedAt`,
-`CreatedBy`). Transactional entities also inherit `AuditableEntity`
-(`ModifiedAt/By`, `ApprovedAt/By`, `Status`, `Remarks`, `RowVersion`).
+Grouped by bounded context. All tenant entities inherit `BaseEntity`
+(`Id: Guid`, **`CompanyId`**, `CreatedAt`, `CreatedBy`, `IsDemo`). Transactional entities also
+inherit `AuditableEntity` (`ModifiedAt/By`, `ApprovedAt/By`, `Status`, `Remarks`, `ConcurrencyToken`).
+
+## Platform (above tenancy — inherits `PlatformEntity`, has NO CompanyId)
+- **Company** (Code*, Name, ContactEmail, ContactMobile, LicenseExpiresOn, IsActive, Notes) — the tenant.
+  `Code` is the login namespace and the one globally unique string; `Name` is deliberately not unique.
+- **PlatformUser** (Username*, DisplayName, PasswordHash, IsActive, RefreshToken, LastLoginAt) —
+  EnterpriseAdmin. No CompanyId, so every tenant query filter excludes it by construction.
+
+See [09-saas-tenancy](09-saas-tenancy.md) for how isolation is enforced.
 
 ## Identity
-- **User** (Id, Name, Email, PasswordHash, Role, IsActive, RefreshToken, RefreshTokenExpiry)
+- **User** (Id, Name, **Username**, Email?, PasswordHash, Role, IsActive, IsCompanyAdmin, RefreshToken, RefreshTokenExpiry, TokensValidFrom) — login is `Username@Company.Code`; unique (CompanyId, Username)
 - **UserPermission** (UserId, PermissionKey, Granted) — overrides for SubOwner etc.
 - **UserSiteAssignment** (UserId, SiteId) — Supervisor scoping
 
@@ -43,7 +51,7 @@ current stock is `InventoryBalance` per (Site, Material).
 - **Customer** (Code*, Name, Mobile, Email, Address, Pan, Gstin, IsActive, Notes) — **global**
 - **Setting** (Key, Value, SiteId?) — valuation method, AllowNegativeStock, numbering, …
 
-\* unique, app-enforced + DB unique index.
+\* unique **per company** — every unique index is composite on `(CompanyId, …)`, so two builders may share a code.
 
 ## Sites & Projects
 - **Site** (Code*, Name, Address, City, State, Pin, SupervisorUserId?, StartDate, Status, Notes)
