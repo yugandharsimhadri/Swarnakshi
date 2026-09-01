@@ -121,11 +121,11 @@ public sealed class SwarnakshiSession : IAsyncDisposable
     /// client-side route change with no load event, and the KPI values depend on what the run has
     /// done so far, whereas the shell is the same on every screen.
     /// </summary>
-    public async Task LoginAsync(string? email = null, string? password = null)
+    public async Task LoginAsync(string? login = null, string? password = null)
     {
         await Page.GotoAsync("/", new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
 
-        await Page.GetByLabel("Email").FillAsync(email ?? DemoData.OwnerEmail);
+        await Page.GetByLabel("Username").FillAsync(login ?? DemoData.OwnerLogin);
         await Page.GetByLabel("Password").FillAsync(password ?? DemoData.OwnerPassword);
         await Page.GetByRole(AriaRole.Button, new() { Name = "Sign in" }).ClickAsync();
 

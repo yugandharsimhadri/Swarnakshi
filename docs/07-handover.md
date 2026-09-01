@@ -585,22 +585,32 @@ the tab bar because it feels important; promote it because it is opened daily.
 The six business journeys are walked by hand in **§6c** and asserted in `UseCaseWalkthroughTests`.
 Start there when a change touches stock, cost or approvals.
 
-`tests/Swarnakshi.Tests` (11 tests):
-- `InventoryBalanceTests` (5) — pure maths: weighted average, no-double-count identity, negative-stock.
-- `CostFlowIntegrationTests` (2) — real services over SQLite in-memory: full
-  purchase→approve→issue→cost flow with the no-double-count assertion; issue blocked pre-approval.
-- `PaymentFlowTests` (3) — labour posts only after approval; contractor overpayment block + override;
-  customer-required rule.
-- `ConcurrencyTests` (1) — a stale update to an `AuditableEntity` is rejected.
-- `TestHost.CreateAsync()` builds the real DI graph (`AddApplication()` + SQLite in-memory +
-  seeded masters) and a `FakeCurrentUser` with all permissions. Copy it for any new integration test.
+`tests/Swarnakshi.Tests` — **186 tests across 15 classes**, all services covered:
+
+| Area | Classes |
+|---|---|
+| Masters | `PartyMasterTests` (28), `MaterialMasterTests` (23), `EmployeeTests` (13) |
+| Security & tenancy | `AuthAndUserTests` (20), `MultiTenancyTests` (18) |
+| Stock & cost | `InventoryOperationsTests` (12), `InventoryBalanceTests` (5), `CostFlowIntegrationTests` (2), `DirectToProjectPurchaseTests` (6) |
+| Money & approval | `ExpenseAndApprovalTests` (12), `PaymentFlowTests` (3) |
+| Reporting & misc | `SiteReportingTests` (13), `AttachmentTests` (5), `ConcurrencyTests` (1) |
+| The named journeys | `UseCaseWalkthroughTests` (12) — the six use cases of §6c |
+
+`TestHost.CreateAsync()` builds the real DI graph (`AddApplication()` + SQLite in-memory + seeded
+masters) and a `FakeCurrentUser` with all permissions. Copy it for any new integration test — and
+pass the registered `CurrentUser` through, rather than newing up a second one, or permission
+assertions pass against a user the code under test cannot see.
 
 Manual e2e (need the API running on :6051): `node scratchpad/p1test.mjs` … `p4test.mjs`.
 These are throwaway scripts in the git-ignored scratchpad — they exercise the full flow per phase
 (P1 inventory, P2 expenses/contractors, P3 customers, P4 dashboard/reports). Recreate from the
 patterns if lost, or promote them to xUnit.
 
-CI runs `dotnet build+test` and `npm run build` on every push/PR to `main`.
+CI (`.github/workflows/ci.yml`) runs three jobs on every push/PR to `main`: `dotnet build+test`
+(the 186 fast tests), `npm run build`, and the browser UAT suite as its own job. UAT is separate
+because it is gated out of `dotnet test` — without a dedicated job the acceptance journeys can go
+completely red while CI stays green, which is exactly what happened when multi-tenant sign-in
+landed.
 
 ---
 
@@ -763,8 +773,13 @@ it throws at runtime. Filter and order on the concrete entity and project last.
 [08-uat.md](08-uat.md).
 
 ```bash
-dotnet test tests/Swarnakshi.UatTests
+dotnet test tests/Swarnakshi.UatTests -p:Uat=true
 ```
+
+**The switch is required.** The suite is excluded from a bare `dotnet test` (`IsTestProject` is
+gated on `Uat`) so the root run stays fast — it starts servers and drives a browser for minutes.
+Without the switch it reports no tests and exits 0, which reads as a pass. If a UAT run says "no
+tests", that is what happened.
 
 Gotchas 22-24:
 22. `ASPNETCORE_URLS` does NOT beat `"Urls"` in appsettings.Development.json —
@@ -785,3 +800,13 @@ Gotcha 26 — `useAsync` applies only the newest request's response (monotonic c
 `web/src/lib/useAsync.ts`). Keep that guard: without it a slow early request overwrites a newer one
 and lists flick back to stale or empty rows, which is invisible in manual testing and shows up as
 flaky UAT.
+
+Gotcha 27 — **the bottom tabs are a product decision the suite encodes.** `TabBarLabels` in
+`WorkflowContext` lists what is reachable in one tap; anything else is reached through More. When
+the menu was reordered by daily use (Sites and Stock demoted, Movement and Inventory promoted),
+twelve cases failed on a tab that no longer existed. Update that list when the menu changes.
+
+Gotcha 28 — **a login is `username@companycode`, not an email.** Since multi-tenancy it is resolved
+against a company rather than a global user table, and the founding admin's display name is the
+*company* name, because that is what `PlatformSeeder` writes into `User.Name`. The UAT's copy of all
+three lives in `DemoData`, so a seed change is one edit rather than a hunt through the workflows.

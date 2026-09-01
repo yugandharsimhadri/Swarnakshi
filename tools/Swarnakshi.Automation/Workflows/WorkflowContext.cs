@@ -186,8 +186,15 @@ public sealed class WorkflowContext(IPage page, Narrator narrator, AutomationOpt
     /// The five destinations the bottom tab bar carries directly. Everything else is behind "More".
     /// From AppShell's nav — keep in step with it.
     /// </summary>
+    /// <summary>
+    /// The bottom tabs, which are a product decision about what a site engineer reaches in one tap —
+    /// so this list changes when that decision changes. Sites and Stock were demoted to More when
+    /// the menu was reordered by daily use; Movement and Inventory took their place.
+    ///
+    /// Anything not listed here is reached through More, which is what NavigateAsync falls back to.
+    /// </summary>
     private static readonly HashSet<string> TabBarLabels =
-        new(StringComparer.Ordinal) { "Home", "Sites", "Projects", "Stock", "More" };
+        new(StringComparer.Ordinal) { "Home", "Movement", "Inventory", "Projects", "More" };
 
     /// <summary>
     /// Opens a master screen reached from the Stock hub (Site Inventory, Material Master, …).
@@ -195,7 +202,9 @@ public sealed class WorkflowContext(IPage page, Narrator narrator, AutomationOpt
     /// </summary>
     public async Task OpenFromStockHubAsync(string cardLabel, string expectedHeading)
     {
-        await NavigateAsync("Stock", "Stock");
+        // The hub itself is unchanged — the same four cards — but it is no longer a bottom tab, so
+        // it is reached through More under the name the menu gives it.
+        await NavigateAsync("Stock & purchases", "Stock");
         await Visible(Page.GetByRole(AriaRole.Link, new() { Name = cardLabel })).ClickAsync();
         await ExpectHeadingAsync(expectedHeading);
     }

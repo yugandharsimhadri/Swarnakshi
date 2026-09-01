@@ -4,6 +4,70 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — CI runs the acceptance suite, and a dead server now says so
+
+**CI was green while UAT was 0/24.** `ci.yml` runs `dotnet test` at the root, which the `Uat` gate
+excludes the browser suite from — so multi-tenant sign-in could break every acceptance journey
+without a single red check. That gap was created by the gating and is closed here: UAT is its own
+job, with `npm ci` for the client the suite starts, `playwright install --with-deps chromium` (the
+on-demand install does not bring a bare runner's system libraries), and failure screenshots uploaded
+as an artifact.
+
+The exact CI command was validated locally in Release — but not under CI's actual conditions, and
+the first real run caught it: `ApiServer` hardcoded `-c Debug` while passing `--no-build`. CI builds
+the solution in Release only, so it launched a binary that was never produced and every scenario
+failed with "the API exited with code 1". It passed locally purely because stale Debug output
+happened to be lying around. The configuration now follows the one the assembly was built in.
+
+Reproduced properly this time by deleting `src/Swarnakshi.Api/bin/Debug` first, which is what a
+runner actually looks like: **24/24** in Release with no Debug output present, and 24/24 on the
+normal Debug command.
+
+**A server dying mid-run now fails loudly.** One Release run came back 14 red — 13 of them
+`ERR_CONNECTION_REFUSED` because the Vite client had exited minutes earlier. The real event was in
+`web.log`; the test output showed a dozen unrelated-looking timeouts. `ApiServer`/`WebDevServer`
+expose `IsAlive`, and each scenario checks both first, so the run now stops at the first case after
+the death and names the server and its log.
+
+The flake itself is not diagnosed — Vite logged nothing before exiting, and the run passes on
+repeat. This makes it legible rather than fixing it. If CI shows it, the honest next step is to serve
+a built client (`vite preview`) instead of a dev server, which has no watcher to fall over.
+
+**Handover corrections** (§9 and §17 of `07-handover.md`): the testing section still claimed 11 tests
+across 4 classes — it is 186 across 15 — and gave the UAT command without `-p:Uat=true`, which
+reports no tests and exits 0. The gating landed before that section was rewritten, so it was already
+wrong when written. Gotchas 27 and 28 added for the tab list and the `username@companycode` login.
+
+---
+
+## 2026-09-01 — UAT follows multi-tenancy and the reordered menu
+
+Syncing to main left the acceptance suite **0 / 24**. Two product changes it had not been told about,
+both legitimate:
+
+**Sign-in changed shape, not just wording.** A login is no longer an email but
+`username@companycode`, resolved against a company rather than a global user table. Every case died
+on the login form. The seeded owner is now `owner@swarnakshi`, and its display name is the *company*
+name, because that is what `PlatformSeeder` writes into `User.Name` for a founding admin. The
+credentials-rejected message moved from "Invalid email or password." to "…username or password.",
+and the user list no longer prints a login at all — since multi-tenancy the company half is the same
+for everyone on screen.
+
+**The bottom tabs were reordered by daily use.** Sites and Stock were demoted to More; Movement and
+Inventory took their place. Twelve cases were waiting on a "Stock" tab that no longer exists. The
+`/stock` hub page itself is unchanged — the same four cards — so only the route to it moved, and it
+is now reached through More as "Stock & purchases".
+
+That the suite noticed both, and named the business step it died on rather than a selector, is the
+whole point of it. Back to **24 / 24**.
+
+**Gotchas**
+- `TabBarLabels` in `WorkflowContext` encodes a product decision — what a site engineer reaches in
+  one tap. When the menu is reordered, that list is the thing to update; everything not in it is
+  reached through More automatically.
+
+---
+
 ## 2026-09-01 — Handover rewritten around the six use cases
 
 §6c was a table of which tests covered what — useful for auditing, useless for picking the project up.

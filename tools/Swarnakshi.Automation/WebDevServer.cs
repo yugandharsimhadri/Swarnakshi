@@ -78,5 +78,14 @@ public sealed class WebDevServer : IAsyncDisposable
         return new WebDevServer(process);
     }
 
+    /// <summary>
+    /// False once the Vite client this run started has exited. A server that dies mid-run otherwise
+    /// shows up as every remaining scenario timing out on connection-refused, which buries the one
+    /// fact that matters under a dozen unrelated-looking failures.
+    ///
+    /// True when the run attached to a server it does not own — there is no process to watch.
+    /// </summary>
+    public bool IsAlive => _ownedProcess is null || !_ownedProcess.HasExited;
+
     public ValueTask DisposeAsync() => new(ManagedProcess.StopAsync(_ownedProcess));
 }

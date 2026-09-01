@@ -30,10 +30,10 @@ public sealed class SignInWorkflow() : Workflow(
             "A wrong password is refused, and says only that the credentials are wrong.",
             async () =>
             {
-                await c.FillAsync("Email", DemoData.OwnerEmail);
+                await c.FillAsync("Username", DemoData.OwnerLogin);
                 await c.FillAsync("Password", "not-the-password");
                 await c.Button("Sign in").ClickAsync();
-                await c.ExpectVisibleAsync("Invalid email or password.");
+                await c.ExpectVisibleAsync("Invalid username or password.");
             });
 
         await c.StepAsync(
@@ -125,8 +125,10 @@ public sealed class UserAccessWorkflow() : Workflow(
             "The seeded owner account is listed with its role.",
             async () =>
             {
+                // The list identifies a user by display name and role. It deliberately does not
+                // print the login: since multi-tenancy that is username@companycode, and the
+                // company half is the same for everyone on the screen.
                 await c.ExpectVisibleAsync(DemoData.OwnerName);
-                await c.ExpectVisibleAsync(DemoData.OwnerEmail);
             });
 
         await c.StepAsync(
