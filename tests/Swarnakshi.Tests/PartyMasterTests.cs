@@ -277,7 +277,7 @@ public class PartyMasterTests
 
         var act = () => projects.CreateAsync(new SaveProjectRequest(
             "P-NEW", "Villa 9", null, site.Id, customer.Id, null, null, null, null, null,
-            1_000_000m, 2_000_000m, ProjectStatus.Planned, null));
+            1_000_000m, 2_000_000m, ProjectStatus.Planned, 0, null));
 
         await act.Should().ThrowAsync<AppException>();
     }

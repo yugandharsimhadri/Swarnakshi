@@ -46,7 +46,7 @@ public class UseCaseWalkthroughTests
             "GV", "Green Valley", null, "Hyderabad", "Telangana", null, null, null, SiteStatus.Active, null));
         var project = await projects.CreateAsync(new SaveProjectRequest(
             "GV-101", "Villa 101", "101", site.Id, customer.Id, null, null, null, null, null,
-            5_000_000, saleValue, ProjectStatus.Active, null));
+            5_000_000, saleValue, ProjectStatus.Active, 0, null));
 
         var cement = await db.Materials.Include(m => m.Unit).FirstAsync(m => m.Code == "MAT-CEM-OPC");
         return new Yard(site.Id, project.Id, customer.Id, supplier.Id, cement);
@@ -342,7 +342,7 @@ public class UseCaseWalkthroughTests
 
         var site = await sites.CreateAsync(new SaveSiteRequest("S2", "Self Owned", null, null, null, null, null, null, SiteStatus.Active, null));
         var selfOwned = await projects.CreateAsync(new SaveProjectRequest(
-            "SO-1", "Own House", null, site.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, null));
+            "SO-1", "Own House", null, site.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, 0, null));
         var method = await db.PaymentMethods.FirstAsync();
 
         var act = () => receipts.CreateAsync(new SaveCustomerPaymentRequest(

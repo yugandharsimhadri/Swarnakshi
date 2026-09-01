@@ -97,7 +97,19 @@ export interface Project {
   estimatedCost: number;
   contractSaleValue?: number | null;
   status: number;
+  completionPercent: number;
   notes?: string | null;
+}
+
+/** Counts by stage across the book of work. Cancelled is reported apart from the buckets. */
+export interface ProjectProgress {
+  total: number;
+  notStarted: number;
+  inProgress: number;
+  completed: number;
+  onHold: number;
+  cancelled: number;
+  averageCompletionOfInProgress: number;
 }
 
 export interface ProjectSummary {

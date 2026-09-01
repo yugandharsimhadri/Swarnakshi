@@ -32,7 +32,7 @@ public class DirectToProjectPurchaseTests
         var projects = sp.GetRequiredService<IProjectService>();
 
         var site = await sites.CreateAsync(new SaveSiteRequest("GV", "Green Valley", null, null, null, null, null, null, SiteStatus.Active, null));
-        var project = await projects.CreateAsync(new SaveProjectRequest("GV-101", "Villa 101", "101", site.Id, null, null, null, null, null, null, 5_000_000, null, ProjectStatus.Active, null));
+        var project = await projects.CreateAsync(new SaveProjectRequest("GV-101", "Villa 101", "101", site.Id, null, null, null, null, null, null, 5_000_000, null, ProjectStatus.Active, 0, null));
 
         var supplier = new Supplier { Code = "SUP-1", Name = "Sri Balaji Traders" };
         db.Suppliers.Add(supplier);
@@ -193,7 +193,7 @@ public class DirectToProjectPurchaseTests
         var f = await ArrangeAsync(sp, db);
 
         var otherSite = await sites.CreateAsync(new SaveSiteRequest("SR", "Sunrise", null, null, null, null, null, null, SiteStatus.Active, null));
-        var elsewhere = await projects.CreateAsync(new SaveProjectRequest("SR-1", "Villa 900", null, otherSite.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, null));
+        var elsewhere = await projects.CreateAsync(new SaveProjectRequest("SR-1", "Villa 900", null, otherSite.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, 0, null));
 
         var act = () => purchases.CreateAsync(new SavePurchaseRequest(
             f.SupplierId, f.SiteId, null, null, null, Today, 0, null,

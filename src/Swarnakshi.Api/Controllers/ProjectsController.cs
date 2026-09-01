@@ -23,6 +23,11 @@ public class ProjectsController(IProjectService projects) : ControllerBase
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
         => this.Envelope(await projects.GetAsync(id, ct));
 
+    /// <summary>Counts by stage across the book of work. Optionally narrowed to one site.</summary>
+    [HttpGet("progress-summary")]
+    public async Task<IActionResult> ProgressSummary([FromQuery] Guid? siteId, CancellationToken ct)
+        => this.Envelope(await projects.ProgressSummaryAsync(siteId, ct));
+
     [HttpGet("{id:guid}/summary")]
     public async Task<IActionResult> Summary(Guid id, CancellationToken ct)
         => this.Envelope(await projects.SummaryAsync(id, ct));

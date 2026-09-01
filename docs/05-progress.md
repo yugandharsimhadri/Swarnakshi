@@ -4,6 +4,43 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — Project progress: stage counts and a completion percentage
+
+The Projects screen showed a flat list and one status chip. It now answers the question the office
+actually asks — how much of the book of work has not started, is under way, and is finished — and
+carries a completion percentage the site enters and updates.
+
+**No second status field.** `ProjectStatus` already encodes the stage (Planned → Active/OnHold →
+Completed, with Cancelled as the deactivated case). A parallel "progress" enum would have let the two
+contradict each other — a project Completed but 40% done — so the counts are grouped from the status
+that already exists, and the percentage is the detail within a stage rather than a rival to it.
+
+- **Not started** = Planned; **In progress** = Active + OnHold; **Completed** = Completed.
+- **Cancelled is reported apart from the buckets.** A cancelled villa is not "not started", and
+  counting it there would overstate the work still to come.
+- **On hold is counted as under way** — work that started and stopped — and also reported on its own.
+- The average completion covers only what is under way, so a yard full of planned villas does not
+  drag it to zero.
+
+`CompletionPercent` (0-100) is entered by the site rather than derived from cost: money spent is not
+progress built, and on a villa the two diverge constantly — the material for a whole slab is bought
+on day one. Two rules keep it honest with the stage: completing a project settles it at 100, and a
+project still Planned is refused if it reports progress (rejected rather than silently corrected —
+the fix is a decision only the user can make).
+
+The migration backfills already-completed projects to 100. A flat default of 0 would have reported
+every finished villa as untouched and dragged the average down with it.
+
+UI: stage counts and an average bar above the list, a progress bar on each project under way, and
+the percentage editable in both the create and edit sheets, with the bar tracking the field live.
+Selecting Completed or Planned sets and locks the number rather than letting the server correct it
+afterwards.
+
+`ProjectProgressTests` — 10 tests over the buckets, cancelled exclusion, the average, the per-site
+filter, an empty book of work, and the two consistency rules. 203 fast tests and 24 UAT cases pass.
+
+---
+
 ## 2026-09-01 — An upgraded database could not be logged into, or migrated at all
 
 Running the app against a real `swarnakshi.db` — one that predates multi-tenancy — found two bugs

@@ -120,7 +120,7 @@ public class MultiTenancyTests
 
         // The founding tenant builds something.
         var mine = await sites.CreateAsync(new SaveSiteRequest("S1", "My Site", null, null, null, null, null, null, SiteStatus.Active, null));
-        await projects.CreateAsync(new SaveProjectRequest("P1", "My Villa", null, mine.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, null));
+        await projects.CreateAsync(new SaveProjectRequest("P1", "My Villa", null, mine.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, 0, null));
 
         // A second company registers and signs in.
         var acme = await registration.RegisterAsync(Registration("acme"));

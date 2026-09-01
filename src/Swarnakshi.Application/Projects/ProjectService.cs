@@ -10,7 +10,16 @@ namespace Swarnakshi.Application.Projects;
 public record ProjectDto(Guid Id, string Code, string Name, string? VillaNumber, Guid SiteId, string SiteName,
     Guid? CustomerId, string? CustomerName, Guid? ProjectTypeId, DateOnly? StartDate,
     DateOnly? ExpectedCompletionDate, decimal EstimatedCost, decimal? ContractSaleValue,
-    ProjectStatus Status, string? Notes);
+    ProjectStatus Status, int CompletionPercent, string? Notes);
+
+/// <summary>
+/// How the book of work is spread across its stages, plus the average completion of what is under
+/// way. Cancelled is reported separately rather than folded into a bucket: a cancelled villa is not
+/// "not started", and counting it as such would quietly overstate the work still to come.
+/// </summary>
+public record ProjectProgressSummary(
+    int Total, int NotStarted, int InProgress, int Completed, int OnHold, int Cancelled,
+    int AverageCompletionOfInProgress);
 
 public record ProjectFinancialSummary(
     Guid ProjectId, string Name, decimal EstimatedCost, decimal? ContractSaleValue,
@@ -21,7 +30,7 @@ public record ProjectFinancialSummary(
 public record SaveProjectRequest(string Code, string Name, string? VillaNumber, Guid SiteId,
     Guid? CustomerId, Guid? ProjectTypeId, string? Address, DateOnly? StartDate,
     DateOnly? ExpectedCompletionDate, DateOnly? ActualCompletionDate, decimal EstimatedCost,
-    decimal? ContractSaleValue, ProjectStatus Status, string? Notes);
+    decimal? ContractSaleValue, ProjectStatus Status, int CompletionPercent, string? Notes);
 
 public class SaveProjectValidator : AbstractValidator<SaveProjectRequest>
 {
@@ -32,6 +41,16 @@ public class SaveProjectValidator : AbstractValidator<SaveProjectRequest>
         RuleFor(x => x.SiteId).NotEmpty();
         RuleFor(x => x.EstimatedCost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.ContractSaleValue).GreaterThanOrEqualTo(0).When(x => x.ContractSaleValue.HasValue);
+        RuleFor(x => x.CompletionPercent).InclusiveBetween(0, 100);
+
+        // A project that has not started cannot be part-built. Rejected rather than quietly
+        // corrected, because the fix is a decision only the user can make: if there is progress to
+        // report, the project is under way and its status should say so.
+        RuleFor(x => x.CompletionPercent)
+            .Equal(0)
+            .When(x => x.Status == ProjectStatus.Planned)
+            .WithMessage("A project that has not started yet cannot report progress. "
+                + "Set the status to Active first.");
     }
 }
 
@@ -42,6 +61,7 @@ public interface IProjectService
     Task<ProjectDto> CreateAsync(SaveProjectRequest req, CancellationToken ct = default);
     Task<ProjectDto> UpdateAsync(Guid id, SaveProjectRequest req, CancellationToken ct = default);
     Task<ProjectFinancialSummary> SummaryAsync(Guid id, CancellationToken ct = default);
+    Task<ProjectProgressSummary> ProgressSummaryAsync(Guid? siteId, CancellationToken ct = default);
 }
 
 public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> validator) : IProjectService
@@ -96,6 +116,39 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         return await GetAsync(id, ct);
     }
 
+    public async Task<ProjectProgressSummary> ProgressSummaryAsync(Guid? siteId, CancellationToken ct = default)
+    {
+        var q = db.Projects.AsNoTracking();
+        if (siteId is not null) q = q.Where(p => p.SiteId == siteId);
+
+        // One grouped round trip rather than six counts: the buckets are shares of the same set, and
+        // reading them from separate queries lets them disagree if anything changes between.
+        var byStatus = await q
+            .GroupBy(p => p.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        int CountOf(ProjectStatus s) => byStatus.FirstOrDefault(x => x.Status == s)?.Count ?? 0;
+
+        var inProgressStatuses = new[] { ProjectStatus.Active, ProjectStatus.OnHold };
+        var average = await q.Where(p => inProgressStatuses.Contains(p.Status))
+            .Select(p => (double?)p.CompletionPercent).AverageAsync(ct) ?? 0d;
+
+        var active = CountOf(ProjectStatus.Active);
+        var onHold = CountOf(ProjectStatus.OnHold);
+
+        return new ProjectProgressSummary(
+            Total: byStatus.Sum(x => x.Count),
+            NotStarted: CountOf(ProjectStatus.Planned),
+            // On hold is work that has started and stopped, so it belongs to what is under way
+            // rather than to what has not begun — and it is also reported on its own below.
+            InProgress: active + onHold,
+            Completed: CountOf(ProjectStatus.Completed),
+            OnHold: onHold,
+            Cancelled: CountOf(ProjectStatus.Cancelled),
+            AverageCompletionOfInProgress: (int)Math.Round(average));
+    }
+
     public async Task<ProjectFinancialSummary> SummaryAsync(Guid id, CancellationToken ct = default)
     {
         var p = await db.Projects.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -142,10 +195,15 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         p.StartDate = req.StartDate; p.ExpectedCompletionDate = req.ExpectedCompletionDate;
         p.ActualCompletionDate = req.ActualCompletionDate; p.EstimatedCost = req.EstimatedCost;
         p.ContractSaleValue = req.ContractSaleValue; p.Status = req.Status; p.Notes = req.Notes;
+
+        // Completing a project settles its percentage: leaving a finished villa reading 90% would
+        // make the average of what is under way permanently wrong.
+        p.CompletionPercent = req.Status == ProjectStatus.Completed ? 100 : req.CompletionPercent;
     }
 
     private static readonly System.Linq.Expressions.Expression<Func<Project, ProjectDto>> Projection =
         p => new ProjectDto(p.Id, p.Code, p.Name, p.VillaNumber, p.SiteId, p.Site.Name,
             p.CustomerId, p.Customer != null ? p.Customer.Name : null, p.ProjectTypeId,
-            p.StartDate, p.ExpectedCompletionDate, p.EstimatedCost, p.ContractSaleValue, p.Status, p.Notes);
+            p.StartDate, p.ExpectedCompletionDate, p.EstimatedCost, p.ContractSaleValue, p.Status,
+            p.CompletionPercent, p.Notes);
 }

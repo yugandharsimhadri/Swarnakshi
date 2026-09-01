@@ -5,7 +5,7 @@ import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
 import { money, moneyShort, dateStr } from "@/lib/format";
 import {
-  Button, Card, Chip, EmptyState, ErrorText, Field, Input, Select, Sheet, Spinner, StatCard,
+  Button, Card, Chip, EmptyState, ErrorText, Field, Input, ProgressBar, Select, Sheet, Spinner, StatCard,
 } from "@/components/ui";
 import {
   ContractStatusName, ExpenseTypeName, ProjectStatusName, TxnStatusName,
@@ -51,6 +51,10 @@ export default function ProjectDetail() {
         </div>
         {canManage && <Button variant="ghost" onClick={() => setEditing(true)}>Edit</Button>}
       </div>
+      {(p.status === 1 || p.status === 2) && (
+        <Card><ProgressBar percent={p.completionPercent} /></Card>
+      )}
+
       <EditProjectSheet project={p} open={editing} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); }} />
 
       <div className="grid grid-cols-2 gap-3">
@@ -211,6 +215,7 @@ function EditProjectSheet({ project, open, onClose, onSaved }: { project: Projec
     projectTypeId: project.projectTypeId ?? "", estimatedCost: String(project.estimatedCost),
     contractSaleValue: project.contractSaleValue != null ? String(project.contractSaleValue) : "",
     status: String(project.status),
+    completionPercent: String(project.completionPercent ?? 0),
   });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -226,6 +231,7 @@ function EditProjectSheet({ project, open, onClose, onSaved }: { project: Projec
           estimatedCost: Number(form.estimatedCost || 0),
           contractSaleValue: form.contractSaleValue ? Number(form.contractSaleValue) : null,
           status: Number(form.status),
+          completionPercent: Number(form.completionPercent || 0),
         },
       });
       onSaved();
@@ -254,11 +260,30 @@ function EditProjectSheet({ project, open, onClose, onSaved }: { project: Projec
           <Field label="Sale value"><Input inputMode="decimal" value={form.contractSaleValue} onChange={(e) => setForm({ ...form, contractSaleValue: e.target.value })} /></Field>
         </div>
         <Field label="Status">
-          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+          <Select
+            value={form.status}
+            onChange={(e) => {
+              const status = e.target.value;
+              // Keep the two honest as they are edited, rather than letting the server correct it
+              // after the fact: finishing a project means 100%, and one not started means 0.
+              const completionPercent =
+                status === "3" ? "100" : status === "0" ? "0" : form.completionPercent;
+              setForm({ ...form, status, completionPercent });
+            }}
+          >
             <option value="0">Planned</option><option value="1">Active</option><option value="2">On Hold</option>
             <option value="3">Completed</option><option value="4">Cancelled</option>
           </Select>
         </Field>
+        <Field label="Completion %">
+          <Input
+            inputMode="numeric"
+            value={form.completionPercent}
+            disabled={form.status === "0" || form.status === "3"}
+            onChange={(e) => setForm({ ...form, completionPercent: e.target.value.replace(/[^0-9]/g, "") })}
+          />
+        </Field>
+        <ProgressBar percent={Number(form.completionPercent || 0)} />
         <ErrorText error={err} />
         <Button className="w-full" onClick={save} disabled={busy || !form.name}>Save</Button>
       </div>

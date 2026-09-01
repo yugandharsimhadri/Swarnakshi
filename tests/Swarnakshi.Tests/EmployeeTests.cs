@@ -229,7 +229,7 @@ public class EmployeeTests
         var projects = sp.GetRequiredService<IProjectService>();
 
         var site = await sites.CreateAsync(new SaveSiteRequest("S1", "Site 1", null, null, null, null, null, null, SiteStatus.Active, null));
-        var project = await projects.CreateAsync(new SaveProjectRequest("P1", "Villa 1", null, site.Id, null, null, null, null, null, null, 500_000, null, ProjectStatus.Active, null));
+        var project = await projects.CreateAsync(new SaveProjectRequest("P1", "Villa 1", null, site.Id, null, null, null, null, null, null, 500_000, null, ProjectStatus.Active, 0, null));
         var e = await employees.CreateAsync(Valid());
 
         // Give an advance first, so the salary below genuinely recovers something.
@@ -261,7 +261,7 @@ public class EmployeeTests
         var projects = sp.GetRequiredService<IProjectService>();
 
         var site = await sites.CreateAsync(new SaveSiteRequest("S1", "Site 1", null, null, null, null, null, null, SiteStatus.Active, null));
-        var project = await projects.CreateAsync(new SaveProjectRequest("P1", "Villa 1", null, site.Id, null, null, null, null, null, null, 500_000, null, ProjectStatus.Active, null));
+        var project = await projects.CreateAsync(new SaveProjectRequest("P1", "Villa 1", null, site.Id, null, null, null, null, null, null, 500_000, null, ProjectStatus.Active, 0, null));
         var e = await employees.CreateAsync(Valid("EMP-OFF", "Office Accountant"));
 
         var pay = await payments.CreateAsync(new SaveEmployeePaymentRequest(

@@ -11,6 +11,33 @@ export function Card({ children, className = "", onClick }: { children: ReactNod
   );
 }
 
+/**
+ * How far along a piece of work is. The number is shown as well as the bar — a bar alone is a
+ * rough impression, and "62%" is what someone actually reports up the chain.
+ */
+export function ProgressBar({ percent, label }: { percent: number; label?: string }) {
+  const value = Math.max(0, Math.min(100, Math.round(percent)));
+  const tone = value >= 100 ? "bg-ok" : value === 0 ? "bg-border" : "bg-brand";
+  return (
+    <div className="w-full">
+      <div className="mb-1 flex items-center justify-between text-xs text-text-dim">
+        <span>{label ?? "Progress"}</span>
+        <span className="font-medium text-text">{value}%</span>
+      </div>
+      <div
+        className="h-2 w-full overflow-hidden rounded-full bg-border"
+        role="progressbar"
+        aria-valuenow={value}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label ?? "Progress"}
+      >
+        <div className={`h-full rounded-full transition-[width] ${tone}`} style={{ width: `${value}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "ok" | "warn" | "danger" }) {
   const toneClass = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-text";
   return (
