@@ -1,6 +1,15 @@
+using System.Diagnostics;
 using Microsoft.Playwright;
 
 namespace Swarnakshi.Automation;
+
+/// <summary>
+/// One narration beat and when it appeared, measured from the journey's title card.
+///
+/// The timing is what makes the transcript usable as subtitles or chapter markers: a list of
+/// sentences says what happened, but not when to put it on screen.
+/// </summary>
+public sealed record NarrationBeat(string Text, TimeSpan At, bool IsTitle);
 
 /// <summary>
 /// Records what a workflow is doing, in the business's own words.
@@ -12,15 +21,31 @@ namespace Swarnakshi.Automation;
 /// </summary>
 public sealed class Narrator(IPage page, AutomationOptions options)
 {
-    private readonly List<string> _steps = [];
+    private readonly List<NarrationBeat> _beats = [];
+
+    // Started on the first beat, which is the title card, so cue times are relative to the start of
+    // the journey rather than to whenever the browser happened to launch.
+    private readonly Stopwatch _clock = new();
 
     /// <summary>Every narration line spoken so far, in order.</summary>
-    public IReadOnlyList<string> Steps => _steps;
+    public IReadOnlyList<string> Steps => _beats.Select(b => b.Text).ToList();
+
+    /// <summary>The same lines with the moment each appeared, for a transcript.</summary>
+    public IReadOnlyList<NarrationBeat> Beats => _beats;
+
+    /// <summary>How long the narration has been running, used to close the final cue.</summary>
+    public TimeSpan Elapsed => _clock.Elapsed;
+
+    private void Record(string text, bool isTitle)
+    {
+        if (!_clock.IsRunning) _clock.Start();
+        _beats.Add(new NarrationBeat(text, _clock.Elapsed, isTitle));
+    }
 
     /// <summary>Announces the workflow. A title card when recording; a log line under test.</summary>
     public async Task AnnounceWorkflowAsync(string displayName, string module)
     {
-        _steps.Add($"[{module}] {displayName}");
+        Record($"[{module}] {displayName}", isTitle: true);
         if (!options.ShowCaptions) return;
 
         await ShowCaptionAsync($"{module} — {displayName}");
@@ -30,7 +55,7 @@ public sealed class Narrator(IPage page, AutomationOptions options)
     /// <summary>Records a narration beat, showing it on screen before the step it describes runs.</summary>
     public async Task SayAsync(string narration)
     {
-        _steps.Add(narration);
+        Record(narration, isTitle: false);
         if (!options.ShowCaptions) return;
 
         await ShowCaptionAsync(narration);

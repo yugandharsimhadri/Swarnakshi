@@ -11,7 +11,11 @@ public sealed record WorkflowRunResult(
     TimeSpan Duration,
     IReadOnlyList<string> NarrationSteps,
     string? FailureMessage,
-    string? ScreenshotPath);
+    string? ScreenshotPath)
+{
+    /// <summary>Where the narration transcript was written, if it could be.</summary>
+    public string? NarrationPath { get; init; }
+}
 
 /// <summary>
 /// Runs a workflow inside a session with the ceremony both callers need: the title card, timing, a
@@ -42,8 +46,10 @@ public static class WorkflowRunner
 
             log?.Invoke($"PASS {workflow.Key} [{session.Options.Viewport}] ({stopwatch.Elapsed.TotalSeconds:0.0}s)");
 
-            return new WorkflowRunResult(workflow.Key, workflow.DisplayName, session.Options.Viewport,
+            var passed = new WorkflowRunResult(workflow.Key, workflow.DisplayName, session.Options.Viewport,
                 Succeeded: true, stopwatch.Elapsed, session.Narrator.Steps.ToList(), null, screenshot);
+
+            return passed with { NarrationPath = WriteTranscript(session, workflow, passed) };
         }
         catch (Exception ex)
         {
@@ -56,8 +62,21 @@ public static class WorkflowRunner
 
             log?.Invoke($"FAIL {workflow.Key} [{session.Options.Viewport}] ({stopwatch.Elapsed.TotalSeconds:0.0}s): {ex.Message}");
 
-            return new WorkflowRunResult(workflow.Key, workflow.DisplayName, session.Options.Viewport,
+            var failed = new WorkflowRunResult(workflow.Key, workflow.DisplayName, session.Options.Viewport,
                 Succeeded: false, stopwatch.Elapsed, session.Narrator.Steps.ToList(), ex.Message, screenshot);
+
+            // Written for a failure too: the transcript ends at the step that broke, which is a
+            // clearer account of how far the journey got than the step list in the message.
+            return failed with { NarrationPath = WriteTranscript(session, workflow, failed) };
         }
     }
+
+    /// <summary>
+    /// The narration, with timings, alongside the run. The captions only ever existed on screen and
+    /// xUnit surfaces the step list only when a test fails, so a green run left nothing to caption a
+    /// recording with.
+    /// </summary>
+    private static string? WriteTranscript(SwarnakshiSession session, IWorkflow workflow, WorkflowRunResult result)
+        => NarrationSidecar.TryWrite(
+            workflow, result, session.Options, session.Narrator.Beats, session.Narrator.Elapsed);
 }

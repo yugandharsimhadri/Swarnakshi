@@ -78,6 +78,39 @@ One journey, both viewports:
 SWARNAKSHI_UAT_RUN_MODE=demo dotnet test tests/Swarnakshi.UatTests -p:Uat=true --filter "FullyQualifiedName~PurchaseUatTests"
 ```
 
+### The narration transcript
+
+Every run writes one JSON file per journey and viewport to `artifacts/uat/narration/`, named after
+the journey — `PurchaseToConsumption-Desktop.json`.
+
+It exists because the narration was otherwise unreachable: the captions only ever lived on screen,
+and xUnit surfaces the step list only when a test *fails*, so a green run left nothing to caption a
+recording with.
+
+```json
+{
+  "key": "PurchaseToConsumption",
+  "displayName": "Purchase Through To Project Cost",
+  "module": "Procurement",
+  "businessPurpose": "Buy material into a site, have the owner approve its release…",
+  "viewport": "Desktop", "runMode": "Demo", "durationMs": 13274, "succeeded": true,
+  "cues": [
+    { "index": 1, "startMs": 0,    "endMs": 1529, "text": "[Procurement] Purchase Through…", "isTitle": true },
+    { "index": 2, "startMs": 1529, "endMs": 4217, "text": "A purchase brings material into a site's stock…", "isTitle": false }
+  ]
+}
+```
+
+`endMs` is when the *next* line replaced it, not a fixed duration — a caption stays up while its step
+runs, so a step that takes eight seconds gets an eight-second cue. That is what makes the cues usable
+as subtitles or chapter markers directly, rather than something to guess durations for.
+
+Times are measured from the journey's title card, which is the natural anchor: a recording starts
+whenever the camera does, so an absolute clock would align with nothing.
+
+Written for failures too — the transcript then ends at the step that broke, which is a fuller account
+of how far the journey got than the step list in the failure message.
+
 ### Ports
 
 The suite runs on **6070 (client) / 6071 (API)** — deliberately not the 6050/6051 a developer uses.

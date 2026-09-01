@@ -4,6 +4,24 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — Narration transcripts alongside each run
+
+The narration was unreachable outside the browser: captions lived only on screen, and xUnit surfaces
+the step list only when a test fails, so a green run left nothing to caption a recording with.
+
+Every run now writes `artifacts/uat/narration/<Journey>-<Viewport>.json` — the journey's identity and
+business purpose, plus each narration beat as a cue with start and end times.
+
+`endMs` is when the next line replaced it rather than a fixed duration, because a caption stays up
+while its step runs; an eight-second step gets an eight-second cue. Times are measured from the
+title card, since a recording starts whenever the camera does and an absolute clock would align with
+nothing. Written for failures too, where the transcript ends at the step that broke.
+
+Best effort throughout: a transcript that cannot be written is a missing convenience, never a failed
+scenario.
+
+---
+
 ## 2026-09-01 — UAT runs headed
 
 The suite ran headless, so watching it was impossible and the answer to "did anything happen?" was a

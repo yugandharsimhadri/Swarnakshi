@@ -23,6 +23,9 @@ public static class RepoPaths
     /// <summary>Where screenshots and the throwaway database are written.</summary>
     public static string ArtifactsDir => Path.Combine(Root, "artifacts", "uat");
 
+    /// <summary>Where the narration transcripts land — one per journey and viewport.</summary>
+    public static string NarrationDir => Path.Combine(ArtifactsDir, "narration");
+
     private static string FindRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
