@@ -72,6 +72,20 @@ Demo is the same journey, not a second script — the captions are the same stri
 failing step when a run breaks. That is why the scenarios live in the automation library rather than
 the test project: what is demonstrated and what is signed off cannot drift apart.
 
+**Captions are paced to be spoken.** A demo run holds each caption for as long as its text takes to
+say (160 wpm by default, `SWARNAKSHI_UAT_SPEECH_WPM`), plus padding — not a flat delay. A fixed hold
+made the recording unusable for voiceover: a 26-word beat got the same 1.5s as a 6-word one, so
+narrating it aloud ran nearly four times past its window and every later cue drifted further behind
+the picture. Journeys are correspondingly longer in demo mode, which is the point.
+
+**Record one viewport at a time.** A journey runs desktop *then* mobile, and the window resizes to
+390x844 between them — mid-capture, if you filmed both. Add the viewport to the filter:
+
+```bash
+SWARNAKSHI_UAT_RUN_MODE=demo dotnet test tests/Swarnakshi.UatTests -p:Uat=true \
+  --filter "FullyQualifiedName~PurchaseUatTests&DisplayName~Desktop"
+```
+
 One journey, both viewports:
 
 ```bash
@@ -96,7 +110,7 @@ recording with.
   "viewport": "Desktop", "runMode": "Demo", "durationMs": 13274, "succeeded": true,
   "cues": [
     { "index": 1, "startMs": 0,    "endMs": 1529, "text": "[Procurement] Purchase Through…", "isTitle": true },
-    { "index": 2, "startMs": 1529, "endMs": 4217, "text": "A purchase brings material into a site's stock…", "isTitle": false }
+    { "index": 2, "startMs": 3356, "endMs": 14905, "text": "A purchase brings material into a site's stock…", "isTitle": false, "estimatedSpeechMs": 9750 }
   ]
 }
 ```
@@ -104,6 +118,11 @@ recording with.
 `endMs` is when the *next* line replaced it, not a fixed duration — a caption stays up while its step
 runs, so a step that takes eight seconds gets an eight-second cue. That is what makes the cues usable
 as subtitles or chapter markers directly, rather than something to guess durations for.
+
+`estimatedSpeechMs` is what the line should take to say at the configured pace. In a demo run the cue
+window is sized to cover it with padding, so a consumer can place one clip of speech per cue and
+expect it to fit. A `test`-mode run has no pacing at all and its windows are near zero — **only use
+transcripts where `runMode` is `Demo`.**
 
 Times are measured from the journey's title card, which is the natural anchor: a recording starts
 whenever the camera does, so an absolute clock would align with nothing.
@@ -142,6 +161,7 @@ Every value has a working default; a bare `dotnet test` needs no configuration.
 | `SWARNAKSHI_UAT_API_BASE_URL` | `http://localhost:6071` | Where the API is served |
 | `SWARNAKSHI_UAT_RUN_MODE` | `test` | `test` (plain) or `demo` (paced, captioned) |
 | `SWARNAKSHI_UAT_HEADED` | `true` (`false` on CI) | Whether the browser is visible |
+| `SWARNAKSHI_UAT_SPEECH_WPM` | `160` | Speaking pace the demo captions are held for |
 | `SWARNAKSHI_UAT_VIEWPORT` | `desktop` | Default viewport; the suite overrides it per case |
 | `SWARNAKSHI_UAT_MANAGE_SERVERS` | `true` | `false` to attach to servers you started yourself |
 | `SWARNAKSHI_UAT_MOBILE_DEVICE` | `iPhone 15 Pro` | Playwright device descriptor for the mobile viewport |

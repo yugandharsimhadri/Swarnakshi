@@ -9,7 +9,7 @@ namespace Swarnakshi.Automation;
 /// The timing is what makes the transcript usable as subtitles or chapter markers: a list of
 /// sentences says what happened, but not when to put it on screen.
 /// </summary>
-public sealed record NarrationBeat(string Text, TimeSpan At, bool IsTitle);
+public sealed record NarrationBeat(string Text, TimeSpan At, bool IsTitle, int EstimatedSpeechMs);
 
 /// <summary>
 /// Records what a workflow is doing, in the business's own words.
@@ -39,7 +39,7 @@ public sealed class Narrator(IPage page, AutomationOptions options)
     private void Record(string text, bool isTitle)
     {
         if (!_clock.IsRunning) _clock.Start();
-        _beats.Add(new NarrationBeat(text, _clock.Elapsed, isTitle));
+        _beats.Add(new NarrationBeat(text, _clock.Elapsed, isTitle, options.EstimatedSpeechMsFor(text)));
     }
 
     /// <summary>Announces the workflow. A title card when recording; a log line under test.</summary>
@@ -48,8 +48,9 @@ public sealed class Narrator(IPage page, AutomationOptions options)
         Record($"[{module}] {displayName}", isTitle: true);
         if (!options.ShowCaptions) return;
 
-        await ShowCaptionAsync($"{module} — {displayName}");
-        await Task.Delay(options.CaptionHoldMs);
+        var title = $"{module} — {displayName}";
+        await ShowCaptionAsync(title);
+        await Task.Delay(options.CaptionHoldMsFor(title));
     }
 
     /// <summary>Records a narration beat, showing it on screen before the step it describes runs.</summary>
@@ -59,7 +60,7 @@ public sealed class Narrator(IPage page, AutomationOptions options)
         if (!options.ShowCaptions) return;
 
         await ShowCaptionAsync(narration);
-        await Task.Delay(options.CaptionHoldMs);
+        await Task.Delay(options.CaptionHoldMsFor(narration));
     }
 
     /// <summary>A deliberate pause for the camera. Skipped under test, where waiting is wasted time.</summary>

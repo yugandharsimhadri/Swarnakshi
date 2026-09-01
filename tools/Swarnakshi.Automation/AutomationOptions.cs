@@ -84,8 +84,42 @@ public sealed record AutomationOptions
     /// <summary>Per-action delay Playwright applies. Raised in Demo so the cursor is followable.</summary>
     public int SlowMoMs => RunMode == RunMode.Demo ? 220 : 0;
 
-    /// <summary>How long a caption stays on screen before the step it describes runs.</summary>
-    public int CaptionHoldMs => RunMode == RunMode.Demo ? 1500 : 0;
+    /// <summary>
+    /// Speaking pace assumed when deciding how long a caption needs to stay up. 160 wpm is an
+    /// unhurried narration voice; lower it if the finished voiceover sounds rushed against the video.
+    /// </summary>
+    public int SpeechWordsPerMinute { get; init; } = 160;
+
+    /// <summary>Breathing room after the words are spoken, so a cut never lands on the last syllable.</summary>
+    public int CaptionPaddingMs { get; init; } = 700;
+
+    /// <summary>Floor for a caption hold, so a three-word beat still registers.</summary>
+    public int MinCaptionHoldMs { get; init; } = 1200;
+
+    /// <summary>
+    /// How long this caption stays on screen before its step runs.
+    ///
+    /// Proportional to the text, not a flat delay. A fixed hold made the recording unusable for
+    /// voiceover: a 26-word beat got the same 1.5s as a 6-word one, so narrating it aloud ran nearly
+    /// four times past its window and every later cue drifted further behind the picture. Sized from
+    /// the words themselves, each step is on screen for at least as long as it takes to say — and
+    /// the caption also stays up while the step runs, which is headroom on top.
+    /// </summary>
+    public int CaptionHoldMsFor(string text)
+    {
+        if (RunMode != RunMode.Demo) return 0;
+
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        var spoken = (int)(words / (double)SpeechWordsPerMinute * 60_000);
+        return Math.Max(MinCaptionHoldMs, spoken + CaptionPaddingMs);
+    }
+
+    /// <summary>What this text is expected to take to say, reported in the transcript.</summary>
+    public int EstimatedSpeechMsFor(string text)
+    {
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        return (int)(words / (double)SpeechWordsPerMinute * 60_000);
+    }
 
     /// <summary>
     /// Whether the browser is visible. Headed by default: this suite is the walkthrough of the
@@ -106,7 +140,8 @@ public sealed record AutomationOptions
     /// SWARNAKSHI_UAT_BASE_URL, SWARNAKSHI_UAT_API_BASE_URL, SWARNAKSHI_UAT_RUN_MODE (test|demo),
     /// SWARNAKSHI_UAT_VIEWPORT (desktop|mobile), SWARNAKSHI_UAT_WEB_PATH,
     /// SWARNAKSHI_UAT_MANAGE_SERVERS (true|false), SWARNAKSHI_UAT_MOBILE_DEVICE,
-    /// SWARNAKSHI_UAT_DESKTOP_SIZE (WIDTHxHEIGHT), SWARNAKSHI_UAT_HEADED (true|false).
+    /// SWARNAKSHI_UAT_DESKTOP_SIZE (WIDTHxHEIGHT), SWARNAKSHI_UAT_HEADED (true|false),
+    /// SWARNAKSHI_UAT_SPEECH_WPM (words per minute the captions are paced for).
     /// </summary>
     public static AutomationOptions FromEnvironment(
         RunMode defaultRunMode = RunMode.Test,
@@ -125,6 +160,7 @@ public sealed record AutomationOptions
                 StringComparison.OrdinalIgnoreCase),
             MobileDevice = Env("SWARNAKSHI_UAT_MOBILE_DEVICE") ?? "iPhone 15 Pro",
             Headed = ParseBool(Env("SWARNAKSHI_UAT_HEADED")) ?? !IsContinuousIntegration,
+            SpeechWordsPerMinute = ParseInt(Env("SWARNAKSHI_UAT_SPEECH_WPM")) ?? 160,
             DesktopWidth = width,
             DesktopHeight = height,
         };
@@ -160,6 +196,9 @@ public sealed record AutomationOptions
     /// <summary>Both are set by GitHub Actions; either is enough to mean "no display here".</summary>
     private static bool IsContinuousIntegration
         => Env("CI") is not null || Env("GITHUB_ACTIONS") is not null;
+
+    private static int? ParseInt(string? value)
+        => int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
 
     private static bool? ParseBool(string? value)
         => bool.TryParse(value, out var parsed) ? parsed : null;

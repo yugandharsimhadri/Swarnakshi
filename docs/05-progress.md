@@ -4,6 +4,29 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — Demo captions are paced to be spoken
+
+The content engine's review found the transcript unusable as an audio script, and it was right. A
+demo run held every caption for a flat 1.5s, so a 26-word beat got the same window as a 6-word one.
+Narrating it aloud at 160 wpm needs 9.8s against a 2.7s window — nearly four times over, with every
+later cue drifting further behind the picture. Measured across one journey the audio would have
+finished about 25 seconds after a 13-second video.
+
+Fixed at the source rather than worked around downstream: the hold is now proportional to the text
+(`SWARNAKSHI_UAT_SPEECH_WPM`, 160 by default, plus padding and a floor). The same journey now runs
+41s with every cue carrying 1.1-1.9s of headroom over its speech estimate, so one speech clip per cue
+placed at `startMs` fits by construction.
+
+`estimatedSpeechMs` is published per cue so a consumer can detect overrun — a slower voice or a
+longer translation — rather than discovering it in the finished video.
+
+Also documented: **record one viewport at a time.** A journey runs desktop then mobile and the window
+resizes to 390x844 between them, which would land mid-capture. `&DisplayName~Desktop` on the filter
+selects one, verified against `--list-tests`. The content-engine brief said to filter by journey
+only, which would have produced exactly that broken recording.
+
+---
+
 ## 2026-09-01 — The content-engine brief lives in docs
 
 [10-content-engine](10-content-engine.md) is the brief handed to the Sivayaan content engine for

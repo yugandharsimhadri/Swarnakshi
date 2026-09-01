@@ -16,7 +16,9 @@ public sealed record NarrationCue(
     long StartMs,
     long EndMs,
     string Text,
-    [property: JsonPropertyName("isTitle")] bool IsTitle);
+    [property: JsonPropertyName("isTitle")] bool IsTitle,
+    /// <summary>What this line is expected to take to say. The window above is sized to cover it.</summary>
+    int EstimatedSpeechMs);
 
 /// <summary>What one journey said, and when. Written next to the run for anything that edits video.</summary>
 public sealed record NarrationTranscript(
@@ -95,7 +97,8 @@ public static class NarrationSidecar
                 StartMs: (long)beats[i].At.TotalMilliseconds,
                 EndMs: (long)Math.Max(stop.TotalMilliseconds, beats[i].At.TotalMilliseconds),
                 Text: beats[i].Text,
-                IsTitle: beats[i].IsTitle));
+                IsTitle: beats[i].IsTitle,
+                EstimatedSpeechMs: beats[i].EstimatedSpeechMs));
         }
 
         return cues;

@@ -97,6 +97,7 @@ a pass. Always assert that the expected number of cases actually ran.
 | `SWARNAKSHI_UAT_VIEWPORT` | `desktop` | `desktop` or `mobile` — the suite drives both per journey regardless |
 | `SWARNAKSHI_UAT_DESKTOP_SIZE` | `1440x900` | Recording frame size for desktop journeys |
 | `SWARNAKSHI_UAT_MOBILE_DEVICE` | `iPhone 15 Pro` | Playwright device descriptor for mobile journeys |
+| `SWARNAKSHI_UAT_SPEECH_WPM` | `160` | Speaking pace the demo captions are held for. Lower it if the finished voiceover sounds rushed |
 | `SWARNAKSHI_UAT_BASE_URL` | `http://localhost:6070` | Client. **Not** the developer's 6050 |
 | `SWARNAKSHI_UAT_API_BASE_URL` | `http://localhost:6071` | API. **Not** the developer's 6051 |
 
@@ -169,6 +170,11 @@ One file per journey and viewport, e.g. `PurchaseToConsumption-Desktop.json`:
 - **`endMs` is when the next cue replaced it, not a fixed duration.** A caption stays up while its
   step runs, so a slow step yields a long cue. Use the pair directly as subtitle in/out points — do
   not recompute durations.
+- **`estimatedSpeechMs` is what the line should take to say** at the configured pace. In a demo run
+  the cue window is sized to cover it with padding, so one speech clip per cue placed at `startMs`
+  is expected to fit. Treat a clip that exceeds its window as a signal — either the voice is slower
+  than the assumed pace (lower `SWARNAKSHI_UAT_SPEECH_WPM` and re-record) or the translation is
+  longer than the English. Keep a no-overlap scheduler as the safety net; it should rarely fire.
 - **Times are relative to the journey's title card** (`index: 1`, `isTitle: true`), which is the
   first thing on screen. They are *not* wall-clock. Sync the recording to that first frame.
 - **`isTitle: true`** marks the chapter heading (`[Module] Journey Name`). Everything after is body.
