@@ -392,3 +392,91 @@ SQLite → SQL Server switch, backups.
 `inventory.view`, `material_request.create`, `purchase.create`, `projects.manage`, `reports.view` ·
 Accountant = `expense.create`, `labour.create`, `contract.manage`, `contractor_payment.create`,
 `customer_payment.create`, `inventory.view`, `reports.view`.
+
+## 15 — Material Master (P6)
+
+Redesigned end-to-end against `Swarnakshi_Material_Master_50_Categories.xlsx`.
+
+| Piece | Where |
+|---|---|
+| Taxonomy (50 categories, subcategories, spec fields) | `Infrastructure/Persistence/Seed/MaterialTaxonomy.cs` |
+| Idempotent seeding + legacy remap | `Infrastructure/Persistence/Seed/MaterialMasterSeeder.cs` |
+| Service (CRUD, lifecycle, duplicate + code-lock rules) | `Application/Masters/MaterialService.cs` |
+| Signature / summary rules (shared) | `Application/Masters/MaterialIdentity.cs` |
+| API | `Api/Controllers/MastersController.cs` → `MaterialsController` |
+| UI | `web/src/pages/Materials.tsx` |
+| Tests | `tests/Swarnakshi.Tests/MaterialMasterTests.cs` |
+
+Rules that are enforced **server-side**, not just in React:
+- Duplicate identity = Name + Brand + identity specs, normalised into `SpecSignature` with a
+  unique index. 409 on collision.
+- Material Code becomes immutable once any PurchaseItem / MaterialRequestItem /
+  InventoryTransaction / InventoryBalance references the material. 409 on change.
+- Deactivation is refused while stock exists at any site. 409, with the message the UI shows.
+- No DELETE endpoint. Lifecycle is Active ↔ Inactive so history survives.
+- Writes require `masters.manage` (Owner). Supervisor and Accountant are read-only.
+
+Specification fields are declared per subcategory by `MaterialSpecDefinition` and fetched by the
+form from `/api/materials/spec-definitions?subcategoryId=`. Company/Brand is a Material column, not
+a spec. Material never stores stock — the detail view reads it from `/api/materials/{id}/stock`.
+
+Gotchas 18-20:
+18. EF maps `string.Contains` to SQLite's case-sensitive `instr()` — search lowercases both sides.
+19. `BaseEntity` pre-sets `Id`, so adding a child through a tracked parent's navigation marks it
+    `Modified`; add spec values via `db.MaterialSpecValues.Add(...)`.
+20. Any migration adding a NOT NULL + unique column must backfill before the index is created.
+
+## 16 — Contractor & Customer master (P7)
+
+| Piece | Where |
+|---|---|
+| Service (all three party kinds) | `Application/Masters/PartyService.cs` |
+| API | `Api/Controllers/MastersController.cs` → `PartiesController` |
+| UI (shared by both screens) | `web/src/components/PartyMaster.tsx` |
+| Screen configs | `web/src/pages/Contractors.tsx`, `Customers.tsx` |
+| Tests | `tests/Swarnakshi.Tests/PartyMasterTests.cs` |
+
+Contractor, Customer and Supplier are one implementation keyed by `PartyKind` — do not fork it.
+
+Enforced **server-side**:
+- Code unique per kind; 409 on collision. Names are NOT unique — two contractors may share one.
+- Code immutable once any contract / contractor payment / project / customer payment / purchase
+  references the record.
+- Deactivation is always permitted (no stock equivalent) and never modifies historical rows.
+- Inactive parties are rejected for new contracts (`ContractService`), contractor payments and new
+  projects (`ProjectService`). `CustomerPayment` inherits the guard via its project.
+- Writes require `masters.manage`; Supervisor and Accountant are read-only.
+- Create/update/deactivate/reactivate each write an `AuditLog` row.
+
+Gotcha 21: EF cannot translate `Where`/`Any` applied on top of a positional-record projection —
+it throws at runtime. Filter and order on the concrete entity and project last.
+
+## 17 — UAT suite
+
+`tools/Swarnakshi.Automation` (Playwright library, scenarios as `IWorkflow`) +
+`tests/Swarnakshi.UatTests` (xUnit, one class per module, both viewports). Full detail in
+[08-uat.md](08-uat.md).
+
+```bash
+dotnet test tests/Swarnakshi.UatTests
+```
+
+Gotchas 22-24:
+22. `ASPNETCORE_URLS` does NOT beat `"Urls"` in appsettings.Development.json —
+    `WebApplication.CreateBuilder` layers app config over host config. Pass `--urls` as an
+    application argument instead, or the UAT API binds the developer's 6051.
+23. Search boxes and filter rows are bare inputs/selects with no `Field` wrapper, so `GetByLabel`
+    finds nothing; use placeholder and `select:has(option…)` locators.
+24. Nav links and More-page cards include an icon or chevron in their accessible name ("☰ More"),
+    so an exact name match never matches. Locators are substring by default for this reason.
+
+Gotcha 25 — **never name a paged action parameter `page`.** Bind it as
+`[FromQuery] PageQuery paging`. ASP.NET binds a complex type under the parameter name as a prefix,
+so a request carrying `?page=1` makes the binder look for `page.q` / `page.pageSize`, find nothing,
+and hand the action an empty PageQuery — search and page size are dropped with no error. This was
+live on all 13 list endpoints and made every search box in the product inert.
+
+Gotcha 26 — `useAsync` applies only the newest request's response (monotonic counter in
+`web/src/lib/useAsync.ts`). Keep that guard: without it a slow early request overwrites a newer one
+and lists flick back to stale or empty rows, which is invisible in manual testing and shows up as
+flaky UAT.

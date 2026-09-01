@@ -67,3 +67,6 @@ public enum ContractorPaymentKind { Advance = 1, Partial = 2, Final = 3, Adjustm
 public enum InventoryValuationMethod { WeightedAverage = 1, Fifo = 2, ManualRate = 3 }
 
 public enum ApprovalAction { Submitted = 1, Approved = 2, Rejected = 3, Cancelled = 4, Posted = 5, Reopened = 6 }
+
+/// <summary>Input control a material specification field renders as.</summary>
+public enum SpecFieldKind { Text = 1, Number = 2, Select = 3 }

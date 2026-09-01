@@ -83,23 +83,97 @@ export interface ProjectSummary {
   margin?: number | null;
 }
 
+export type SpecFieldKind = 1 | 2 | 3; // Text, Number, Select
+
+export interface SpecDefinition {
+  id: string;
+  materialSubcategoryId: string;
+  key: string;
+  label: string;
+  kind: SpecFieldKind;
+  options: string[];
+  isRequired: boolean;
+  partOfIdentity: boolean;
+  sortOrder: number;
+}
+
+export interface MaterialSpec {
+  definitionId: string;
+  key: string;
+  label: string;
+  value: string;
+  sortOrder: number;
+}
+
+/** Row shape of the Material Master list. */
 export interface Material {
   id: string;
   code: string;
   name: string;
+  brand?: string | null;
   materialSubcategoryId: string;
   subcategoryName: string;
+  materialCategoryId: string;
   categoryName: string;
+  specSummary?: string | null;
   unitId: string;
   unitCode: string;
   defaultPurchaseRate: number;
-  minStockLevel: number;
-  reorderLevel: number;
   gstRate?: number | null;
   isActive: boolean;
+}
+
+/** Full record behind View / Edit. */
+export interface MaterialDetail extends Material {
+  specifications: MaterialSpec[];
+  secondaryUnitId?: string | null;
+  secondaryUnitCode?: string | null;
+  conversionFactor?: number | null;
+  genericMeasurement?: string | null;
+  minStockLevel: number;
+  reorderLevel: number;
   description?: string | null;
   notes?: string | null;
+  codeLocked: boolean;
+  hasStock: boolean;
+  totalStock: number;
 }
+
+export interface MaterialSiteStock {
+  siteId: string;
+  siteName: string;
+  quantity: number;
+  averageRate: number;
+  value: number;
+}
+
+export interface MaterialSummary {
+  total: number;
+  active: number;
+  inactive: number;
+  categories: number;
+}
+
+export interface SaveMaterialBody {
+  code: string;
+  name: string;
+  materialSubcategoryId: string;
+  brand?: string | null;
+  unitId: string;
+  secondaryUnitId?: string | null;
+  conversionFactor?: number | null;
+  genericMeasurement?: string | null;
+  minStockLevel: number;
+  reorderLevel: number;
+  defaultPurchaseRate: number;
+  gstRate?: number | null;
+  description?: string | null;
+  notes?: string | null;
+  specifications: Record<string, string | null>;
+}
+
+export interface Subcategory { id: string; parentId: string; parentName: string; name: string; isActive: boolean }
+export interface Category { id: string; name: string; sortOrder: number; isActive: boolean }
 
 export const SiteStatusName: Record<number, string> = { 0: "Planned", 1: "Active", 2: "On Hold", 3: "Completed", 4: "Cancelled" };
 export const ProjectStatusName = SiteStatusName;
@@ -233,10 +307,56 @@ export interface MaterialRequestItem {
   expenseSubheadId?: string | null;
 }
 
-export interface Contractor {
-  id: string; code: string; name: string; companyName?: string | null;
-  mobile?: string | null; email?: string | null; type?: string | null; isActive: boolean;
+/** Row shape shared by the contractor / customer / supplier master lists. */
+export interface Party {
+  id: string;
+  code: string;
+  name: string;
+  companyName?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  gstin?: string | null;
+  type?: string | null;
+  isActive: boolean;
 }
+
+/** How many transactions reference this party — drives the code lock and the detail view. */
+export interface PartyUsage {
+  contracts: number;
+  contractorPayments: number;
+  projects: number;
+  customerPayments: number;
+  purchases: number;
+  total: number;
+}
+
+export interface PartyDetail extends Party {
+  address?: string | null;
+  pan?: string | null;
+  bankDetails?: string | null;
+  notes?: string | null;
+  codeLocked: boolean;
+  usage: PartyUsage;
+}
+
+export interface PartySummary { total: number; active: number; inactive: number }
+
+export interface SavePartyBody {
+  code: string;
+  name: string;
+  companyName?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  address?: string | null;
+  pan?: string | null;
+  gstin?: string | null;
+  bankDetails?: string | null;
+  type?: string | null;
+  notes?: string | null;
+}
+
+/** Kept as aliases so existing pickers (ProjectDetail, Purchases) keep compiling. */
+export type Contractor = Party;
 
 export interface ProjectExpense {
   id: string; txnNumber: string; projectId: string; date: string;
@@ -274,9 +394,7 @@ export interface ContractorPayment {
 
 export interface CostByHead { expenseHeadId: string; expenseHeadName: string; amount: number }
 
-export interface Customer {
-  id: string; code: string; name: string; mobile?: string | null; email?: string | null; isActive: boolean;
-}
+export type Customer = Party;
 
 export interface CustomerPayment {
   id: string; txnNumber: string; projectId: string; projectName: string; customerId: string; customerName: string;

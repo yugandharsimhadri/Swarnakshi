@@ -13,10 +13,25 @@ Role is an enum: `Owner, SubOwner, Supervisor, Accountant`.
 
 ## Masters (global)
 - **Unit** (Code, Name, IsActive) — Nos, Bag, Kg, Ton, Cft, Cum, RM, SqFt, …
-- **MaterialCategory** (Name, SortOrder, IsActive)
-- **MaterialSubcategory** (MaterialCategoryId, Name, IsActive)
-- **Material** (Code*, Name, MaterialSubcategoryId, Description, UnitId, SecondaryUnitId?,
-  ConversionFactor?, MinStockLevel, ReorderLevel, DefaultPurchaseRate, GstRate?, IsActive, Notes)
+- **MaterialCategory** (Name, SortOrder, IsActive) — the approved 50-category taxonomy
+- **MaterialSubcategory** (MaterialCategoryId, Name, IsActive) — unique (CategoryId, Name)
+- **Material** (Code*, Name, MaterialSubcategoryId, **Brand**, Description, UnitId, SecondaryUnitId?,
+  ConversionFactor?, **GenericMeasurement**, MinStockLevel, ReorderLevel, DefaultPurchaseRate,
+  GstRate?, IsActive, Notes, **SpecSummary**, **SpecSignature***)
+- **MaterialSpecDefinition** (MaterialSubcategoryId, Key, Label, Kind {Text|Number|Select},
+  Options, IsRequired, PartOfIdentity, SortOrder, IsActive) — unique (SubcategoryId, Key)
+- **MaterialSpecValue** (MaterialId, MaterialSpecDefinitionId, Value) — unique (MaterialId, DefinitionId)
+
+### Material identity
+An exact purchasable material is **Name + Brand + identity-bearing specifications**. That triple is
+normalised (lowercased, whitespace-collapsed, key-sorted) into `Material.SpecSignature`, which carries
+a **unique index** — duplicate prevention is a database constraint, not just a service check.
+`SpecSummary` is the denormalised display form ("25 mm · Cold Water") and is what free-text search
+matches on, so phrase queries work without provider-specific JSON operators.
+
+Which specification fields apply is decided by the **subcategory** via `MaterialSpecDefinition`.
+Company/Brand is a first-class Material column, never a spec field. Material never stores stock —
+current stock is `InventoryBalance` per (Site, Material).
 - **ExpenseHead** (Name, SortOrder, IsActive)
 - **ExpenseSubhead** (ExpenseHeadId, Name, IsActive)
 - **LabourCategory** (Name, IsActive)

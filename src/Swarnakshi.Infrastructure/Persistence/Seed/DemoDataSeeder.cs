@@ -20,6 +20,14 @@ public static class DemoDataSeeder
         var cust = new Customer { Code = "CUST-001", Name = "Ramesh Kumar", Mobile = "9000000001", IsDemo = true };
         db.Customers.Add(cust);
 
+        // A supplier is required to record a purchase, and there is no supplier management screen —
+        // so without one seeded, a fresh install cannot buy material through the UI at all.
+        db.Suppliers.Add(new Supplier
+        {
+            Code = "SUP-001", Name = "Sri Balaji Traders", Mobile = "9000000002",
+            Address = "Kukatpally, Hyderabad", IsDemo = true
+        });
+
         db.Projects.AddRange(
             new Project { Code = "GV-101", Name = "Villa 101", VillaNumber = "101", Site = green, Customer = cust, ProjectTypeId = villaType?.Id, EstimatedCost = 5_000_000, ContractSaleValue = 8_000_000, Status = ProjectStatus.Active, IsDemo = true },
             new Project { Code = "GV-102", Name = "Villa 102", VillaNumber = "102", Site = green, ProjectTypeId = villaType?.Id, EstimatedCost = 5_200_000, Status = ProjectStatus.Active, IsDemo = true },

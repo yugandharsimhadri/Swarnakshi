@@ -948,6 +948,10 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Brand")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -969,6 +973,10 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Description")
                         .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GenericMeasurement")
+                        .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
                     b.Property<decimal?>("GstRate")
@@ -1004,17 +1012,33 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("SecondaryUnitId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SpecSignature")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecSummary")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("UnitId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Brand");
+
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("IsActive");
 
                     b.HasIndex("MaterialSubcategoryId");
 
                     b.HasIndex("SecondaryUnitId");
+
+                    b.HasIndex("SpecSignature")
+                        .IsUnique();
 
                     b.HasIndex("UnitId");
 
@@ -1188,6 +1212,99 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.HasIndex("UnitId");
 
                     b.ToTable("MaterialRequestItems");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialSpecDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("MaterialSubcategoryId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Options")
+                        .HasMaxLength(600)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("PartOfIdentity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaterialSubcategoryId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("MaterialSpecDefinitions");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialSpecValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("MaterialId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("MaterialSpecDefinitionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaterialSpecDefinitionId");
+
+                    b.HasIndex("Value");
+
+                    b.HasIndex("MaterialId", "MaterialSpecDefinitionId")
+                        .IsUnique();
+
+                    b.ToTable("MaterialSpecValues");
                 });
 
             modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialSubcategory", b =>
@@ -2276,6 +2393,36 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialSpecDefinition", b =>
+                {
+                    b.HasOne("Swarnakshi.Domain.Entities.MaterialSubcategory", "Subcategory")
+                        .WithMany()
+                        .HasForeignKey("MaterialSubcategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subcategory");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialSpecValue", b =>
+                {
+                    b.HasOne("Swarnakshi.Domain.Entities.Material", "Material")
+                        .WithMany("Specifications")
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Swarnakshi.Domain.Entities.MaterialSpecDefinition", "Definition")
+                        .WithMany()
+                        .HasForeignKey("MaterialSpecDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Definition");
+
+                    b.Navigation("Material");
+                });
+
             modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialSubcategory", b =>
                 {
                     b.HasOne("Swarnakshi.Domain.Entities.MaterialCategory", "Category")
@@ -2485,6 +2632,11 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseHead", b =>
                 {
                     b.Navigation("Subheads");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.Material", b =>
+                {
+                    b.Navigation("Specifications");
                 });
 
             modelBuilder.Entity("Swarnakshi.Domain.Entities.MaterialCategory", b =>

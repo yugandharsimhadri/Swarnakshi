@@ -53,7 +53,18 @@ dotnet test
 `tests/Swarnakshi.Tests` covers the financial invariants: weighted-average valuation,
 **no double counting** (purchase value = consumed cost + remaining stock value), approval gates
 (no issue / no posting before Owner approval), negative-stock prevention, contractor
-overpayment block + override, and the customer-required rule.
+overpayment block + override, and the customer-required rule — plus authentication, user
+administration, inventory operations, expenses and the master screens.
+
+### UAT (browser-driven acceptance)
+
+```bash
+dotnet test tests/Swarnakshi.UatTests
+```
+
+Starts its own API and client on **6070/6071** against a throwaway database, signs in as the seeded
+owner, and performs the business journeys in a real browser — every scenario in both desktop and
+mobile viewports. It never touches a dev server you have running. See **[docs/08-uat.md](docs/08-uat.md)**.
 
 ## Documentation
 

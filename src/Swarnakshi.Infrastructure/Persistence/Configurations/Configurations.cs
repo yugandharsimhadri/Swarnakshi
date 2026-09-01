@@ -44,9 +44,47 @@ public class MaterialConfig : IEntityTypeConfiguration<Material>
     {
         e.HasIndex(x => x.Code).IsUnique();
         e.Property(x => x.Code).HasMaxLength(40);
+        e.Property(x => x.Brand).HasMaxLength(120);
+        e.Property(x => x.GenericMeasurement).HasMaxLength(120);
+        e.Property(x => x.SpecSummary).HasMaxLength(400);
+        e.Property(x => x.SpecSignature).HasMaxLength(500).IsRequired();
+
+        // Server-side duplicate prevention: name + brand + identity specs.
+        e.HasIndex(x => x.SpecSignature).IsUnique();
+        e.HasIndex(x => x.Brand);
+        e.HasIndex(x => x.IsActive);
+
         e.HasOne(x => x.Subcategory).WithMany().HasForeignKey(x => x.MaterialSubcategoryId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.SecondaryUnit).WithMany().HasForeignKey(x => x.SecondaryUnitId).OnDelete(DeleteBehavior.Restrict);
+        e.HasMany(x => x.Specifications).WithOne(x => x.Material)
+            .HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class MaterialSpecDefinitionConfig : IEntityTypeConfiguration<MaterialSpecDefinition>
+{
+    public void Configure(EntityTypeBuilder<MaterialSpecDefinition> e)
+    {
+        e.Property(x => x.Key).HasMaxLength(60).IsRequired();
+        e.Property(x => x.Label).HasMaxLength(120).IsRequired();
+        e.Property(x => x.Options).HasMaxLength(600);
+        e.HasIndex(x => new { x.MaterialSubcategoryId, x.Key }).IsUnique();
+        e.HasOne(x => x.Subcategory).WithMany().HasForeignKey(x => x.MaterialSubcategoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class MaterialSpecValueConfig : IEntityTypeConfiguration<MaterialSpecValue>
+{
+    public void Configure(EntityTypeBuilder<MaterialSpecValue> e)
+    {
+        e.Property(x => x.Value).HasMaxLength(200).IsRequired();
+        e.HasIndex(x => new { x.MaterialId, x.MaterialSpecDefinitionId }).IsUnique();
+        e.HasIndex(x => x.Value);
+        // Restrict: a definition still used by a material must not vanish underneath it.
+        e.HasOne(x => x.Definition).WithMany().HasForeignKey(x => x.MaterialSpecDefinitionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

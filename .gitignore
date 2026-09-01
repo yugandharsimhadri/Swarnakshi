@@ -496,3 +496,10 @@ web/dist/
 .idea/
 
 src/Swarnakshi.Api/App_Data/
+
+# UAT run artifacts (throwaway databases, failure screenshots)
+artifacts/uat/
+uat.log
+
+# Vite/TS incremental build cache
+web/tsconfig.tsbuildinfo

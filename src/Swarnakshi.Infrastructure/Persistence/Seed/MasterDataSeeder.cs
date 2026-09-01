@@ -39,41 +39,11 @@ public static class MasterDataSeeder
 
     private static async Task SeedMaterialsAsync(AppDbContext db, CancellationToken ct)
     {
-        if (await db.MaterialCategories.AnyAsync(ct)) return;
+        // Categories/subcategories/spec definitions live in MaterialMasterSeeder (the approved
+        // 50-category taxonomy). It also remaps any legacy tree, so run it before seeding materials.
+        await MaterialMasterSeeder.RunAsync(db, ct);
 
-        // category -> subcategories
-        var tree = new (string Cat, string[] Subs)[]
-        {
-            ("Cement", new[]{"OPC","PPC","PSC","White Cement","Masonry Cement"}),
-            ("Sand & Aggregates", new[]{"River Sand","M-Sand","P-Sand","20mm Aggregate","40mm Aggregate","Crusher Dust"}),
-            ("Steel / Iron", new[]{"TMT Bars","Binding Wire","MS Angles","MS Channels","GI Materials"}),
-            ("Bricks & Blocks", new[]{"Red Brick","Fly Ash Brick","AAC Block","Solid Block","Hollow Block"}),
-            ("Plumbing Materials", new[]{"CPVC Pipe","UPVC Pipe","PVC Pipe","GI Pipe","Elbow","Tee","Coupler","Valve","Tap","Jointing Material"}),
-            ("Electrical Materials", new[]{"Wire","Cable","Switch","Socket","MCB","Distribution Board","Conduit","Junction Box","Accessories"}),
-            ("Paint & Finishing", new[]{"Interior Paint","Exterior Paint","Primer","Putty","Waterproof Coating","Thinner"}),
-            ("Flooring", new[]{"Vitrified Tiles","Ceramic Tiles","Granite","Marble","Adhesive","Grout"}),
-            ("Doors & Windows", new[]{"Door Frame","Door Shutter","Window Frame","UPVC Window","Glass","Hardware"}),
-            ("Hardware", new[]{"Hinges","Locks","Handles","Tower Bolt","Miscellaneous"}),
-            ("Wood / Carpentry", new[]{"Teak Wood","Plywood","MDF","Laminate","Beading"}),
-            ("Roofing", new[]{"Roofing Sheet","Truss Material","Fasteners","Ridge"}),
-            ("Waterproofing", new[]{"Membrane","Chemical Coating","Crystalline"}),
-            ("Construction Chemicals", new[]{"Admixture","Curing Compound","Tile Adhesive","Epoxy"}),
-            ("Sanitaryware", new[]{"WC","Wash Basin","Cistern","CP Fittings"}),
-            ("Fasteners", new[]{"Nails","Screws","Bolts","Anchor Fasteners"}),
-            ("Safety Materials", new[]{"Helmet","Safety Shoes","Safety Net","Gloves"}),
-            ("Tools", new[]{"Hand Tools","Power Tools","Consumables"}),
-            ("Other Construction Materials", new[]{"General"}),
-        };
-
-        var nos = 1;
-        foreach (var (catName, subs) in tree)
-        {
-            var cat = new MaterialCategory { Name = catName, SortOrder = nos++ };
-            db.MaterialCategories.Add(cat);
-            foreach (var s in subs)
-                cat.Subcategories.Add(new MaterialSubcategory { Name = s });
-        }
-        await db.SaveChangesAsync(ct);
+        if (await db.Materials.AnyAsync(ct)) return;
 
         var bag = await db.Units.FirstAsync(u => u.Code == "BAG", ct);
         var cft = await db.Units.FirstAsync(u => u.Code == "CFT", ct);
@@ -87,56 +57,84 @@ public static class MasterDataSeeder
             db.MaterialSubcategories.Include(x => x.Category)
               .First(x => x.Category.Name == cat && x.Name == sub).Id;
 
-        var mats = new (string Code, string Name, string Cat, string Sub, Guid Unit, decimal Rate)[]
+        // NOTE: codes below are stable identifiers referenced by tests and by any existing
+        // transaction history — never renumber them.
+
+        // Codes are stable identifiers referenced by tests and by any existing transaction
+        // history — never renumber them. Categories/subcategories use the approved 50-category paths.
+        // Specs are seeded where the material name already encodes them.
+        var mats = new (string Code, string Name, string Cat, string Sub, Guid Unit, decimal Rate,
+            (string Key, string Value)[] Specs)[]
         {
-            ("MAT-CEM-OPC","OPC 53 Grade Cement","Cement","OPC",bag.Id,420),
-            ("MAT-CEM-PPC","PPC Cement","Cement","PPC",bag.Id,400),
-            ("MAT-SND-RIV","River Sand","Sand & Aggregates","River Sand",cft.Id,90),
-            ("MAT-SND-MSN","M-Sand","Sand & Aggregates","M-Sand",cft.Id,55),
-            ("MAT-AGG-20","20mm Aggregate","Sand & Aggregates","20mm Aggregate",cft.Id,60),
-            ("MAT-AGG-40","40mm Aggregate","Sand & Aggregates","40mm Aggregate",cft.Id,58),
-            ("MAT-STL-TMT","TMT Steel Bar Fe500","Steel / Iron","TMT Bars",kg.Id,68),
-            ("MAT-STL-BND","Binding Wire","Steel / Iron","Binding Wire",kg.Id,85),
-            ("MAT-BRK-RED","Red Brick","Bricks & Blocks","Red Brick",nosU.Id,8),
-            ("MAT-BRK-FLY","Fly Ash Brick","Bricks & Blocks","Fly Ash Brick",nosU.Id,7),
-            ("MAT-BLK-AAC","AAC Block","Bricks & Blocks","AAC Block",nosU.Id,48),
-            ("MAT-BLK-SLD","Solid Block","Bricks & Blocks","Solid Block",nosU.Id,32),
-            ("MAT-PLB-CPVC","CPVC Pipe","Plumbing Materials","CPVC Pipe",rmt.Id,120),
-            ("MAT-PLB-UPVC","UPVC Pipe","Plumbing Materials","UPVC Pipe",rmt.Id,95),
-            ("MAT-PLB-PVC","PVC Pipe","Plumbing Materials","PVC Pipe",rmt.Id,70),
-            ("MAT-PLB-ELB","PVC Elbow","Plumbing Materials","Elbow",nosU.Id,12),
-            ("MAT-PLB-TEE","PVC Tee","Plumbing Materials","Tee",nosU.Id,15),
-            ("MAT-PLB-VAL","Brass Valve","Plumbing Materials","Valve",nosU.Id,180),
-            ("MAT-ELC-WIRE","Electrical Wire 2.5sqmm","Electrical Materials","Wire",rmt.Id,18),
-            ("MAT-ELC-CABLE","Electrical Cable","Electrical Materials","Cable",rmt.Id,55),
-            ("MAT-ELC-COND","PVC Conduit","Electrical Materials","Conduit",rmt.Id,22),
-            ("MAT-ELC-SW","Modular Switch","Electrical Materials","Switch",nosU.Id,90),
-            ("MAT-ELC-SOC","Modular Socket","Electrical Materials","Socket",nosU.Id,120),
-            ("MAT-ELC-MCB","MCB Single Pole","Electrical Materials","MCB",nosU.Id,220),
-            ("MAT-ELC-DB","Distribution Board 8-Way","Electrical Materials","Distribution Board",nosU.Id,1600),
-            ("MAT-ELC-JB","Junction Box","Electrical Materials","Junction Box",nosU.Id,35),
-            ("MAT-PNT-PRM","Wall Primer","Paint & Finishing","Primer",ltr.Id,140),
-            ("MAT-PNT-PUT","Wall Putty","Paint & Finishing","Putty",kg.Id,28),
-            ("MAT-PNT-INT","Interior Emulsion Paint","Paint & Finishing","Interior Paint",ltr.Id,240),
-            ("MAT-PNT-EXT","Exterior Emulsion Paint","Paint & Finishing","Exterior Paint",ltr.Id,320),
-            ("MAT-WPF-COAT","Waterproofing Coating","Waterproofing","Chemical Coating",kg.Id,180),
-            ("MAT-FLR-VIT","Vitrified Tiles 600x600","Flooring","Vitrified Tiles",sft.Id,55),
-            ("MAT-FLR-ADH","Tile Adhesive","Flooring","Adhesive",bag.Id,380),
-            ("MAT-FLR-GRT","Tile Grout","Flooring","Grout",kg.Id,60),
-            ("MAT-DR-FRM","Door Frame (Sal Wood)","Doors & Windows","Door Frame",nosU.Id,3500),
-            ("MAT-DR-SHT","Flush Door Shutter","Doors & Windows","Door Shutter",nosU.Id,2800),
-            ("MAT-HW-HNG","SS Hinges","Doors & Windows","Hardware",nosU.Id,45),
-            ("MAT-FST-NAIL","Nails","Fasteners","Nails",kg.Id,90),
-            ("MAT-FST-SCR","Screws","Fasteners","Screws",nosU.Id,2),
-            ("MAT-CHM-ADM","Concrete Admixture","Construction Chemicals","Admixture",ltr.Id,95),
+            ("MAT-CEM-OPC","OPC 53 Grade Cement","Cement","OPC",bag.Id,420,[("grade","53")]),
+            ("MAT-CEM-PPC","PPC Cement","Cement","PPC",bag.Id,400,[]),
+            ("MAT-SND-RIV","River Sand","Sand","River Sand",cft.Id,90,[]),
+            ("MAT-SND-MSN","M-Sand","Sand","M-Sand",cft.Id,55,[]),
+            ("MAT-AGG-20","20mm Aggregate","Aggregates & Gravel","20mm Aggregate",cft.Id,60,[("size","20"),("size_unit","mm")]),
+            ("MAT-AGG-40","40mm Aggregate","Aggregates & Gravel","40mm Aggregate",cft.Id,58,[("size","40"),("size_unit","mm")]),
+            ("MAT-STL-TMT","TMT Steel Bar Fe500","Iron & Steel","TMT Bars",kg.Id,68,[("grade","Fe500")]),
+            ("MAT-STL-BND","Binding Wire","Iron & Steel","Binding Wire",kg.Id,85,[]),
+            ("MAT-BRK-RED","Red Brick","Bricks","Red Brick",nosU.Id,8,[]),
+            ("MAT-BRK-FLY","Fly Ash Brick","Bricks","Fly Ash Brick",nosU.Id,7,[]),
+            ("MAT-BLK-AAC","AAC Block","Blocks","AAC Block",nosU.Id,48,[]),
+            ("MAT-BLK-SLD","Solid Block","Blocks","Solid Block",nosU.Id,32,[]),
+            ("MAT-PLB-CPVC","CPVC Pipe","CPVC Plumbing","CPVC Pipe",rmt.Id,120,[]),
+            ("MAT-PLB-UPVC","UPVC Pipe","UPVC Plumbing","UPVC Pipe",rmt.Id,95,[]),
+            ("MAT-PLB-PVC","PVC Pipe","PVC Plumbing","PVC Pipe",rmt.Id,70,[]),
+            ("MAT-PLB-ELB","PVC Elbow","PVC Plumbing","Fittings",nosU.Id,12,[]),
+            ("MAT-PLB-TEE","PVC Tee","PVC Plumbing","Fittings",nosU.Id,15,[]),
+            ("MAT-PLB-VAL","Brass Ball Valve","Plumbing Valves","Ball Valve",nosU.Id,180,[]),
+            ("MAT-ELC-WIRE","Electrical Wire 2.5sqmm","Electrical Wire","Single Core",rmt.Id,18,[("size","2.5"),("size_unit","sq.mm")]),
+            ("MAT-ELC-CABLE","Electrical Cable","Electrical Cable","Power Cable",rmt.Id,55,[]),
+            ("MAT-ELC-COND","PVC Conduit","Electrical Conduit","PVC Conduit",rmt.Id,22,[]),
+            ("MAT-ELC-SW","Modular Switch","Electrical Switches & Sockets","Switches",nosU.Id,90,[]),
+            ("MAT-ELC-SOC","Modular Socket","Electrical Switches & Sockets","Sockets",nosU.Id,120,[]),
+            ("MAT-ELC-MCB","MCB Single Pole","Electrical Protection","MCB",nosU.Id,220,[]),
+            ("MAT-ELC-DB","Distribution Board 8-Way","Distribution Boards","SPN DB",nosU.Id,1600,[]),
+            ("MAT-ELC-JB","Junction Box","Electrical Accessories","Junction Box",nosU.Id,35,[]),
+            ("MAT-PNT-PRM","Wall Primer","Primer & Putty","Wall Primer",ltr.Id,140,[]),
+            ("MAT-PNT-PUT","Wall Putty","Primer & Putty","Wall Putty",kg.Id,28,[]),
+            ("MAT-PNT-INT","Interior Emulsion Paint","Paint","Interior",ltr.Id,240,[("type","Emulsion")]),
+            ("MAT-PNT-EXT","Exterior Emulsion Paint","Paint","Exterior",ltr.Id,320,[("type","Emulsion")]),
+            ("MAT-WPF-COAT","Waterproofing Coating","Waterproofing Materials","Liquid Waterproofing",kg.Id,180,[]),
+            ("MAT-FLR-VIT","Vitrified Tiles 600x600","Tiles","Vitrified Tile",sft.Id,55,[("length","600"),("width","600"),("dimension_unit","mm")]),
+            ("MAT-FLR-ADH","Tile Adhesive","Tile Accessories","Tile Adhesive",bag.Id,380,[]),
+            ("MAT-FLR-GRT","Tile Grout","Tile Accessories","Grout",kg.Id,60,[]),
+            ("MAT-DR-FRM","Door Frame (Sal Wood)","Door Frames","Wooden Frame",nosU.Id,3500,[]),
+            ("MAT-DR-SHT","Flush Door Shutter","Doors & Shutters","Flush Door",nosU.Id,2800,[("material_type","Flush")]),
+            ("MAT-HW-HNG","SS Hinges","Hardware","Hinges",nosU.Id,45,[]),
+            ("MAT-FST-NAIL","Nails","Fasteners","Nails",kg.Id,90,[]),
+            ("MAT-FST-SCR","Screws","Fasteners","Screws",nosU.Id,2,[]),
+            ("MAT-CHM-ADM","Concrete Admixture","Construction Chemicals","Admixture",ltr.Id,95,[]),
         };
 
         foreach (var m in mats)
-            db.Materials.Add(new Material
+        {
+            var subId = Sub(m.Cat, m.Sub);
+            var material = new Material
             {
-                Code = m.Code, Name = m.Name, MaterialSubcategoryId = Sub(m.Cat, m.Sub),
-                UnitId = m.Unit, DefaultPurchaseRate = m.Rate, MinStockLevel = 0, ReorderLevel = 0
-            });
+                Code = m.Code, Name = m.Name, MaterialSubcategoryId = subId,
+                UnitId = m.Unit, DefaultPurchaseRate = m.Rate, MinStockLevel = 0, ReorderLevel = 0,
+                // Real signature/summary are rebuilt by MaterialMasterSeeder once specs are attached.
+                SpecSignature = m.Code
+            };
+
+            foreach (var (key, value) in m.Specs)
+            {
+                var def = db.MaterialSpecDefinitions.FirstOrDefault(
+                    d => d.MaterialSubcategoryId == subId && d.Key == key);
+                if (def is not null)
+                    material.Specifications.Add(new MaterialSpecValue
+                    {
+                        MaterialSpecDefinitionId = def.Id, Value = value
+                    });
+            }
+
+            db.Materials.Add(material);
+        }
+
+        await db.SaveChangesAsync(ct);
+        await MaterialMasterSeeder.RefreshMaterialIdentityAsync(db, ct);
     }
 
     private static async Task SeedExpensesAsync(AppDbContext db, CancellationToken ct)

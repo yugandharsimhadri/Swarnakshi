@@ -4,6 +4,257 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — UAT suite green: 24/24 in both viewports
+
+The browser-driven acceptance suite (`tests/Swarnakshi.UatTests` + `tools/Swarnakshi.Automation`)
+now passes every scenario on desktop and mobile. See [08-uat](08-uat.md).
+
+**The last three failures were all one bug in the harness.** Both layouts ship in the DOM at once,
+and `TableWrap` renders `div.rounded-2xl` — the same class as the mobile `Card` — carrying every
+row's text. On mobile the row lookup therefore bound to the *hidden desktop table* and waited out
+its timeout for a button that could never become visible. Visibility was being filtered on the
+control but not on the container that held it. Row resolution now lives in one place
+(`WorkflowContext.Row`), which filters the container, and `RowAction` / `ExpectRowStatusAsync` /
+`OpenDetailAsync` all go through it.
+
+Also added `ExpectRowStatusAsync`, so a lifecycle step waits for the row to actually read `Inactive`
+rather than for the network to go quiet — it asserts the business outcome and synchronises on it in
+one move. A bare network wait had been letting runs continue against a list that still showed the
+old state.
+
+**Next**
+- Wire the UAT suite into CI as its own step (it takes ~2 min and starts servers, so not in the
+  default `dotnet test`).
+
+**Gotchas**
+- Don't pipe a UAT run into `tail`/`head` — they buffer until exit, so a run in flight looks silent.
+  Redirect to a file instead.
+- Assertion timeouts are separate from page timeouts; `Assertions.SetDefaultExpectTimeout` is set
+  explicitly in the fixture.
+
+---
+
+## 2026-08-31 — Stale responses could overwrite any list (found by UAT)
+
+`useAsync` had no request-ordering guard: it applied whichever response resolved last, regardless of
+which request it belonged to. Every list in the app re-queries on each keystroke and each filter
+change, so several requests are routinely in flight — and a slow early one would overwrite the
+results the user was actually looking at, flicking the list back to stale or empty rows a moment
+after showing the right ones.
+
+Fixed with a monotonic request counter: only the most recent request may write state, and unmount
+supersedes anything in flight (which also removes the late-setState-after-unmount path).
+
+This is what made the Material Master lifecycle scenario fail intermittently — the row was found
+under the Inactive filter, then vanished mid-step when an older response landed.
+
+---
+
+## 2026-08-31 — Search was broken on every list endpoint (found by UAT)
+
+Chasing the last UAT failures turned up a real product bug, not a test bug: **`q` and `pageSize`
+were silently ignored on every paged list in the app** whenever the client sent `page`.
+
+```
+GET /api/materials?q=UAT-LIF-DIAG              -> total 1   correct
+GET /api/materials?q=UAT-LIF-DIAG&pageSize=50  -> total 1   correct
+GET /api/materials?q=UAT-LIF-DIAG&page=1       -> total 42  q dropped
+```
+
+**Cause.** The action parameter was named `page` (`[FromQuery] PageQuery page`). ASP.NET binds a
+complex type by first looking for values under the parameter name as a prefix; a request carrying
+`?page=1` matches that prefix, so the binder switches to prefixed mode, looks for `page.q` /
+`page.pageSize` / `page.sort`, finds none, and hands the action an empty `PageQuery`. No error — the
+endpoint just answers with the unfiltered first page.
+
+**Reach.** 13 endpoints across 9 controllers: materials, contractors/customers/suppliers, projects,
+sites, purchases, material requests, inventory ledger, approvals, expenses, contracts and customer
+payments. The frontend always sends `page`, so **every search box in the product was inert** —
+typing filtered nothing; the list simply re-rendered unfiltered. Several UAT scenarios had been
+passing for the wrong reason, "finding" a record only because the whole list came back.
+
+**Fix.** Renamed the parameter to `paging` everywhere, so no query key matches the prefix and the
+binder falls back to unprefixed binding. `PageQuery` now carries a comment stating the rule.
+
+---
+
+## 2026-08-31 — UAT suite (Playwright, browser-driven acceptance)
+
+A frontend acceptance layer above the unit suite: it starts the API and the Vite client, signs in as
+the seeded owner, and performs the business journeys in a real browser. Modelled on the UAT projects
+in `TransTruck_Web` (`tests/TransTrack.UatTests` + `tools/TransTrack.Automation`) and `HMS_WEB`.
+
+**Layout**
+- `tools/Swarnakshi.Automation` — Playwright library: server management, browser session, and the
+  scenarios themselves as `IWorkflow` objects.
+- `tests/Swarnakshi.UatTests` — xUnit suite, one class per module, each running one workflow in
+  **both viewports** via a `[Theory]`.
+
+Scenarios live in the automation library, not the test project, so the same objects can be replayed
+headed with captions (`SWARNAKSHI_UAT_RUN_MODE=demo`) — what is demonstrated and what is signed off
+are the same journey by construction.
+
+**12 scenarios**: SignIn, Dashboard, UserAccess, MaterialCatalogue, AddMaterial, MaterialLifecycle,
+ContractorMaster, CustomerMaster, PurchaseToConsumption, MaterialRequestApproval, SiteInventory,
+Reports. Documented in [08-uat.md](08-uat.md).
+
+**Status: 21 of 24 cases pass.** `MaterialLifecycle` (both viewports) and `ContractorMaster`
+(mobile) remain open — see 08-uat.md for the evidence and the next step.
+
+**Isolation** — runs on 6070/6071, never the developer's 6050/6051, against a throwaway SQLite file
+under `artifacts/uat/` that is deleted afterwards. `web/vite.config.ts` now reads
+`SWARNAKSHI_WEB_PORT` / `SWARNAKSHI_API_URL` (defaults unchanged) so the client's proxy can be
+pointed at the run's own API.
+
+**A product gap the UAT found:** no seeder creates a **Supplier**, and there is no supplier
+management screen — so on a fresh install a purchase cannot be recorded through the UI at all, since
+the supplier picker is empty. A demo supplier (`SUP-001 Sri Balaji Traders`) now joins the
+Development-only demo seed alongside the demo sites and customer. A supplier master screen remains
+genuinely missing; the party service already supports suppliers, so only the UI is absent.
+
+**Gotchas**
+- `ASPNETCORE_URLS` does **not** override `"Urls"` in appsettings.Development.json:
+  `WebApplication.CreateBuilder` layers application configuration over host configuration, so the
+  JSON wins. The first run therefore bound the API to the developer's 6051 — precisely the collision
+  the design exists to prevent — and then timed out waiting on 6071. Fixed by passing `--urls` as an
+  application argument (command line is the last provider). The timeout now says so explicitly.
+- The search boxes and filter selects are bare inputs/selects with no `Field` wrapper, so
+  `GetByLabel` finds nothing for them; they need placeholder and `select:has(option…)` locators.
+- Every master screen renders BOTH layouts into the DOM (`hidden lg:block` table, `lg:hidden`
+  cards), so every name and button exists twice. Locators must filter to visible before `.First`,
+  or they bind to the hidden copy and wait out the timeout.
+- The `Field` component puts the control **inside** the `<label>`, so an implicit label's accessible
+  name includes the control's own text — for a `<select>`, every option. `GetByLabel("Category *",
+  exact)` therefore can never match a select. Match the caption span
+  (`label:has(> span:text-is(…))`) and reach into it instead.
+- Confirm dialogs reuse the verb of the row action that opened them, so an unscoped
+  `GetByRole(Button, "Deactivate")` finds the row button now sitting behind the overlay and fails as
+  "not stable". Scope confirmation clicks to `role=dialog`.
+- Signing in returns the user to the route they were on, not to the dashboard.
+- Select options arrive with the API response, so reading a select immediately after navigation
+  finds only the empty prompt — which reads as unseeded data rather than a race.
+
+---
+
+## 2026-08-31 — Test coverage audit: 61 -> 131 tests
+
+Audited coverage by mapping every Application service against the suite. Five services were
+completely untested, including the two most security-sensitive ones. Backend code was not changed
+except where the tests exposed defects (below).
+
+**New suites**
+- `AuthAndUserTests` (20) — login success/failure, identical error for bad password vs unknown email
+  (no account enumeration), deactivated user blocked, password hashing, refresh-token rotation with
+  old-token reuse rejected, logout revocation, user CRUD, self-role-change and last-Owner guards,
+  password reset, SubOwner extra permissions, and a `[Theory]` locking the role→permission map.
+- `InventoryOperationsTests` (12) — opening stock, positive/negative adjustments, the
+  approvals-permission guard on adjustments, return-from-project reversing material cost,
+  cross-site rejection, site-scoped balances, ledger filtering.
+- `ExpenseAndApprovalTests` (12) — direct expenses posting to project cost, cancellation reversing
+  it while keeping the row, head/subhead validation, the approval **reject** path leaving stock and
+  project cost untouched, and the simple-master "in use" delete guard.
+- `SiteReportingTests` (13) — site CRUD/filtering, lookup masters, dashboard KPIs asserted against a
+  known purchase, all 8 reports well-formed, site-scoped stock report, low-stock threshold.
+- `AttachmentTests` (5) — upload/download round-trip, entity scoping, delete.
+
+**Two defects found in the test infrastructure itself**
+- `TestHost` never registered `IJwtTokenService`, so the entire auth layer was **untestable by
+  construction** — the first auth test failed with a DI resolution error, not an assertion.
+- `TestHost.CurrentUser` was a *second* `FakeCurrentUser` instance, unrelated to the one in DI, so
+  its `UserId` was always null and mutating it did nothing. Now exposes the registered instance,
+  which is what lets tests switch role/permissions mid-test.
+`IFileStorage` was also added (throwaway temp folder, cleaned on dispose) so attachments are testable.
+
+**Coverage now**: every Application service is exercised. Suite run twice back-to-back — 131/131
+both times, no ordering flakiness.
+
+---
+
+## 2026-08-31 — P7: Contractor & Customer master management
+
+Both screens previously exposed only "New". They are now full master-management screens, matching
+the Material Master pattern. No accounting, project-cost or payment logic was touched.
+
+**Application** — new `PartyService` handles contractors, customers *and* suppliers through the
+existing `PartyKind` enum, so the three stay one implementation. Party logic moved out of
+`MasterService`. Adds list/search/filter/summary, contractor-type lookup, detail with usage counts,
+code locking, deactivate/reactivate and explicit `AuditLog` writes.
+
+**API** — `/api/{contractors|customers|suppliers}` gains `summary`, `types`, `{id}`, `deactivate`,
+`reactivate`. Still no DELETE. `SavePartyRequest` no longer carries `IsActive`: creation is always
+Active and status changes only through the lifecycle endpoints, so every change is audited.
+
+**Frontend** — one `PartyMaster` component drives both screens; `Contractors.tsx` and
+`Customers.tsx` are ~20-line configs. Summary cards, debounced server-side search, Status filter
+defaulting to **Active**, contractor-type filter, desktop table + mobile cards, and
+Add/Edit/View sheets with the six-section form.
+
+**Validation** — PAN, GSTIN and mobile formats added to `SavePartyValidator` alongside the existing
+code/name/email rules. Names are deliberately *not* unique: two contractors may share a name.
+
+**Data** — no schema change and no migration; every field already existed. The one user-created
+contractor and the demo customer keep their Ids, codes and history.
+
+**Tests** — 61 pass (38 pre-existing + 23 new in `PartyMasterTests`). Regression verified live over
+HTTP: contractor → contract → contractor payment, and customer → project → customer payment, both
+surviving deactivate/reactivate with names still resolving; inactive parties rejected with 400 on
+new contracts and new projects.
+
+**Gotchas**
+- EF cannot translate `Where`/`Any` applied *on top of* a positional-record projection — it fails at
+  runtime, not compile time. Filter and order on the concrete entity, project last. This broke the
+  duplicate-code check and every list/filter/summary query before it was fixed.
+
+---
+
+## 2026-08-31 — P6: Material Master redesign (end-to-end)
+
+Complete redesign of the Material Master against the approved business reference
+(`Swarnakshi_Material_Master_50_Categories.xlsx`). No change to inventory valuation, procurement,
+material requests, consumption or project costing.
+
+**Domain**
+- `Material` gains `Brand`, `GenericMeasurement`, `SpecSummary`, `SpecSignature` (unique).
+- New `MaterialSpecDefinition` (per subcategory) + `MaterialSpecValue` (per material), `SpecFieldKind`.
+- `MaterialIdentity` (Application) is the single definition of the duplicate signature and the
+  display summary — shared by the service and the seeder so both produce identical keys.
+
+**Taxonomy** — 50 categories / 207 active subcategories / 222 spec definitions, in
+`MaterialTaxonomy`. Sand ≠ Aggregates, Bricks ≠ Blocks, Granite ≠ Tiles, Waterproofing Materials is
+its own category. Owner-approved departures from the Excel: Tiles classified by **body type**
+(Vitrified / Ceramic / Mosaic / Cement-Terrazzo / Clay-Terracotta) and Granite/Marble by **form**,
+not by application — the Excel's location axis would force duplicate SKUs. Excel's Tiles `Type`
+spec is redefined as optional, non-identifying `Application`.
+
+**Migration & data preservation** — `MaterialMasterSeeder` is idempotent and remaps the legacy
+19-category tree. All 40 seeded materials kept their `Id` and `Code`; only
+`MaterialSubcategoryId` was repointed, so every InventoryBalance / InventoryTransaction /
+PurchaseItem / MaterialRequestItem still resolves. Retired categories are deactivated, never
+deleted. `MAT-PLB-VAL` renamed to "Brass Ball Valve" (owner-approved).
+
+**API** — `/api/materials` gains summary, brands, spec-definitions, `{id}/stock`, deactivate and
+reactivate. No DELETE. Material logic moved out of `MasterService` into `MaterialService`.
+
+**Frontend** — `Materials.tsx` rewritten: summary cards, server-side search, five filters,
+desktop table + mobile cards, and Add/Edit/View with subcategory-driven specification fields.
+
+**Tests** — 34 pass (11 pre-existing + 23 new). Cost-flow invariant re-verified end to end over
+HTTP: 100@400 + 100@450 → avg 425; issue 50 → MaterialCost 21,250 + inventory 63,750 = 85,000.
+
+**Gotchas**
+- EF maps `string.Contains` to SQLite's **case-sensitive** `instr()`, so `q=cement` silently missed
+  "OPC 53 Grade Cement". Both sides are now lowered via `ToLower()` (portable to SQL Server).
+  Regression test: `Search_is_case_insensitive`.
+- `BaseEntity` pre-populates `Id`, so a child added only through a **tracked** parent's navigation
+  is classified `Modified` and EF emits an UPDATE for a row that does not exist. Add spec values
+  through `db.MaterialSpecValues.Add(...)` on an existing material.
+- The generated migration defaulted `SpecSignature` to `""` for every existing row and then built a
+  **unique** index — guaranteed failure with any data. A portable
+  `UPDATE Materials SET SpecSignature = CAST(Id AS varchar(64))` was inserted before the index; the
+  seeder replaces those placeholders with the real key.
+
+---
+
 ## 2026-08-31 — Dev ports remapped (frontend 6050 / API 6051)
 
 - Vite dev server `5173` → **6050**; API `5080` → **6051**. Updated in `web/vite.config.ts`

@@ -87,7 +87,7 @@ export function NewMaterialRequest() {
 
   return (
     <div className="space-y-3">
-      <Link to="/stock/requests" className="text-xs text-text-dim">← Requests</Link>
+      <Link to="/stock/requests" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Requests</Link>
       <PageHeader title="New request" />
 
       <Field label="Project">
@@ -156,7 +156,7 @@ export function MaterialRequestDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/stock/requests" className="text-xs text-text-dim">← Requests</Link>
+      <Link to="/stock/requests" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Requests</Link>
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold">{data.projectName}</h1>

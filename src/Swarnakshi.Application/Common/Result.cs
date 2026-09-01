@@ -31,6 +31,16 @@ public class PagedResult<T>
     public int Total { get; init; }
 }
 
+/// <summary>
+/// Paging + search, bound from the query string on every list endpoint.
+///
+/// IMPORTANT: bind this as <c>[FromQuery] PageQuery paging</c> — never name the action parameter
+/// <c>page</c>. ASP.NET binds a complex type by first looking for values under the parameter name as
+/// a prefix; a request carrying <c>?page=1</c> therefore matches the prefix, the binder switches to
+/// prefixed mode looking for <c>page.q</c> / <c>page.pageSize</c>, finds none, and silently returns
+/// an empty PageQuery. Search and page size are then dropped with no error — the endpoint just
+/// answers with the unfiltered first page.
+/// </summary>
 public class PageQuery
 {
     private const int MaxPageSize = 200;

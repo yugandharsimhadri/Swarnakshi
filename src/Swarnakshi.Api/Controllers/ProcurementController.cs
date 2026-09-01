@@ -14,9 +14,9 @@ namespace Swarnakshi.Api.Controllers;
 public class PurchasesController(IPurchaseService purchases) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? siteId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? siteId,
         [FromQuery] TransactionStatus? status, CancellationToken ct)
-        => this.Envelope(await purchases.ListAsync(page, siteId, status, ct));
+        => this.Envelope(await purchases.ListAsync(paging, siteId, status, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
@@ -44,9 +44,9 @@ public class PurchasesController(IPurchaseService purchases) : ControllerBase
 public class MaterialRequestsController(IMaterialRequestService requests) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? projectId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? projectId,
         [FromQuery] Guid? siteId, [FromQuery] MaterialRequestStatus? status, CancellationToken ct)
-        => this.Envelope(await requests.ListAsync(page, projectId, siteId, status, ct));
+        => this.Envelope(await requests.ListAsync(paging, projectId, siteId, status, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)

@@ -14,9 +14,9 @@ namespace Swarnakshi.Api.Controllers;
 public class ProjectsController(IProjectService projects) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? siteId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? siteId,
         [FromQuery] ProjectStatus? status, [FromQuery] Guid? customerId, CancellationToken ct)
-        => this.Envelope(await projects.ListAsync(page, siteId, status, customerId, ct));
+        => this.Envelope(await projects.ListAsync(paging, siteId, status, customerId, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)

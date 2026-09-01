@@ -13,9 +13,9 @@ namespace Swarnakshi.Api.Controllers;
 public class CustomerPaymentsController(ICustomerPaymentService payments) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? projectId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? projectId,
         [FromQuery] Guid? customerId, CancellationToken ct)
-        => this.Envelope(await payments.ListAsync(page, projectId, customerId, ct));
+        => this.Envelope(await payments.ListAsync(paging, projectId, customerId, ct));
 
     [HttpGet("ledger/{customerId:guid}")]
     public async Task<IActionResult> Ledger(Guid customerId, CancellationToken ct)

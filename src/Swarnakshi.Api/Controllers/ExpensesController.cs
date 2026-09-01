@@ -14,10 +14,10 @@ namespace Swarnakshi.Api.Controllers;
 public class ExpensesController(IProjectExpenseService expenses) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? projectId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? projectId,
         [FromQuery] Guid? expenseHeadId, [FromQuery] ProjectExpenseType? type,
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
-        => this.Envelope(await expenses.ListAsync(page, projectId, expenseHeadId, type, from, to, ct));
+        => this.Envelope(await expenses.ListAsync(paging, projectId, expenseHeadId, type, from, to, ct));
 
     [HttpGet("cost-by-head")]
     public async Task<IActionResult> CostByHead([FromQuery] Guid projectId, CancellationToken ct)
@@ -42,9 +42,9 @@ public record CancelBody(string Reason);
 public class LabourController(ILabourService labour) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] Guid? projectId,
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? projectId,
         [FromQuery] TransactionStatus? status, CancellationToken ct)
-        => this.Envelope(await labour.ListAsync(page, projectId, status, ct));
+        => this.Envelope(await labour.ListAsync(paging, projectId, status, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct) => this.Envelope(await labour.GetAsync(id, ct));

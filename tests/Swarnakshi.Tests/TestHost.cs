@@ -7,6 +7,7 @@ using Swarnakshi.Domain.Enums;
 using Swarnakshi.Infrastructure.Persistence;
 using Swarnakshi.Infrastructure.Persistence.Seed;
 using Swarnakshi.Infrastructure.Services;
+using Swarnakshi.Infrastructure.Storage;
 
 namespace Swarnakshi.Tests;
 
@@ -15,12 +16,20 @@ public sealed class TestHost : IAsyncDisposable
 {
     private readonly SqliteConnection _connection;
     public ServiceProvider Services { get; }
-    public FakeCurrentUser CurrentUser { get; } = new();
 
-    private TestHost(SqliteConnection connection, ServiceProvider services)
+    /// <summary>The very instance registered in DI — mutate it to change the acting user's role
+    /// or permissions mid-test.</summary>
+    public FakeCurrentUser CurrentUser { get; }
+
+    private readonly string _storageRoot;
+
+    private TestHost(SqliteConnection connection, ServiceProvider services, FakeCurrentUser currentUser,
+        string storageRoot)
     {
         _connection = connection;
         Services = services;
+        CurrentUser = currentUser;
+        _storageRoot = storageRoot;
     }
 
     public static async Task<TestHost> CreateAsync()
@@ -36,6 +45,20 @@ public sealed class TestHost : IAsyncDisposable
         svc.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         svc.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         svc.AddScoped<ITransactionSequenceService, TransactionSequenceService>();
+        // Auth needs a real token service; the key is test-only and never leaves this process.
+        svc.AddSingleton(new JwtOptions
+        {
+            Issuer = "Swarnakshi.Tests",
+            Audience = "Swarnakshi.Tests",
+            Key = "test-only-signing-key-not-used-anywhere-else-0123456789",
+            AccessTokenMinutes = 60,
+            RefreshTokenDays = 7
+        });
+        svc.AddScoped<IJwtTokenService, JwtTokenService>();
+        // Attachments write to a throwaway folder that DisposeAsync removes.
+        var storageRoot = Path.Combine(Path.GetTempPath(), "swarnakshi-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(storageRoot);
+        svc.AddSingleton<IFileStorage>(new LocalFileStorage(storageRoot));
         svc.AddApplication();
 
         var provider = svc.BuildServiceProvider();
@@ -48,7 +71,7 @@ public sealed class TestHost : IAsyncDisposable
             await MasterDataSeeder.RunAsync(db, hasher, "owner@test.local", "pw");
         }
 
-        var host = new TestHost(connection, provider);
+        var host = new TestHost(connection, provider, currentUser, storageRoot);
         // resolve the seeded owner id so writes have a CreatedBy
         using (var scope = provider.CreateScope())
         {
@@ -65,6 +88,7 @@ public sealed class TestHost : IAsyncDisposable
     {
         await Services.DisposeAsync();
         await _connection.DisposeAsync();
+        try { if (Directory.Exists(_storageRoot)) Directory.Delete(_storageRoot, true); } catch { /* best effort */ }
     }
 }
 

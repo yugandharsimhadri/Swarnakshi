@@ -26,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<Sites.ISiteService, Sites.SiteService>();
         services.AddScoped<Projects.IProjectService, Projects.ProjectService>();
         services.AddScoped<Masters.IMasterService, Masters.MasterService>();
+        services.AddScoped<Masters.IMaterialService, Masters.MaterialService>();
+        services.AddScoped<Masters.IPartyService, Masters.PartyService>();
         services.AddScoped<Masters.ISimpleMasterService, Masters.SimpleMasterService>();
 
         // P1 — inventory + procurement + approvals

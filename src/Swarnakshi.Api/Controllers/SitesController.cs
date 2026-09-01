@@ -14,8 +14,8 @@ namespace Swarnakshi.Api.Controllers;
 public class SitesController(ISiteService sites) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PageQuery page, [FromQuery] SiteStatus? status, CancellationToken ct)
-        => this.Envelope(await sites.ListAsync(page, status, ct));
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] SiteStatus? status, CancellationToken ct)
+        => this.Envelope(await sites.ListAsync(paging, status, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)

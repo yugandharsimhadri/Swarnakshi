@@ -38,8 +38,9 @@ export function InventoryList() {
             <StatCard label="Materials" value={String(data?.length ?? 0)} sub={`${(data ?? []).filter((r) => r.lowStock).length} low`} />
           </div>
           <Input placeholder="Search materials…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <label className="flex items-center gap-2 px-1 text-xs text-text-dim">
-            <input type="checkbox" checked={low} onChange={(e) => setLow(e.target.checked)} /> Low stock only
+          <label className="flex min-h-11 items-center gap-2 px-1 text-xs text-text-dim">
+            <input type="checkbox" className="h-5 w-5 accent-brand" checked={low}
+              onChange={(e) => setLow(e.target.checked)} /> Low stock only
           </label>
 
           {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
@@ -87,7 +88,7 @@ export function MaterialInventory() {
 
   return (
     <div className="space-y-4">
-      <Link to="/stock/inventory" className="text-xs text-text-dim">← Inventory</Link>
+      <Link to="/stock/inventory" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Inventory</Link>
       <h1 className="text-lg font-bold">{d.materialName}</h1>
 
       <div className="grid grid-cols-2 gap-3">

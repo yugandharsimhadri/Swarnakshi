@@ -75,10 +75,10 @@ export function ReportView() {
 
   return (
     <div className="space-y-3">
-      <Link to="/reports" className="text-xs text-text-dim">← Reports</Link>
+      <Link to="/reports" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Reports</Link>
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">{report?.label ?? "Report"}</h1>
-        <button onClick={downloadCsv} disabled={downloading} className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold">
+        <button onClick={downloadCsv} disabled={downloading} className="min-h-11 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold">
           {downloading ? "…" : "Export CSV"}
         </button>
       </div>
