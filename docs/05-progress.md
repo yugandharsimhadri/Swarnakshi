@@ -4,6 +4,40 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — Employee master, salary and advances
+
+**Why a second people concept.** `LabourEntry` records daily site labour as a cost by category with
+no worker master — which is how gangs are actually engaged. `Employee` is the small number of named
+people on monthly salary who take advances against it. Neither replaces the other.
+
+**Domain** — `Employee` (Code, Name, Phone, MonthlySalary, JoinDate mandatory; Designation, Address,
+home Site, LeaveDate optional) and `EmployeePayment` (Salary / Advance / Bonus / Reimbursement,
+`AdvanceRecovered`, optional salary period, optional project). Migration `EmployeeMaster`.
+
+**Advance arithmetic** — `outstanding = advances given − advances recovered`, derived from posted
+payments rather than stored, so it cannot drift from the ledger that produced it. Recovering more
+than is outstanding, or more than the payment itself, is refused; an advance cannot recover an advance.
+
+**Money-out follows the existing rule** — draft → submit → Owner approval → posted, through the same
+approval engine as contractor and labour payments. A salary run should not be the one way to move
+cash unreviewed.
+
+**Project attribution is opt-in.** A payment charged to a project posts `ProjectExpense(Labour)` at
+the **gross** amount — recovering an advance is the employee repaying the company, not a discount on
+what the month cost. Left unassigned it stays a company overhead and never touches project cost.
+
+**Permissions reuse** — the employee record is master data (`masters.manage`); payments are labour
+cost (`labour.create`, which the Accountant already holds). No new keys, so the role matrix is unchanged.
+
+**Frontend** — Employees screen (More → Employees) with payroll/advance KPIs, phone-searchable list,
+add/edit sheet marking the four mandatory fields, a Pay sheet that shows net-after-recovery live, and
+a per-employee ledger.
+
+**Verified** — 15 new tests (168 total, all green) + the full advance→salary→recovery cycle driven
+through the live API and checked in the browser.
+
+---
+
 ## 2026-09-01 — SaaS: multi-tenancy, company registration, EnterpriseAdmin
 
 Swarnakshi becomes SaaS. It is now **one customer among many** — a company with several sites —

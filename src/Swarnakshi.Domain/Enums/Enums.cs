@@ -70,3 +70,13 @@ public enum ApprovalAction { Submitted = 1, Approved = 2, Rejected = 3, Cancelle
 
 /// <summary>Input control a material specification field renders as.</summary>
 public enum SpecFieldKind { Text = 1, Number = 2, Select = 3 }
+
+/// <summary>What a payment to an employee is for.</summary>
+public enum EmployeePaymentKind
+{
+    Salary = 1,
+    /// <summary>Money advanced against future salary — recovered by later salary payments.</summary>
+    Advance = 2,
+    Bonus = 3,
+    Reimbursement = 4
+}

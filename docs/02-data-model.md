@@ -93,6 +93,14 @@ PartiallyIssued, Cancelled`. Owner approval mandatory before any issue.
 - **LabourEntry** (TxnNumber*, ProjectId, LabourCategoryId, Date, PeriodType {Daily|Weekly|Custom},
   PeriodStart, PeriodEnd, Amount, PaymentType, PaymentMethodId?, Remarks, +audit) — no worker master.
 
+## Employees (payroll — distinct from LabourEntry, which needs no worker master)
+- **Employee** (Code*, Name, Phone, MonthlySalary, JoinDate — all required; LeaveDate?, Designation?,
+  Address?, SiteId?, IsActive, Notes)
+- **EmployeePayment** (TxnNumber*, EmployeeId, Date, Kind {Salary|Advance|Bonus|Reimbursement},
+  Amount, AdvanceRecovered, PeriodStart?, PeriodEnd?, PaymentMethodId?, Reference, ProjectId?, +audit)
+
+Advance outstanding is derived, never stored: `Σ Advance amounts − Σ AdvanceRecovered` over posted rows.
+
 ## Contractors
 - **ContractWork** (ProjectId, ContractorId, WorkCategory, Description, EstimatedCost, ContractAmount,
   StartDate, ExpectedCompletion, ActualCompletion?, PaymentTerms, Status, TotalPaid, Balance)

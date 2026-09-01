@@ -3,10 +3,10 @@
 Everything a new developer needs to pick up Swarnakshi. Read this, then
 [01-architecture](01-architecture.md) and skim [05-progress](05-progress.md).
 
-> **Status at handover (2026-09-01):** the 6-phase plan (P0–P5) is complete, and the product has
-> since become **multi-tenant SaaS** — company registration, tenant isolation and an EnterpriseAdmin
-> console. Read **[09-saas-tenancy](09-saas-tenancy.md)** before touching data access.
-> `dotnet build` + `dotnet test` (153) + `npm run build` all green.
+> **Status at handover (2026-09-01):** the 6-phase plan (P0–P5) is complete; the product is
+> **multi-tenant SaaS** (registration, tenant isolation, EnterpriseAdmin console) and now carries an
+> **employee/payroll** module. Read **[09-saas-tenancy](09-saas-tenancy.md)** before touching data access.
+> `dotnet build` + `dotnet test` (168) + `npm run build` all green.
 
 ---
 
@@ -25,6 +25,7 @@ Everything a new developer needs to pick up Swarnakshi. Read this, then
 | Material requests → Owner approval → issue → consumption → project cost | ✅ done |
 | **Reusable approval engine** (one pipeline, per-entity handlers, txn-scoped side effects) | ✅ done |
 | Project expenses, labour (approved), cost-by-head, cost-by-type | ✅ done |
+| **Employee master** (name / phone / salary / join date mandatory) + salary, advances and advance recovery | ✅ done |
 | Contractors, contract works, contractor payments (approved, overpayment guard), ledger | ✅ done |
 | Customers, receipts, receivables, ledger | ✅ done |
 | Role-aware dashboard + 8 reports + CSV export | ✅ done |
@@ -393,6 +394,7 @@ SQLite → SQL Server switch, backups.
 | Contractors (`/contractors`) | `/api/contractors`, `/api/contractor-payments/ledger/{id}` | `masters.manage` |
 | Customers (`/customers`) | `/api/customers`, `/api/customer-payments/ledger/{id}` | `masters.manage` |
 | Reports (`/reports`, `/reports/:slug`) | `GET /api/reports/*` (+ `?format=csv`) | `reports.view` |
+| Employees (`/employees`) | `/api/employees` (+ `/{id}/ledger`), `/api/employee-payments` (+ `/submit` `/cancel`) | master `masters.manage` · pay `labour.create` |
 | Users (`/users`) | `/api/users` + `/permission-keys` `/{id}` `/password` `/permissions` `/sites` | `users.manage` |
 | More (`/more`) | — theme, logout, links | all |
 | (any detail) Documents panel | `/api/attachments` (+ `/{id}/download` `/{id}` DELETE) | entity's edit permission |

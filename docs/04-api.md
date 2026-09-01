@@ -91,6 +91,15 @@ deactivation with stock.
 | POST | `/api/material-requests/{id}/submit` |
 | POST | `/api/material-requests/{id}/issue` — after approval, issues stock |
 
+## Employees (payroll)
+| Method | Route | Notes |
+|--------|-------|-------|
+| GET | `/api/employees?q=&active=&siteId=` | searchable by name, code, phone or designation |
+| GET | `/api/employees/{id}` · `/api/employees/{id}/ledger` | ledger carries advances given / recovered / outstanding |
+| POST/PUT | `/api/employees` · `/api/employees/{id}` | `masters.manage`; name, phone, salary and join date required |
+| GET/POST | `/api/employee-payments` | `labour.create`; Salary(1) Advance(2) Bonus(3) Reimbursement(4) |
+| POST | `/api/employee-payments/{id}/submit` · `/cancel` | submit sends it to the Owner for approval |
+
 ## Expenses / Labour / Contractors / Customers
 | Method | Route |
 |--------|-------|

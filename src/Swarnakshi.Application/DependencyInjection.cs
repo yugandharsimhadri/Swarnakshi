@@ -58,6 +58,11 @@ public static class DependencyInjection
         services.AddScoped<Attachments.IAttachmentService, Attachments.AttachmentService>();
         services.AddScoped<Users.IUserService, Users.UserService>();
 
+        // Employees — payroll master plus salary / advance recording
+        services.AddScoped<Employees.IEmployeeService, Employees.EmployeeService>();
+        services.AddScoped<Employees.IEmployeePaymentService, Employees.EmployeePaymentService>();
+        services.AddScoped<IApprovalHandler, Employees.EmployeePaymentApprovalHandler>();
+
         // SaaS — tenant registration and the platform (EnterpriseAdmin) console
         services.AddScoped<Platform.ICompanyRegistrationService, Platform.CompanyRegistrationService>();
         services.AddScoped<Platform.IPlatformAdminService, Platform.PlatformAdminService>();

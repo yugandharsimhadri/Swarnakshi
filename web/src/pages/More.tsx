@@ -25,6 +25,7 @@ export default function More() {
       {([
         ["/contractors", "Contractors", true],
         ["/customers", "Customers", true],
+        ["/employees", "Employees", true],
         ["/reports", "Reports", true],
         ["/approvals", "Approval Center", canApprove],
         ["/users", "Users", canManageUsers],

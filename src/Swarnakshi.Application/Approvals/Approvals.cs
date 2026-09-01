@@ -15,6 +15,7 @@ public static class ApprovalEntityTypes
     public const string LabourEntry = "LabourEntry";
     public const string CustomerPayment = "CustomerPayment";
     public const string InventoryAdjustment = "InventoryAdjustment";
+    public const string EmployeePayment = "EmployeePayment";
 }
 
 public record ApprovalDecision(bool Approve, string? Remarks, bool AllowOverride);

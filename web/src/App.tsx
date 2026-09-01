@@ -21,6 +21,7 @@ import { ReportsHub, ReportView } from "@/pages/Reports";
 import Users from "@/pages/Users";
 import Register from "@/pages/Register";
 import PlatformConsole from "@/pages/PlatformConsole";
+import Employees from "@/pages/Employees";
 
 export default function App() {
   const { user, platformUser, loading, bootstrap } = useAuth();
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="reports" element={<ReportsHub />} />
             <Route path="reports/:slug" element={<ReportView />} />
             <Route path="users" element={<Users />} />
+            <Route path="employees" element={<Employees />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

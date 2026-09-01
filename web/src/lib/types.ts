@@ -460,3 +460,31 @@ export interface ApprovalItem {
   requestedAt: string;
   remarks?: string | null;
 }
+
+// ---- Employees ---------------------------------------------------------
+export interface Employee {
+  id: string; code: string; name: string; phone: string; monthlySalary: number;
+  joinDate: string; leaveDate?: string | null; designation?: string | null;
+  address?: string | null; notes?: string | null;
+  siteId?: string | null; siteName?: string | null; isActive: boolean;
+  totalPaid: number; advanceOutstanding: number;
+}
+
+export interface EmployeePayment {
+  id: string; txnNumber: string; employeeId: string; employeeName: string;
+  date: string; kind: number; amount: number; advanceRecovered: number; netPaid: number;
+  periodStart?: string | null; periodEnd?: string | null;
+  paymentMethodId?: string | null; paymentMethodName?: string | null;
+  reference?: string | null; projectId?: string | null; projectName?: string | null;
+  status: number; remarks?: string | null;
+}
+
+export const EmployeePaymentKindName: Record<number, string> = {
+  1: "Salary", 2: "Advance", 3: "Bonus", 4: "Reimbursement",
+};
+
+export interface EmployeeLedger {
+  employeeId: string; employeeName: string; phone: string; monthlySalary: number;
+  totalPaid: number; advancesGiven: number; advancesRecovered: number; advanceOutstanding: number;
+  rows: { kind: string; ref: string; date: string; amount: number; advanceRecovered: number; netPaid: number; status: string }[];
+}

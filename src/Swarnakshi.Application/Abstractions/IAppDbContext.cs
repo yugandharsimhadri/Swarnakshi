@@ -43,6 +43,9 @@ public interface IAppDbContext
     DbSet<MaterialRequest> MaterialRequests { get; }
     DbSet<MaterialRequestItem> MaterialRequestItems { get; }
 
+    DbSet<Employee> Employees { get; }
+    DbSet<EmployeePayment> EmployeePayments { get; }
+
     DbSet<ProjectExpense> ProjectExpenses { get; }
     DbSet<LabourEntry> LabourEntries { get; }
 

@@ -60,6 +60,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<MaterialRequest> MaterialRequests => Set<MaterialRequest>();
     public DbSet<MaterialRequestItem> MaterialRequestItems => Set<MaterialRequestItem>();
 
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<EmployeePayment> EmployeePayments => Set<EmployeePayment>();
+
     public DbSet<ProjectExpense> ProjectExpenses => Set<ProjectExpense>();
     public DbSet<LabourEntry> LabourEntries => Set<LabourEntry>();
 
