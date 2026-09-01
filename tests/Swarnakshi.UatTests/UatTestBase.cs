@@ -36,6 +36,8 @@ public abstract class UatTestBase(UatFixture fixture, ITestOutputHelper output)
     /// </summary>
     protected async Task RunWorkflowAsync(string workflowKey, Viewport viewport)
     {
+        fixture.EnsureServersAlive();
+
         var workflow = WorkflowCatalog.Find(workflowKey)
             ?? throw new InvalidOperationException(
                 $"No workflow named '{workflowKey}' in the catalog. Known keys: {WorkflowCatalog.KeyList}");

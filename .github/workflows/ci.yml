@@ -32,3 +32,41 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  # The acceptance suite, as its own job so a failure here is attributable and does not hide inside
+  # the fast one. It is excluded from `dotnet test` on purpose (IsTestProject is gated on Uat), which
+  # is why it needs an explicit job: without this, the browser journeys can go completely red while
+  # CI stays green — which is exactly what happened when multi-tenant sign-in landed.
+  uat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The suite starts the Vite client itself, so the web dependencies must be present first.
+      - run: npm ci
+        working-directory: web
+
+      - run: dotnet build -c Release
+
+      # The suite installs Chromium on demand, but that does not bring the system libraries a bare
+      # runner lacks. Installing with deps up front turns a confusing mid-run launch failure into an
+      # explicit setup step.
+      - run: pwsh tests/Swarnakshi.UatTests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - run: dotnet test tests/Swarnakshi.UatTests -c Release --no-build -p:Uat=true --verbosity minimal
+
+      # The failure screenshots are the point of the suite when something breaks in CI.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: uat-failure-screenshots
+          path: artifacts/uat/*.png
+          if-no-files-found: ignore

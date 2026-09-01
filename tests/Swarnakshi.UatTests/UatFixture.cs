@@ -44,6 +44,22 @@ public sealed class UatFixture : IAsyncLifetime
         _apiLog?.Dispose();
     }
 
+    /// <summary>
+    /// Throws if either server this run started has exited. Called before each scenario so the run
+    /// stops at the first case after the death, naming the server and its log — instead of every
+    /// remaining scenario failing on connection-refused with the cause several minutes upstream.
+    /// </summary>
+    public void EnsureServersAlive()
+    {
+        if (_api is { IsAlive: false })
+            throw new InvalidOperationException(
+                "The API exited during this run. See artifacts/uat/api.log for its last output.");
+
+        if (_web is { IsAlive: false })
+            throw new InvalidOperationException(
+                "The Vite client exited during this run. See artifacts/uat/web.log for its last output.");
+    }
+
     private static StreamWriter OpenLog(string name)
         => new(Path.Combine(RepoPaths.ArtifactsDir, name), append: false) { AutoFlush = true };
 

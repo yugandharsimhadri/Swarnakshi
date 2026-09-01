@@ -4,6 +4,34 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — CI runs the acceptance suite, and a dead server now says so
+
+**CI was green while UAT was 0/24.** `ci.yml` runs `dotnet test` at the root, which the `Uat` gate
+excludes the browser suite from — so multi-tenant sign-in could break every acceptance journey
+without a single red check. That gap was created by the gating and is closed here: UAT is its own
+job, with `npm ci` for the client the suite starts, `playwright install --with-deps chromium` (the
+on-demand install does not bring a bare runner's system libraries), and failure screenshots uploaded
+as an artifact.
+
+The exact CI command was validated locally in Release: **24/24**.
+
+**A server dying mid-run now fails loudly.** One Release run came back 14 red — 13 of them
+`ERR_CONNECTION_REFUSED` because the Vite client had exited minutes earlier. The real event was in
+`web.log`; the test output showed a dozen unrelated-looking timeouts. `ApiServer`/`WebDevServer`
+expose `IsAlive`, and each scenario checks both first, so the run now stops at the first case after
+the death and names the server and its log.
+
+The flake itself is not diagnosed — Vite logged nothing before exiting, and the run passes on
+repeat. This makes it legible rather than fixing it. If CI shows it, the honest next step is to serve
+a built client (`vite preview`) instead of a dev server, which has no watcher to fall over.
+
+**Handover corrections** (§9 and §17 of `07-handover.md`): the testing section still claimed 11 tests
+across 4 classes — it is 186 across 15 — and gave the UAT command without `-p:Uat=true`, which
+reports no tests and exits 0. The gating landed before that section was rewritten, so it was already
+wrong when written. Gotchas 27 and 28 added for the tab list and the `username@companycode` login.
+
+---
+
 ## 2026-09-01 — UAT follows multi-tenancy and the reordered menu
 
 Syncing to main left the acceptance suite **0 / 24**. Two product changes it had not been told about,
