@@ -810,3 +810,14 @@ Gotcha 28 — **a login is `username@companycode`, not an email.** Since multi-t
 against a company rather than a global user table, and the founding admin's display name is the
 *company* name, because that is what `PlatformSeeder` writes into `User.Name`. The UAT's copy of all
 three lives in `DemoData`, so a seed change is one edit rather than a hunt through the workflows.
+
+Gotcha 29 — **populate a column before building a UNIQUE index over it.** Twice now a migration has
+added a column with a constant default and then indexed it uniquely: `SpecSignature` in P6, and
+`Users.Username` in SaaS_MultiTenancy. Both apply cleanly to an empty database and fail on a real
+one — the second blocked the upgrade for any company with more than one user. If a migration adds a
+column that is part of a unique index, it must write distinct values first, portably.
+
+Gotcha 30 — **the upgrade path is not the seeded path.** `PlatformSeeder` creates its founding owner
+only when there are no users, so on an upgraded database that branch never runs. Anything that
+assumes a freshly seeded tenant needs a matching answer for a tenant adopted from a
+pre-multi-tenancy database — see `UpgradeFromSingleTenantTests`.

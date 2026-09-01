@@ -4,6 +4,48 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — An upgraded database could not be logged into, or migrated at all
+
+Running the app against a real `swarnakshi.db` — one that predates multi-tenancy — found two bugs
+that no test could have seen, because every test starts from an empty database.
+
+**Nobody could sign in.** The migration adds `Users.Username` with an empty default and never
+backfills it, and `PlatformSeeder` creates its founding owner only when there are NO users — which
+on an upgraded database is never. The company ended up with users who existed, were active, and
+matched no login: the sign-in resolves a username within the company, and `""` matches nobody.
+
+**Worse, a real install could not migrate at all.** The same migration builds a UNIQUE index on
+`(CompanyId, Username)` over that empty column. With one user it applies; with two it fails and the
+upgrade aborts at startup. Any company with an owner and a supervisor was blocked. This is the same
+mistake as the `SpecSignature` index in P6 — populate the column *before* building the unique index
+over it — and it was made again three weeks later.
+
+Fixed in two places:
+
+- The migration writes `CAST(Id AS varchar(64))` into empty usernames before creating the index.
+  The row id rather than anything email-derived, because extracting a local part needs
+  `instr`/`CHARINDEX` and those differ per provider.
+- `PlatformSeeder` recognises both the empty default and that id placeholder as "not a login" and
+  derives a real one from the email's local part — before multi-tenancy the email *was* the login,
+  so `owner@swarnakshi.local` becomes `owner` and the person signs in as `owner@swarnakshi`. Falls
+  back to the name, dedupes with a numeric suffix, and validates against `LoginIdentity`. It runs on
+  every startup, so a database already left in the broken state heals on restart rather than needing
+  a manual UPDATE. It also promotes the adopted owner to company admin, which the migration
+  defaulted to false.
+
+`UpgradeFromSingleTenantTests` covers the path: 7 tests over the empty default, the id placeholder,
+collisions, a user with no email, idempotency, and the invariant that every adopted user ends up
+with a login that is valid and unique.
+
+Verified on the real database: it healed on restart (`Username` empty → `owner`, `IsCompanyAdmin`
+set) and signing in as `owner@swarnakshi` reaches a dashboard with the business's real figures.
+
+**Gotchas**
+- Tests all start from an empty database. The upgrade path is a separate path and needs its own
+  tests — these are the first.
+
+---
+
 ## 2026-09-01 — CI runs the acceptance suite, and a dead server now says so
 
 **CI was green while UAT was 0/24.** `ci.yml` runs `dotnet test` at the root, which the `Uat` gate

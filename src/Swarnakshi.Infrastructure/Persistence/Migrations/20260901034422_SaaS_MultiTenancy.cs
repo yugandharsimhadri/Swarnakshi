@@ -430,6 +430,17 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                 table: "Users",
                 column: "CompanyId");
 
+            // Every carried-over user has the empty default this migration just added, so building a
+            // UNIQUE index over it fails the moment a database holds more than one user — which is
+            // every real install. Give each row a value that is unique by construction first.
+            //
+            // The row's own id is used rather than anything derived from the email, because pulling
+            // out a local part needs instr/CHARINDEX and those differ per provider; this stays
+            // portable. It is a placeholder, not a login: PlatformSeeder recognises a username that
+            // is still its row's id and replaces it with one the person can actually type.
+            migrationBuilder.Sql(
+                "UPDATE Users SET Username = CAST(Id AS varchar(64)) WHERE Username IS NULL OR Username = ''");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Users_CompanyId_Username",
                 table: "Users",
