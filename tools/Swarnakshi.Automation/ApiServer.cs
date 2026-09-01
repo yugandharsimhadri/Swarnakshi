@@ -20,6 +20,17 @@ public sealed class ApiServer : IAsyncDisposable
         _databasePath = databasePath;
     }
 
+    /// <summary>
+    /// The configuration this assembly was built in — which is also the one the API was built in,
+    /// since the UAT project's build-order reference compiles it as part of the same build.
+    /// </summary>
+    private static string BuildConfiguration =>
+#if DEBUG
+        "Debug";
+#else
+        "Release";
+#endif
+
     public static async Task<ApiServer> StartAsync(
         AutomationOptions options,
         Action<string>? log = null,
@@ -77,8 +88,13 @@ public sealed class ApiServer : IAsyncDisposable
             // --no-build: the UAT project declares a build-order dependency on the API, so it is
             // already compiled by the time the fixture runs. Building here instead would contend
             // with any Swarnakshi.Api.exe still holding bin/ and fail as a bare exit code 1.
+            //
+            // The configuration must be the one that build produced, not a fixed "Debug". CI builds
+            // the solution in Release only, so a hardcoded Debug looked for a binary that was never
+            // produced and every scenario failed with "the API exited with code 1" — while passing
+            // locally, where stale Debug output happened to be lying around.
             ["run", "--project", RepoPaths.ApiProject, "--no-launch-profile", "--no-build",
-             "-c", "Debug", "--", "--urls", apiBase],
+             "-c", BuildConfiguration, "--", "--urls", apiBase],
             new Dictionary<string, string>
             {
                 // Development so the demo seed runs and the seeded owner exists to sign in as.

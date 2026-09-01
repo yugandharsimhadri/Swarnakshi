@@ -13,7 +13,15 @@ job, with `npm ci` for the client the suite starts, `playwright install --with-d
 on-demand install does not bring a bare runner's system libraries), and failure screenshots uploaded
 as an artifact.
 
-The exact CI command was validated locally in Release: **24/24**.
+The exact CI command was validated locally in Release — but not under CI's actual conditions, and
+the first real run caught it: `ApiServer` hardcoded `-c Debug` while passing `--no-build`. CI builds
+the solution in Release only, so it launched a binary that was never produced and every scenario
+failed with "the API exited with code 1". It passed locally purely because stale Debug output
+happened to be lying around. The configuration now follows the one the assembly was built in.
+
+Reproduced properly this time by deleting `src/Swarnakshi.Api/bin/Debug` first, which is what a
+runner actually looks like: **24/24** in Release with no Debug output present, and 24/24 on the
+normal Debug command.
 
 **A server dying mid-run now fails loudly.** One Release run came back 14 red — 13 of them
 `ERR_CONNECTION_REFUSED` because the Vite client had exited minutes earlier. The real event was in
