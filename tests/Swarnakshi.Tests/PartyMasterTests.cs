@@ -29,6 +29,36 @@ public class PartyMasterTests
         => new(code, name, null, "9000000002", "ramesh@example.com", "Vijayawada",
             "ABCDE1234F", "29ABCDE1234F1Z5", null, null, null);
 
+    // ---- searching a deactivated record ---------------------------------
+
+    /// <summary>
+    /// Reproduces what the mobile UAT run saw: a contractor is deactivated, the status filter is
+    /// widened to "All", and searching its own code returns nothing. If this passes, the list query
+    /// is sound and the fault is in what the screen sends.
+    /// </summary>
+    [Fact]
+    public async Task Finds_a_deactivated_contractor_by_code_when_status_is_unfiltered()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var svc = scope.ServiceProvider.GetRequiredService<IPartyService>();
+
+        var created = await svc.CreateAsync(PartyKind.Contractor, Contractor("UAT-CON-083122034"));
+        await svc.DeactivateAsync(PartyKind.Contractor, created.Id);
+
+        var page = new PageQuery { Q = "UAT-CON-083122034" };
+
+        var unfiltered = await svc.ListAsync(PartyKind.Contractor, page, active: null, type: null);
+        unfiltered.Items.Should().ContainSingle(p => p.Code == "UAT-CON-083122034")
+            .Which.IsActive.Should().BeFalse();
+
+        var inactiveOnly = await svc.ListAsync(PartyKind.Contractor, page, active: false, type: null);
+        inactiveOnly.Items.Should().ContainSingle();
+
+        var activeOnly = await svc.ListAsync(PartyKind.Contractor, page, active: true, type: null);
+        activeOnly.Items.Should().BeEmpty();
+    }
+
     // ---- creation & duplicates ------------------------------------------
 
     [Fact]

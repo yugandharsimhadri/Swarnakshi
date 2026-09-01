@@ -13,13 +13,24 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   // moment after showing the right ones.
   const latest = useRef(0);
 
+  // `reload` must always run the CURRENT query, even when the caller captured it in an earlier
+  // render. A mutation handler closes over `reload` at the moment the row action is clicked, then
+  // awaits its POST; if a filter changes while that request is in flight, the refresh afterwards
+  // would otherwise re-query with the filters as they were at click time — and being the newest
+  // request, it wins the ordering guard below and replaces what the user is now looking at. The
+  // list then contradicts its own filter controls: Status reads "All" while the rows are the
+  // Active-only ones. Reading `fn` through a ref keeps "reload" meaning "refresh what is on screen
+  // now", which is what every caller assumes it means.
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+
   const run = useCallback(() => {
     const request = ++latest.current;
     const isCurrent = () => request === latest.current;
 
     setLoading(true);
     setError(null);
-    fn()
+    fnRef.current()
       .then((value) => { if (isCurrent()) setData(value); })
       .catch((e: ApiError) => { if (isCurrent()) setError(e); })
       .finally(() => { if (isCurrent()) setLoading(false); });
