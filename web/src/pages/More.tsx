@@ -23,6 +23,9 @@ export default function More() {
       </Card>
 
       {([
+        ["/sites", "Sites", true],
+        ["/stock", "Stock & purchases", true],
+        ["/materials", "Material master", true],
         ["/contractors", "Contractors", true],
         ["/customers", "Customers", true],
         ["/employees", "Employees", true],

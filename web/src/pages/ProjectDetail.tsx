@@ -121,7 +121,7 @@ function CustomerTab({ projectId, hasCustomer, summary }: { projectId: string; h
 
 function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
-  const [form, setForm] = useState({ amount: "", methodId: "", reference: "" });
+  const [form, setForm] = useState({ amount: "", methodId: "", reference: "", description: "" });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -133,6 +133,7 @@ function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: 
         body: {
           projectId, date: new Date().toISOString().slice(0, 10), amount: Number(form.amount),
           paymentMethodId: form.methodId, reference: form.reference || null,
+          description: form.description || null,
         },
       });
       onSaved();
@@ -150,6 +151,7 @@ function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: 
           </Select>
         </Field>
         <Field label="Reference"><Input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
+        <Field label="Remarks"><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Part payment, cheque handed to…" /></Field>
         <ErrorText error={err} />
         <Button className="w-full" onClick={save} disabled={busy || !form.methodId || !Number(form.amount)}>Save receipt</Button>
       </div>

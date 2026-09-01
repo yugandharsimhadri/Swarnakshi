@@ -311,6 +311,10 @@ export interface PurchaseItem {
   discount: number;
   taxAmount: number;
   lineTotal: number;
+  /** Set when this line was bought for one villa and taken straight there. */
+  deliverToProjectId?: string | null;
+  deliverToProjectName?: string | null;
+  expenseHeadId?: string | null;
 }
 
 export interface MaterialRequest {

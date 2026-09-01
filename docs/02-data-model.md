@@ -76,7 +76,9 @@ Balance update is part of the same transaction that writes the ledger row.
 - **PurchaseOrder / PurchaseHeader** (TxnNumber*, SupplierId, SiteId, ProjectId?, InvoiceNumber,
   InvoiceDate, SubTotal, Discount, TaxAmount, OtherCharges, TotalAmount, PaidAmount, BalanceAmount,
   PaymentStatus, Status, +audit)
-- **PurchaseItem** (PurchaseHeaderId, MaterialId, UnitId, Quantity, Rate, Discount, TaxAmount, LineTotal)
+- **PurchaseItem** (PurchaseHeaderId, MaterialId, UnitId, Quantity, Rate, Discount, TaxAmount, LineTotal,
+  **DeliverToProjectId?**, **ExpenseHeadId?**) — a line with `DeliverToProjectId` is received into site
+  stock and immediately issued to that project on post, at the line's landed rate
 - **MaterialRequest** (TxnNumber*, SiteId, ProjectId→Project, RequestType {FromStock|Purchase},
   Status, RequestedByUserId, Notes, +audit)
 - **MaterialRequestItem** (MaterialRequestId, MaterialId, UnitId, RequestedQty, ApprovedQty?,

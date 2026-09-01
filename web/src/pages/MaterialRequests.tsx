@@ -55,6 +55,7 @@ export function NewMaterialRequest() {
   const { data: materials } = useAsync(() => api<Paged<Material>>("/materials", { query: { pageSize: 200, active: true } }), []);
   const [projectId, setProjectId] = useState("");
   const [rows, setRows] = useState<{ materialId: string; qty: string }[]>([{ materialId: "", qty: "" }]);
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -74,7 +75,7 @@ export function NewMaterialRequest() {
       if (!projectId || items.length === 0) throw { message: "Pick a project and at least one material.", errors: [], status: 400 };
       const created = await api<MaterialRequest>("/material-requests", {
         method: "POST",
-        body: { projectId, requestType: 1, date: new Date().toISOString().slice(0, 10), items },
+        body: { projectId, requestType: 1, date: new Date().toISOString().slice(0, 10), notes: notes.trim() || null, items },
       });
       if (submit) await api(`/material-requests/${created.id}/submit`, { method: "POST" });
       nav(`/stock/requests/${created.id}`);
@@ -116,6 +117,10 @@ export function NewMaterialRequest() {
           + Add material
         </Button>
       </div>
+
+      <Field label="Remarks">
+        <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What it is for — slab, plastering…" />
+      </Field>
 
       <ErrorText error={error} />
       <div className="flex gap-2">
@@ -163,6 +168,7 @@ export function MaterialRequestDetail() {
           <Chip tone={statusTone(data.requestStatus)}>{MatReqStatusName[data.requestStatus]}</Chip>
         </div>
         <div className="text-xs text-text-dim">{data.txnNumber} · {data.siteName} · {dateStr(data.date)}</div>
+        {data.notes && <div className="mt-1 text-xs text-text-dim">“{data.notes}”</div>}
       </div>
 
       <div className="space-y-2">

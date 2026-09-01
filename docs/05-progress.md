@@ -4,6 +4,46 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — Named use cases pinned by tests, and remarks on every daily entry
+
+**Six journeys, tested as described** (`UseCaseWalkthroughTests`, 12 tests) — store→villa movement,
+direct-to-villa purchase, adding to the store, the approval gate on both purchases and movements,
+customer payments, and simple entry carrying remarks. Table in [07-handover §6c](07-handover.md).
+
+The approval tests pin the gate from three sides: issuing before submit, issuing while still pending,
+and a rejected request — none of which may move a single bag.
+
+**Remarks now surface in the UI** where they already existed in the API: a delivery note on a purchase
+("Lorry AP09 XX 1234"), a reason on a material request ("First-floor slab"), and a note on a customer
+receipt. A number with no note is a number nobody can explain three months later.
+
+---
+
+## 2026-09-01 — Direct-to-villa purchases, and a menu ordered by daily use
+
+**Purchase straight to a villa.** `PurchaseItem.DeliverToProjectId` — per line, so one invoice can put
+the cement on Villa 101 and the steel into the store. On post it receives into site stock and issues
+to the project in the same transaction, then books the project material cost.
+
+The issue uses **the line's own landed rate**, not the site's weighted average. That charges the villa
+what was actually paid, and it is also the only rate that leaves the store untouched: receiving *q* at
+*r* and issuing *q* at *r* restores quantity, value and average exactly. Worked example and the full
+reasoning are in [07-handover §6b](07-handover.md).
+
+Guard: the target project must be on the purchase's site — inventory is site-level. Checked at entry
+as well as at post, so the mistake surfaces while someone is still typing.
+
+**Menu reordered by how often each screen is actually opened**, as requested:
+`Home · Movement · Inventory · Projects · More`. New **Movement** hub — request material, approve,
+issue, record a purchase, project spend — with awaiting-approval and ready-to-issue counts. Sites,
+material master, stock/purchases, contractors, customers, employees and reports moved under More;
+they are set-up-or-review work, not daily work.
+
+**Verified** — 6 new tests (174 total, green) plus the live-API walkthrough: store 200@₹400 before and
+after, villa charged ₹45,000, ledger showing both movements, and ₹1,25,000 = ₹45,000 + ₹80,000.
+
+---
+
 ## 2026-09-01 — Employee master, salary and advances
 
 **Why a second people concept.** `LabourEntry` records daily site labour as a cost by category with

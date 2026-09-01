@@ -28,6 +28,21 @@ On post:
 A purchase targets **site inventory**. It is NOT a project expense. `ProjectId` on a purchase is
 informational only.
 
+### Purchase delivered straight to a project
+
+```
+Purchase line carries DeliverToProjectId
+On post, in one transaction:
+  → InventoryTransaction(PurchaseReceipt, +qty, landed rate)
+  → InventoryTransaction(ProjectConsumption, −qty, SAME landed rate) → project
+  → ProjectExpense(Material, qty × landed rate)
+```
+
+The material passes through the store rather than around it, so the ledger stays complete and
+`purchased = consumed + on hand` still holds. Issuing at the purchase's own landed rate — not the
+site's weighted average — charges the project what was actually paid AND leaves the store's quantity,
+value and average exactly as they were. The target project must be on the purchase's site.
+
 ### Material request from stock (Scenario A)
 ```
 Supervisor: MaterialRequest(FromStock) + items → Submit

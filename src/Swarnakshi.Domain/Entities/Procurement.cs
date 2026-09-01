@@ -47,6 +47,20 @@ public class PurchaseItem : BaseEntity
     public decimal Discount { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+
+    /// <summary>
+    /// Material bought for one villa and taken straight there, never resting in the store.
+    ///
+    /// It still passes THROUGH site inventory: posting receives it and immediately issues it to this
+    /// project, so the stock ledger shows both movements and purchases still reconcile against
+    /// consumption. Set null for the ordinary case — material bought into the common pool.
+    /// </summary>
+    public Guid? DeliverToProjectId { get; set; }
+    public Project? DeliverToProject { get; set; }
+
+    /// <summary>Expense head the direct-to-project consumption is booked under. Optional.</summary>
+    public Guid? ExpenseHeadId { get; set; }
+    public ExpenseHead? ExpenseHead { get; set; }
 }
 
 public class SupplierPayment : BaseEntity

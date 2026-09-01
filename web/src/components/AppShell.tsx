@@ -1,11 +1,13 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 
+// Ordered by daily use, not by data hierarchy: the dashboard, then where material and money move,
+// then the store. Sites, masters and reports are set-up-or-review work and live under More.
 const tabs = [
   { to: "/", label: "Home", icon: "⌂", end: true },
-  { to: "/sites", label: "Sites", icon: "⌾" },
+  { to: "/movement", label: "Movement", icon: "⇄" },
+  { to: "/stock/inventory", label: "Inventory", icon: "▦" },
   { to: "/projects", label: "Projects", icon: "▤" },
-  { to: "/stock", label: "Stock", icon: "▦" },
   { to: "/more", label: "More", icon: "☰" },
 ];
 

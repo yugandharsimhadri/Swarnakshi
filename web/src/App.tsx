@@ -22,6 +22,7 @@ import Users from "@/pages/Users";
 import Register from "@/pages/Register";
 import PlatformConsole from "@/pages/PlatformConsole";
 import Employees from "@/pages/Employees";
+import Movement from "@/pages/Movement";
 
 export default function App() {
   const { user, platformUser, loading, bootstrap } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<Dashboard />} />
+            <Route path="movement" element={<Movement />} />
             <Route path="sites" element={<Sites />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetail />} />

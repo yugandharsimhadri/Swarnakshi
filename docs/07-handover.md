@@ -6,7 +6,7 @@ Everything a new developer needs to pick up Swarnakshi. Read this, then
 > **Status at handover (2026-09-01):** the 6-phase plan (P0–P5) is complete; the product is
 > **multi-tenant SaaS** (registration, tenant isolation, EnterpriseAdmin console) and now carries an
 > **employee/payroll** module. Read **[09-saas-tenancy](09-saas-tenancy.md)** before touching data access.
-> `dotnet build` + `dotnet test` (168) + `npm run build` all green.
+> `dotnet build` + `dotnet test` (186) + `npm run build` all green.
 
 ---
 
@@ -236,6 +236,82 @@ ProjectService.SummaryAsync = Σ ProjectExpense grouped by ExpenseType  (single 
 
 ---
 
+## 6b. Worked use case — material bought for one villa
+
+> *"I got 100 bags of cement for one villa. While entering it I want to send it straight to that
+> villa — but it should still show in inventory so the totals match."*
+
+This is supported directly: each **purchase line** has a destination — into site stock, or straight
+to a villa on that site.
+
+**What happens on post**, in one transaction:
+
+```
+Purchase line: 100 bags @ ₹450, deliver to Villa 101
+   1. InventoryTransaction  PurchaseReceipt      +100 @ ₹450   (site stock)
+   2. InventoryTransaction  ProjectConsumption   −100 @ ₹450   → Villa 101
+   3. ProjectExpense        Material             ₹45,000       → Villa 101
+```
+
+**Worked example.** The store already holds 200 bags @ ₹400 (₹80,000).
+
+| | Qty | Avg rate | Value |
+|---|---|---|---|
+| Store before | 200 | ₹400 | ₹80,000 |
+| After receipt of 100 @ ₹450 | 300 | ₹416.67 | ₹125,000 |
+| After issue of 100 @ ₹450 to Villa 101 | **200** | **₹400** | **₹80,000** |
+
+Villa 101 is charged **₹45,000**. The store is left *exactly* as it was.
+
+**Why the issue uses this purchase's landed rate, not the weighted average.** Two reasons, and they
+agree:
+
+1. It is what the buyer expects — the villa is charged what was actually paid for its material. At
+   the blended ₹416.67 the villa would be charged ₹41,667 and the store would silently keep the
+   ₹3,333 difference.
+2. It is the only rate that leaves the pool undisturbed. Receiving *q* at *r* and issuing *q* at *r*
+   restores quantity, value **and** average exactly, so material earmarked for one villa cannot
+   distort the valuation of everybody else's stock.
+
+**Why it goes through inventory at all** rather than straight to the project: the stock ledger stays
+the single account of every movement, and the identity that protects the books survives —
+
+```
+total purchased  =  cost consumed by projects  +  value still on hand
+₹125,000         =  ₹45,000                    +  ₹80,000            ✓
+```
+
+**Bulk or line by line** — the destination is per line, so one invoice can put the cement on a villa
+and the steel into the store. Tax and discount are included: the villa bears the *landed* cost, not
+the headline rate.
+
+**Guard:** the target project must be on the same site as the purchase. Inventory is site-level, so
+a project elsewhere cannot draw on that store; this is refused at entry as well as at post.
+
+Covered by `DirectToProjectPurchaseTests` (6 tests), including the reconciliation identity above.
+
+---
+
+## 6c. The named use cases, and where they are proved
+
+Six journeys the business named. Each has tests written the way it was described, in
+`UseCaseWalkthroughTests` — if one breaks, something a builder does every day has broken.
+
+| # | Use case | Proved by | Key assertion |
+|---|---|---|---|
+| 1 | **Move cement from the store to a villa** | `UseCase1_*` (2) | 50 bags out of 200 @ ₹425 → villa charged ₹21,250, store left ₹63,750, and the two still sum to the ₹85,000 purchased. Issuing more than is held is refused. |
+| 2 | **Buy cement straight for a villa** (into stock, out again) | `UseCase2_*` + `DirectToProjectPurchaseTests` (7) | Store 200 @ ₹400 before *and* after; villa charged ₹45,000; both movements on the ledger. See §6b. |
+| 3 | **Add cement to the store** | `UseCase3_*` (2) | Stock and value rise, **no project is charged anything** — buying is not spending. A second delivery at a different rate blends to a weighted average. |
+| 4 | **Approval gates every purchase and stock movement** | `UseCase4_*` (3) | Issue refused before submit, refused again while pending, allowed only after approval; a rejected request never moves stock; with `purchase.needs_approval` on, nothing enters the store until the Owner says so. |
+| 5 | **Customer payments** | `UseCase5_*` (2) | ₹10L + ₹15L against an ₹80L villa → received ₹25L, outstanding ₹55L, customer ledger agreeing. A receipt on a project with no customer is refused. |
+| 6 | **Simple entry, with remarks** | `UseCase6_*` (2) | Purchase, material request, customer receipt and opening stock each carry and return a remark; and a purchase needs nothing beyond supplier, site, material, quantity and rate. |
+
+Every remark field is exposed in the UI too — "Lorry AP09 XX 1234" on a delivery, "First-floor slab"
+on a request, "Cheque handed to site office" on a receipt. A number with no note is a number nobody
+can explain three months later.
+
+---
+
 ## 7. Recipe: add a new feature (e.g. "Machinery Log")
 
 **Backend**
@@ -274,6 +350,13 @@ ProjectService.SummaryAsync = Σ ProjectExpense grouped by ExpenseType  (single 
 ---
 
 ## 8. Frontend conventions
+
+**The tab bar is ordered by how often a screen is opened, not by data hierarchy:**
+`Home · Movement · Inventory · Projects · More`. Movement is the daily loop — request material,
+approve, issue, record a purchase, record spend. Sites, material master, contractors, customers,
+employees and reports are set-up-or-review work and live under **More**. Resist promoting a screen to
+the tab bar because it feels important; promote it because it is opened daily.
+
 
 - **API:** always `import { api } from "@/lib/api"`. It unwraps `{success,data}`, attaches the
   bearer token, and auto-refreshes the access token once on 401. Errors throw `ApiError`

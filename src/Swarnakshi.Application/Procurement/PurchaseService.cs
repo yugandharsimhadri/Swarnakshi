@@ -11,7 +11,8 @@ using Swarnakshi.Domain.Enums;
 namespace Swarnakshi.Application.Procurement;
 
 // ---- DTOs ----------------------------------------------------------------
-public record PurchaseItemInput(Guid MaterialId, Guid UnitId, decimal Quantity, decimal Rate, decimal Discount, decimal TaxAmount);
+public record PurchaseItemInput(Guid MaterialId, Guid UnitId, decimal Quantity, decimal Rate,
+    decimal Discount, decimal TaxAmount, Guid? DeliverToProjectId = null, Guid? ExpenseHeadId = null);
 
 public record SavePurchaseRequest(Guid SupplierId, Guid SiteId, Guid? ProjectId, string? InvoiceNumber,
     DateOnly? InvoiceDate, DateOnly Date, decimal OtherCharges, string? Remarks, List<PurchaseItemInput> Items);
@@ -19,7 +20,8 @@ public record SavePurchaseRequest(Guid SupplierId, Guid SiteId, Guid? ProjectId,
 public record SupplierPaymentInput(decimal Amount, DateOnly Date, Guid? PaymentMethodId, string? Reference);
 
 public record PurchaseItemDto(Guid Id, Guid MaterialId, string MaterialName, string UnitCode, decimal Quantity,
-    decimal Rate, decimal Discount, decimal TaxAmount, decimal LineTotal);
+    decimal Rate, decimal Discount, decimal TaxAmount, decimal LineTotal,
+    Guid? DeliverToProjectId, string? DeliverToProjectName, Guid? ExpenseHeadId);
 
 public record PurchaseDto(Guid Id, string TxnNumber, Guid SupplierId, string SupplierName, Guid SiteId, string SiteName,
     Guid? ProjectId, string? InvoiceNumber, DateOnly? InvoiceDate, DateOnly Date, decimal SubTotal, decimal Discount,
@@ -42,7 +44,8 @@ public class SavePurchaseValidator : AbstractValidator<SavePurchaseRequest>
 }
 
 // ---- Poster (shared by service + approval handler) ---------------------
-public class PurchasePoster(IAppDbContext db, IInventoryLedger ledger, IDateTimeProvider clock)
+public class PurchasePoster(
+    IAppDbContext db, IInventoryLedger ledger, IProjectCostWriter costWriter, IDateTimeProvider clock)
 {
     public async Task PostAsync(Guid purchaseId, Guid actorId, CancellationToken ct)
     {
@@ -56,16 +59,53 @@ public class PurchasePoster(IAppDbContext db, IInventoryLedger ledger, IDateTime
 
         foreach (var item in purchase.Items)
         {
-            var unitRate = item.Quantity == 0 ? 0 : item.LineTotal / item.Quantity; // landed rate incl. tax/discount
-            await ledger.ReceiveAsync(purchase.SiteId, item.MaterialId, item.UnitId, item.Quantity, Math.Round(unitRate, 4),
+            var unitRate = item.Quantity == 0 ? 0 : Math.Round(item.LineTotal / item.Quantity, 4); // landed rate incl. tax/discount
+
+            await ledger.ReceiveAsync(purchase.SiteId, item.MaterialId, item.UnitId, item.Quantity, unitRate,
                 InventoryTransactionType.PurchaseReceipt, purchase.Date, ApprovalEntityTypes.Purchase, purchase.Id,
                 purchase.TxnNumber, null, actorId, ct);
+
+            if (item.DeliverToProjectId is { } projectId)
+                await DeliverToProjectAsync(purchase, item, projectId, unitRate, actorId, ct);
         }
 
         purchase.Status = TransactionStatus.Posted;
         purchase.ApprovedBy = actorId;
         purchase.ApprovedAt = clock.Now;
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Material bought for one villa: received above, issued to that villa here, in the same post.
+    ///
+    /// It goes through inventory rather than around it so the stock ledger tells the whole story and
+    /// purchases still reconcile against consumption. The issue uses THIS purchase's landed rate
+    /// rather than the site's weighted average, which is both what the buyer expects — the villa is
+    /// charged what was actually paid for its material — and the only rate that leaves the store
+    /// untouched: receiving q at r and issuing q at r restores the quantity, the value and the
+    /// average exactly, so material earmarked for one project cannot distort the pool's valuation.
+    /// </summary>
+    private async Task DeliverToProjectAsync(
+        PurchaseHeader purchase, PurchaseItem item, Guid projectId, decimal unitRate, Guid actorId, CancellationToken ct)
+    {
+        var project = await db.Projects.AsNoTracking()
+            .Where(p => p.Id == projectId)
+            .Select(p => new { p.Id, p.Name, p.SiteId })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("Project", projectId);
+
+        // Inventory is site-level, so a project on another site cannot consume from this one.
+        if (project.SiteId != purchase.SiteId)
+            throw new AppException(
+                $"{project.Name} is not on the site this purchase was delivered to, so it cannot be issued from that store.", 409);
+
+        var (txn, rate) = await ledger.IssueAsync(purchase.SiteId, item.MaterialId, item.UnitId, item.Quantity,
+            InventoryTransactionType.ProjectConsumption, purchase.Date, ApprovalEntityTypes.Purchase, purchase.Id,
+            purchase.TxnNumber, projectId, unitRate, actorId, ct);
+
+        await costWriter.WriteMaterialCostAsync(projectId, Math.Round(item.Quantity * rate, 2), purchase.Date,
+            item.ExpenseHeadId, null, "InventoryTransaction", txn.Id,
+            $"Direct delivery: {purchase.TxnNumber}", ct);
     }
 }
 
@@ -110,6 +150,22 @@ public class PurchaseService(
         if (!await db.Sites.AnyAsync(s => s.Id == req.SiteId, ct))
             throw new NotFoundException("Site", req.SiteId);
 
+        // Caught here as well as at post: telling someone their line is wrong while they are still
+        // entering it beats failing days later when an approver presses the button.
+        var directProjectIds = req.Items.Where(i => i.DeliverToProjectId.HasValue)
+            .Select(i => i.DeliverToProjectId!.Value).Distinct().ToList();
+        if (directProjectIds.Count > 0)
+        {
+            var onThisSite = await db.Projects.AsNoTracking()
+                .Where(p => directProjectIds.Contains(p.Id) && p.SiteId == req.SiteId)
+                .Select(p => p.Id).ToListAsync(ct);
+            var stray = directProjectIds.Except(onThisSite).ToList();
+            if (stray.Count > 0)
+                throw new AppException(
+                    "A line is set to deliver to a project that is not on this site. Inventory is site-level, "
+                    + "so material can only be issued to a project of the same site.", 409);
+        }
+
         var header = new PurchaseHeader
         {
             TxnNumber = await sequences.NextAsync("PUR", ct),
@@ -125,7 +181,8 @@ public class PurchaseService(
             header.Items.Add(new PurchaseItem
             {
                 MaterialId = i.MaterialId, UnitId = i.UnitId, Quantity = i.Quantity, Rate = i.Rate,
-                Discount = i.Discount, TaxAmount = i.TaxAmount, LineTotal = Math.Round(lineTotal, 2)
+                Discount = i.Discount, TaxAmount = i.TaxAmount, LineTotal = Math.Round(lineTotal, 2),
+                DeliverToProjectId = i.DeliverToProjectId, ExpenseHeadId = i.ExpenseHeadId
             });
         }
 
@@ -191,7 +248,9 @@ public class PurchaseService(
         p.InvoiceNumber, p.InvoiceDate, p.Date, p.SubTotal, p.Discount, p.TaxAmount, p.OtherCharges,
         p.TotalAmount, p.PaidAmount, p.BalanceAmount, p.PaymentStatus, p.Status,
         p.Items.Select(i => new PurchaseItemDto(i.Id, i.MaterialId, i.Material.Name, i.Unit.Code,
-            i.Quantity, i.Rate, i.Discount, i.TaxAmount, i.LineTotal)).ToList());
+            i.Quantity, i.Rate, i.Discount, i.TaxAmount, i.LineTotal,
+            i.DeliverToProjectId, i.DeliverToProject != null ? i.DeliverToProject.Name : null,
+            i.ExpenseHeadId)).ToList());
 }
 
 public class PurchaseApprovalHandler(PurchasePoster poster) : IApprovalHandler

@@ -6,7 +6,7 @@ import { useAuth } from "@/store/auth";
 import { money, dateStr } from "@/lib/format";
 import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
-import { TxnStatusName, type Material, type Paged, type Purchase, type Site } from "@/lib/types";
+import { TxnStatusName, type Material, type Paged, type Project, type Purchase, type Site } from "@/lib/types";
 
 interface Supplier { id: string; name: string; code: string }
 
@@ -48,15 +48,17 @@ export function NewPurchase() {
   const { data: sites } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 100 } }), []);
   const { data: suppliers } = useAsync(() => api<Paged<Supplier>>("/suppliers", { query: { pageSize: 200, active: true } }), []);
   const { data: materials } = useAsync(() => api<Paged<Material>>("/materials", { query: { pageSize: 200, active: true } }), []);
+  const { data: projects } = useAsync(() => api<Paged<Project>>("/projects", { query: { pageSize: 200 } }), []);
 
   const [siteId, setSiteId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNumber, setInvoice] = useState("");
-  const [rows, setRows] = useState<{ materialId: string; qty: string; rate: string }[]>([{ materialId: "", qty: "", rate: "" }]);
+  const [remarks, setRemarks] = useState("");
+  const [rows, setRows] = useState<{ materialId: string; qty: string; rate: string; deliverTo: string }[]>([{ materialId: "", qty: "", rate: "", deliverTo: "" }]);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const setRow = (i: number, k: "materialId" | "qty" | "rate", v: string) =>
+  const setRow = (i: number, k: "materialId" | "qty" | "rate" | "deliverTo", v: string) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const total = rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.rate) || 0), 0);
 
@@ -73,12 +75,20 @@ export function NewPurchase() {
         .filter((r) => r.materialId && Number(r.qty) > 0)
         .map((r) => {
           const m = materials!.items.find((x) => x.id === r.materialId)!;
-          return { materialId: r.materialId, unitId: m.unitId, quantity: Number(r.qty), rate: Number(r.rate) || 0, discount: 0, taxAmount: 0 };
+          return {
+            materialId: r.materialId, unitId: m.unitId, quantity: Number(r.qty),
+            rate: Number(r.rate) || 0, discount: 0, taxAmount: 0,
+            deliverToProjectId: r.deliverTo || null,
+          };
         });
       if (!siteId || !supplierId || items.length === 0) throw { message: "Site, supplier and at least one line are required.", errors: [], status: 400 };
       const created = await api<Purchase>("/purchases", {
         method: "POST",
-        body: { supplierId, siteId, invoiceNumber: invoiceNumber || null, date: new Date().toISOString().slice(0, 10), otherCharges: 0, items },
+        body: {
+          supplierId, siteId, invoiceNumber: invoiceNumber || null,
+          date: new Date().toISOString().slice(0, 10), otherCharges: 0,
+          remarks: remarks.trim() || null, items,
+        },
       });
       if (submit) await api(`/purchases/${created.id}/submit`, { method: "POST" });
       nav(`/stock/purchases/${created.id}`);
@@ -107,6 +117,7 @@ export function NewPurchase() {
         </Select>
       </Field>
       <Field label="Invoice no. (optional)"><Input value={invoiceNumber} onChange={(e) => setInvoice(e.target.value)} /></Field>
+      <Field label="Remarks"><Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Vehicle number, who received it…" /></Field>
 
       <div className="space-y-2">
         {rows.map((r, i) => (
@@ -118,11 +129,28 @@ export function NewPurchase() {
             <div className="flex gap-2">
               <Input placeholder="Qty" inputMode="decimal" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} />
               <Input placeholder="Rate" inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, "rate", e.target.value)} />
+
               {rows.length > 1 && <Button variant="ghost" onClick={() => setRows(rows.filter((_, idx) => idx !== i))}>✕</Button>}
             </div>
+            <Select
+              value={r.deliverTo}
+              onChange={(e) => setRow(i, "deliverTo", e.target.value)}
+              disabled={!siteId}
+            >
+              <option value="">Into site stock</option>
+              {(projects?.items ?? [])
+                .filter((pr) => pr.siteId === siteId)
+                .map((pr) => <option key={pr.id} value={pr.id}>Straight to {pr.name}</option>)}
+            </Select>
+            {r.deliverTo && (
+              <p className="text-xs text-text-dim">
+                Booked into this site's stock and issued to the villa in one step, so the ledger shows
+                both moves and the villa is charged {money((Number(r.qty) || 0) * (Number(r.rate) || 0))}.
+              </p>
+            )}
           </Card>
         ))}
-        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { materialId: "", qty: "", rate: "" }])}>
+        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { materialId: "", qty: "", rate: "", deliverTo: "" }])}>
           + Add line
         </Button>
       </div>
@@ -179,7 +207,12 @@ export function PurchaseDetail() {
       <div className="space-y-2">
         {data.items.map((it) => (
           <Card key={it.id} className="flex items-center justify-between text-sm">
-            <span>{it.materialName}</span>
+            <span>
+              {it.materialName}
+              {it.deliverToProjectName && (
+                <span className="block text-xs text-brand-ink">→ {it.deliverToProjectName}</span>
+              )}
+            </span>
             <span className="text-text-dim tabular-nums">{it.quantity} {it.unitCode} × {money(it.rate, true)} = {money(it.lineTotal)}</span>
           </Card>
         ))}

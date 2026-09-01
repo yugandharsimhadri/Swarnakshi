@@ -260,6 +260,8 @@ public class PurchaseItemConfig : IEntityTypeConfiguration<PurchaseItem>
     {
         e.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.DeliverToProject).WithMany().HasForeignKey(x => x.DeliverToProjectId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.ExpenseHead).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
