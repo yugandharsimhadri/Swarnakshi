@@ -111,6 +111,10 @@ whenever the camera does, so an absolute clock would align with nothing.
 Written for failures too — the transcript then ends at the step that broke, which is a fuller account
 of how far the journey got than the step list in the failure message.
 
+The Sivayaan content engine builds Swarnakshi's demo videos from these files; the brief describing
+that integration is [10-content-engine](10-content-engine.md). Changing the JSON shape, the journey
+list or the run commands means changing that document in the same commit.
+
 ### Ports
 
 The suite runs on **6070 (client) / 6071 (API)** — deliberately not the 6050/6051 a developer uses.

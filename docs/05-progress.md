@@ -4,6 +4,17 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — The content-engine brief lives in docs
+
+[10-content-engine](10-content-engine.md) is the brief handed to the Sivayaan content engine for
+building demo videos from the narration transcripts.
+
+It sits in this repository rather than that one because the contract it describes is ours — the JSON
+shape, the journey list, the run commands, the environment variables. Kept there it would go stale
+silently; kept here it is the file to change in the same commit as whatever broke it.
+
+---
+
 ## 2026-09-01 — Narration transcripts alongside each run
 
 The narration was unreachable outside the browser: captions lived only on screen, and xUnit surfaces
