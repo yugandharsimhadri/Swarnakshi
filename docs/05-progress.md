@@ -18,12 +18,12 @@ Also corrected several stale facts the doc had accumulated — it still claimed 
 neither the Employees, Movement, Register nor PlatformConsole screens, nor the later migrations.
 
 **Every figure in the walkthrough was re-verified against a fresh database** by replaying the
-documented steps through the live API (, 20 checks): store
+documented steps through the live API (`scratchpad/walkthrough-check.mjs`, 20 checks): store
 100@₹400, blend to 200@₹425, issue 50 → villa ₹21,250 with ₹63,750 left, direct-to-villa leaving the
 store untouched at 150@₹425 while the villa gains ₹45,000, both ledger rows present, wrong-site
 delivery refused, receipts ₹25L against ₹80L leaving ₹55L, and remarks round-tripping.
 
-Fixed one thing the doc got wrong: it showed a  for turning on ,
+Fixed one thing the doc got wrong: it showed a `curl` for turning on `purchase.needs_approval`,
 which has no endpoint. It is a SQL update until the settings screen exists.
 
 ---
