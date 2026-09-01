@@ -4,6 +4,42 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — A stale `reload` could make a list contradict its own filters
+
+**Product bug, found by the mobile UAT run.** A mutation handler closes over `reload` at the moment
+the row action is clicked, then awaits its POST. If a filter changed while that request was in
+flight, the refresh afterwards re-queried with the filters *as they were at click time* — and being
+the newest request, it won the ordering guard and replaced what the user was looking at. The screen
+then contradicted itself: Status read "All" while the rows were the Active-only ones.
+
+Deactivating a contractor and immediately widening the status filter reproduced it every time on
+mobile, which is slow enough to lose the race; desktop won it and passed.
+
+`useAsync` now reads `fn` through a ref, so `reload` always runs the *current* query — which is what
+every caller already assumed it meant.
+
+`PartyMasterTests` gains the regression that isolated it: deactivate, then list by code with the
+status filter unset. That passing is what proved the query was sound and sent me to the client.
+
+**Also:** a bare `dotnet test` at the root was running the browser UAT suite — 2 minutes and a
+browser dependency on everyone's test run — despite a csproj comment claiming otherwise. The
+`IsUatSuite` property that comment referred to was inert and read by nothing. It is now gated on
+`IsTestProject`, so the root run is the fast suite again:
+
+```
+dotnet test                                        # 132 unit + integration, ~35s
+dotnet test tests/Swarnakshi.UatTests -p:Uat=true   # 24 browser cases, ~1m30s
+```
+
+The project stays in the solution, so `dotnet build` still compiles it and it cannot rot unnoticed.
+
+**Gotchas**
+- Widen a status filter *before* typing a search, not after: changing a filter re-queries with
+  whatever the debounced term is at that instant, so the two settle independently.
+- If a UAT run reports "no tests", the `-p:Uat=true` switch is missing.
+
+---
+
 ## 2026-09-01 — UAT suite green: 24/24 in both viewports
 
 The browser-driven acceptance suite (`tests/Swarnakshi.UatTests` + `tools/Swarnakshi.Automation`)
