@@ -26,21 +26,26 @@ walkthrough, so what is demonstrated and what is signed off are the same journey
 ## Running it
 
 ```bash
-dotnet test tests/Swarnakshi.UatTests
+dotnet test tests/Swarnakshi.UatTests -p:Uat=true
 ```
+
+**The `-p:Uat=true` is required.** Without it the project reports no tests and exits quietly, which
+is the price of keeping it out of the solution-wide `dotnet test`: this suite starts servers and
+drives a browser for minutes, and nobody should pay that on a bare `dotnet test`. The project stays
+in the solution, so `dotnet build` still compiles it and it cannot rot unnoticed — only the test run
+is gated. If a UAT run reports "no tests", you left the switch off.
 
 Do not pipe it into `tail`/`head` while it runs — those buffer until the process exits, so a run in
 flight looks silent and you lose the per-scenario PASS/FAIL lines as they happen. Redirect instead
 (`> uat.log 2>&1`) and tail the file.
 
-It is **not** part of a bare `dotnet test` at the repo root by habit — it starts servers and drives a
-browser, so it takes minutes where the unit suite takes seconds. Run it deliberately, and in CI as
-its own step.
+It is **not** part of a bare `dotnet test` at the repo root — gated by `IsTestProject`, not by habit.
+Run it deliberately, and in CI as its own step.
 
 One scenario, one viewport:
 
 ```bash
-dotnet test tests/Swarnakshi.UatTests --filter "FullyQualifiedName~MaterialCatalogueUatTests"
+dotnet test tests/Swarnakshi.UatTests -p:Uat=true --filter "FullyQualifiedName~MaterialCatalogueUatTests"
 ```
 
 ### Ports
@@ -168,6 +173,7 @@ the browser reached them.
 |---|---|
 | `[FromQuery] PageQuery page` on 13 endpoints | The parameter name collided with the `page` query key, so ASP.NET switched to prefixed binding and **`?q=…` was ignored**. Every search box in the product returned unfiltered results. Renamed to `paging`, with the reason recorded on `PageQuery` itself. |
 | `useAsync` had no request-ordering guard | Lists re-query on every keystroke, so several requests are in flight at once; whichever the server answered LAST won. A slow early response overwrote the results the user was looking at. |
+| A mutation's refresh used stale filters | A handler closes over `reload` at click time; if a filter changed while its POST was in flight, the refresh re-queried with the *old* filters and — being newest — won the ordering guard. The list contradicted its own controls: Status "All", rows Active-only. `useAsync` now reads `fn` through a ref. |
 | No supplier was ever seeded | With no supplier UI either, a purchase could not be recorded at all on a fresh install. |
 
 ---

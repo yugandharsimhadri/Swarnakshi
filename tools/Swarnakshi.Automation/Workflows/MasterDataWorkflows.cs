@@ -306,13 +306,17 @@ public sealed class ContractorMasterWorkflow() : Workflow(
                 await c.ExpectVisibleAsync("Deactivate contractor?");
                 await c.ExpectVisibleAsync("Existing historical records will remain unchanged.");
                 await c.ConfirmAsync("Deactivate");
-                // Prove the deactivation landed before filtering on it. The list still carries the
-                // row (status filter is Active by default, but the refresh has not run yet), so this
-                // also holds the scenario until the list reflects the change.
-                await c.SettleAsync();
-                await c.SearchAsync("Search contractors…", code);
+
+                // Prove the deactivation actually landed before the next step filters on it.
+                //
+                // Unlike the material catalogue, this list defaults to Status = Active, so the row
+                // leaves it the moment it is deactivated — it has to be brought back into view to be
+                // asserted on. Widen the status FIRST and search after: changing a filter re-queries
+                // with whatever the debounced term is at that instant, so searching first and then
+                // switching leaves two requests settling independently, and the assertion races the
+                // one it belongs to.
                 await c.SelectFilterAsync("All", "All");
-                await c.SettleAsync();
+                await c.SearchAsync("Search contractors…", code);
                 await c.ExpectRowStatusAsync(code, "Inactive");
             });
 

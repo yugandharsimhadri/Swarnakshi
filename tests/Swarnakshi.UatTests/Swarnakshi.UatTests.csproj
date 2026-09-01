@@ -5,11 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <!-- Not run by a bare `dotnet test` at the solution root: this suite starts servers and drives a
-         real browser, so it takes minutes where the unit suite takes seconds. Run it deliberately:
-             dotnet test tests/Swarnakshi.UatTests
-         The property is read by the CI script; it does not affect a direct invocation. -->
-    <IsUatSuite>true</IsUatSuite>
+    <!-- Opt-in, so a bare `dotnet test` at the solution root stays the fast suite. This one starts
+         servers and drives a real browser for minutes, and it should not be something everyone pays
+         for by default. Run it deliberately:
+
+             dotnet test tests/Swarnakshi.UatTests -p:Uat=true
+
+         The project stays in the solution so `dotnet build` still compiles it and it cannot rot
+         unnoticed; only the test run is gated. -->
+    <IsTestProject Condition="'$(Uat)' != 'true'">false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
