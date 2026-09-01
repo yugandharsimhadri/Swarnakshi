@@ -9,9 +9,17 @@ namespace Swarnakshi.Automation;
 /// </summary>
 public static class DemoData
 {
-    public const string OwnerEmail = "owner@swarnakshi.local";
+    /// <summary>
+    /// The founding tenant's owner, as PlatformSeeder creates it.
+    ///
+    /// Multi-tenancy changed what a login *is*: it is no longer an email but
+    /// <c>username@companycode</c>, resolved against a company rather than a global user table. The
+    /// seeded owner's display name is the company name, because that is what the seeder puts in
+    /// User.Name for the founding admin.
+    /// </summary>
+    public const string OwnerLogin = "owner@swarnakshi";
     public const string OwnerPassword = "Owner@123";
-    public const string OwnerName = "Owner";
+    public const string OwnerName = "Swarnakshi";
 
     /// <summary>Demo sites, from DemoDataSeeder.</summary>
     public const string PrimarySite = "Green Valley";

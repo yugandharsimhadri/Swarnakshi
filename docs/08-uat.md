@@ -111,6 +111,15 @@ with a breakpoint, so every material name and action button exists twice on ever
 plain `.First` binds to whichever copy is first in the DOM — on desktop that is the hidden mobile
 card — and then waits out its timeout for a visibility that will never come.
 
+**The tab list is a product decision, and the suite tracks it.** `TabBarLabels` names what a site
+engineer reaches in one tap. When the menu was reordered by daily use — Sites and Stock demoted to
+More, Movement and Inventory promoted — twelve cases failed on a tab that no longer existed. Update
+that list; anything not in it is reached through More automatically.
+
+**Sign-in is `username@companycode`.** Since multi-tenancy a login is resolved against a company, not
+a global user table, and the seeded owner's display name is the *company* name (`PlatformSeeder`
+writes it into `User.Name`). `DemoData` holds all three so a seed change is one edit, not a hunt.
+
 **Navigation by clicking, never by URL.** A navigation that only works from the address bar is not
 one a site engineer has. `NavigateAsync` uses the bottom tab bar, and routes everything not on it
 through "More" — which, unlike most apps of this shape, is the same in both viewports.

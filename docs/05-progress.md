@@ -4,6 +4,34 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — UAT follows multi-tenancy and the reordered menu
+
+Syncing to main left the acceptance suite **0 / 24**. Two product changes it had not been told about,
+both legitimate:
+
+**Sign-in changed shape, not just wording.** A login is no longer an email but
+`username@companycode`, resolved against a company rather than a global user table. Every case died
+on the login form. The seeded owner is now `owner@swarnakshi`, and its display name is the *company*
+name, because that is what `PlatformSeeder` writes into `User.Name` for a founding admin. The
+credentials-rejected message moved from "Invalid email or password." to "…username or password.",
+and the user list no longer prints a login at all — since multi-tenancy the company half is the same
+for everyone on screen.
+
+**The bottom tabs were reordered by daily use.** Sites and Stock were demoted to More; Movement and
+Inventory took their place. Twelve cases were waiting on a "Stock" tab that no longer exists. The
+`/stock` hub page itself is unchanged — the same four cards — so only the route to it moved, and it
+is now reached through More as "Stock & purchases".
+
+That the suite noticed both, and named the business step it died on rather than a selector, is the
+whole point of it. Back to **24 / 24**.
+
+**Gotchas**
+- `TabBarLabels` in `WorkflowContext` encodes a product decision — what a site engineer reaches in
+  one tap. When the menu is reordered, that list is the thing to update; everything not in it is
+  reached through More automatically.
+
+---
+
 ## 2026-09-01 — Handover rewritten around the six use cases
 
 §6c was a table of which tests covered what — useful for auditing, useless for picking the project up.
