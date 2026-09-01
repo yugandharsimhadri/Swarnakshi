@@ -7,6 +7,9 @@ Everything a new developer needs to pick up Swarnakshi. Read this, then
 > **multi-tenant SaaS** (registration, tenant isolation, EnterpriseAdmin console) and now carries an
 > **employee/payroll** module. Read **[09-saas-tenancy](09-saas-tenancy.md)** before touching data access.
 > `dotnet build` + `dotnet test` (186) + `npm run build` all green.
+>
+> **Picking this up?** Read §2 (run it), then walk the six use cases in **§6c** — twenty minutes,
+> and you will recognise the code when you open it.
 
 ---
 
@@ -31,12 +34,14 @@ Everything a new developer needs to pick up Swarnakshi. Read this, then
 | Role-aware dashboard + 8 reports + CSV export | ✅ done |
 | Audit log (status transitions), attachments (API + UI), optimistic concurrency | ✅ done |
 | Skeleton loaders, confirm dialogs, light/dark theme, mobile-first shell | ✅ done |
-| CI (GitHub Actions), 11 tests (pure + SQLite-in-memory integration) | ✅ done |
+| **Purchase delivered straight to a villa** (through stock, so totals reconcile) | ✅ done |
+| Menu ordered by daily use: Home · Movement · Inventory · Projects · More | ✅ done |
+| CI (GitHub Actions), **186 tests** (pure + SQLite-in-memory integration) + 24 browser UAT cases | ✅ done |
 | **All 6 phases (P0–P5) complete** | ✅ |
 | P6 nice-to-haves (simple-master admin UI, Scenario-B wiring, richer filters, transfers, …) | ⬜ backlog (§11) |
 
-**Proof it works:** `dotnet test` (11 green) + four e2e scripts (`scratchpad/p1..p4test.mjs`, §9)
-all pass against a single fresh DB. `dotnet build` and `cd web && npm run build` are clean.
+**Proof it works:** `dotnet test` — **186 green**, including `UseCaseWalkthroughTests` which asserts
+the six business journeys in §6c. `dotnet build` and `cd web && npm run build` are clean.
 
 ---
 
@@ -82,8 +87,9 @@ src/
     Common/BaseEntity.cs          BaseEntity (Id, CreatedAt/By, IsDemo)
                                   + AuditableEntity (Modified/Approved, Status, Remarks, ConcurrencyToken)
     Enums/Enums.cs                every enum (UserRole, TransactionStatus, InventoryTransactionType, …)
-    Entities/*.cs                 grouped by context: Identity, Masters, Sites, Inventory, Procurement,
-                                  Expenses, Contractors, Customers, Approvals
+    Entities/*.cs                 grouped by context: Platform (Company, PlatformUser), Identity, Masters,
+                                  Sites, Inventory, Procurement, Expenses, Employees, Contractors,
+                                  Customers, Approvals
     Entities/Inventory.cs         ← InventoryBalance.Receive()/Issue() = the weighted-average maths
 
   Swarnakshi.Application/        use-case services, DTOs, validators, interfaces. References Domain + EF Core (for IQueryable).
@@ -92,15 +98,18 @@ src/
                                   ProjectCostWriter  ← the ONLY writer of posted ProjectExpense rows
     Security/Permissions.cs       permission-key constants + role → default set
     Approvals/Approvals.cs        ApprovalService + IApprovalHandler + ApprovalEntityTypes
-    <Context>/                    Auth, Sites, Projects, Masters, Inventory, Procurement, Expenses,
-                                  Contractors, Customers, Dashboard, Reports, Attachments, Users
+    <Context>/                    Auth, Platform (registration + EnterpriseAdmin), Sites, Projects, Masters,
+                                  Inventory, Procurement, Expenses, Employees, Contractors, Customers,
+                                  Dashboard, Reports, Attachments, Users
     DependencyInjection.cs        AddApplication() — register every service + approval handler here
 
   Swarnakshi.Infrastructure/     EF Core, config, migrations, seed, JWT, hashing, storage. Implements Application abstractions.
     Persistence/AppDbContext.cs   DbSets + OnModelCreating (decimal/string/DateTimeOffset conventions,
                                   ConcurrencyToken) + SaveChangesAsync (audit stamping, AuditLog, token bump)
     Persistence/Configurations/   one class per entity area — unique indexes, FK delete behaviour
-    Persistence/Migrations/       InitialCreate + P5_ConcurrencyToken
+    Persistence/Migrations/       InitialCreate → P5_ConcurrencyToken → P6_MaterialMaster →
+                                  SaaS_MultiTenancy → SaaS_TokenRevocation → EmployeeMaster →
+                                  PurchaseDirectToProject
     Persistence/Seed/             MasterDataSeeder (idempotent, Indian construction defaults) + DemoDataSeeder
     Services/                     Pbkdf2PasswordHasher, JwtTokenService, TransactionSequenceService, SystemDateTimeProvider
     Storage/LocalFileStorage.cs   IFileStorage default impl (App_Data/uploads)
@@ -114,15 +123,24 @@ src/
                                   Contracts, CustomerPayments, Dashboard (+ Reports), Attachments, Users
     Persistence/DbInitializer.cs  MigrateAsync + seed on startup
 
-tests/Swarnakshi.Tests/          xUnit + FluentAssertions (11). TestHost = real DI over SQLite in-memory + seeded masters.
-    InventoryBalanceTests · CostFlowIntegrationTests · PaymentFlowTests · ConcurrencyTests
+tests/Swarnakshi.Tests/          xUnit + FluentAssertions (186). TestHost = real DI over SQLite in-memory,
+                                 seeded exactly as a registered tenant is.
+    UseCaseWalkthroughTests   ← the six business journeys of §6c; start here
+    DirectToProjectPurchaseTests · MultiTenancyTests · EmployeeTests · InventoryBalanceTests
+    CostFlowIntegrationTests · PaymentFlowTests · ConcurrencyTests · MaterialMasterTests
+    PartyMasterTests · AuthAndUserTests · ExpenseAndApprovalTests · InventoryOperationsTests
+    SiteReportingTests · AttachmentTests
+
+tests/Swarnakshi.UatTests/       browser acceptance, 12 scenarios × 2 viewports. Gated: -p:Uat=true (§17)
+tools/Swarnakshi.Automation/     the Playwright workflows those scenarios run
 
 web/                             Vite + React 19 + TS + Tailwind v4 + Zustand + React Router 7
     src/lib/         api.ts (api + apiUpload + token refresh), types.ts, format.ts, useAsync.ts
     src/store/       auth.ts (Zustand), theme.ts
     src/components/  ui.tsx (kit), AppShell.tsx (bottom nav), SitePicker.tsx, AttachmentPanel.tsx
-    src/pages/       Login, Dashboard, Sites, Projects, ProjectDetail (tabbed), Stock, Inventory,
-                     MaterialRequests, Purchases, Approvals, Materials, Contractors, Customers,
+    src/pages/       Login, Register, PlatformConsole, Dashboard, Movement, Sites, Projects,
+                     ProjectDetail (tabbed), Stock, Inventory, MaterialRequests, Purchases,
+                     Approvals, Materials, Contractors, Customers, Employees,
                      Reports, Users, More
 
 docs/                            01 architecture · 02 data model · 03 workflows · 04 API · 05 progress · 06 deploy · 07 handover
@@ -292,23 +310,212 @@ Covered by `DirectToProjectPurchaseTests` (6 tests), including the reconciliatio
 
 ---
 
-## 6c. The named use cases, and where they are proved
+## 6c. The six named use cases — walk them, then change them
 
-Six journeys the business named. Each has tests written the way it was described, in
-`UseCaseWalkthroughTests` — if one breaks, something a builder does every day has broken.
+These are the journeys the business named. This section is written for someone picking the project
+up: **run each one in the app first** (20 minutes for all six), then you will recognise the code when
+you open it.
 
-| # | Use case | Proved by | Key assertion |
-|---|---|---|---|
-| 1 | **Move cement from the store to a villa** | `UseCase1_*` (2) | 50 bags out of 200 @ ₹425 → villa charged ₹21,250, store left ₹63,750, and the two still sum to the ₹85,000 purchased. Issuing more than is held is refused. |
-| 2 | **Buy cement straight for a villa** (into stock, out again) | `UseCase2_*` + `DirectToProjectPurchaseTests` (7) | Store 200 @ ₹400 before *and* after; villa charged ₹45,000; both movements on the ledger. See §6b. |
-| 3 | **Add cement to the store** | `UseCase3_*` (2) | Stock and value rise, **no project is charged anything** — buying is not spending. A second delivery at a different rate blends to a weighted average. |
-| 4 | **Approval gates every purchase and stock movement** | `UseCase4_*` (3) | Issue refused before submit, refused again while pending, allowed only after approval; a rejected request never moves stock; with `purchase.needs_approval` on, nothing enters the store until the Owner says so. |
-| 5 | **Customer payments** | `UseCase5_*` (2) | ₹10L + ₹15L against an ₹80L villa → received ₹25L, outstanding ₹55L, customer ledger agreeing. A receipt on a project with no customer is refused. |
-| 6 | **Simple entry, with remarks** | `UseCase6_*` (2) | Purchase, material request, customer receipt and opening stock each carry and return a remark; and a purchase needs nothing beyond supplier, site, material, quantity and rate. |
+Start the app (§2), sign in as `owner@swarnakshi` / `Owner@123`. The dev seed gives you
+site **Green Valley** with **Villa 101** and **Villa 102**, site **Sunrise Villas** with **Villa 103**,
+customer **Ramesh Kumar**, supplier **Sri Balaji Traders**, and a 40-material catalogue including
+**OPC 53 Grade Cement** (unit: BAG).
 
-Every remark field is exposed in the UI too — "Lorry AP09 XX 1234" on a delivery, "First-floor slab"
-on a request, "Cheque handed to site office" on a receipt. A number with no note is a number nobody
-can explain three months later.
+Run them in this order — 3 fills the store, 1 empties some of it, 2 is the special case.
+To start clean at any point: stop the API, delete `src/Swarnakshi.Api/swarnakshi.db*`, run again.
+
+---
+
+### Use case 3 — Add cement bags to inventory
+
+*Buying stock into the store. The foundation for everything else.*
+
+**Walk it.** Movement → **Record a purchase** → Site `Green Valley`, Supplier `Sri Balaji Traders`,
+remark "Lorry AP09 XX 1234" → line: `OPC 53 Grade Cement`, Qty `100`, Rate `400`, destination
+**Into site stock** → **Save & post**.
+
+Then Inventory → Green Valley.
+
+| Expect | |
+|---|---|
+| Stock | 100 BAG @ ₹400 = ₹40,000 |
+| Villa 101 material cost | **₹0** |
+
+That zero is the point: **buying is not spending.** Money became inventory, not project cost. Add a
+second delivery of 100 @ ₹450 and the store blends to 200 @ **₹425** — weighted average.
+
+**Code** · `PurchaseService.CreateAsync` → `PurchasePoster.PostAsync` → `InventoryService.ReceiveAsync`
+→ `InventoryBalance.Receive` (the actual arithmetic, in the Domain).
+**Screens** · `web/src/pages/Purchases.tsx`, `web/src/pages/Inventory.tsx`.
+**Tests** · `UseCaseWalkthroughTests.UseCase3_*`.
+
+---
+
+### Use case 1 — Move cement bags from inventory to a villa
+
+*The daily loop: supervisor asks, Owner approves, store issues.*
+
+**Walk it.** With 200 bags @ ₹425 in the store from above:
+
+1. Movement → **Request material** → Project `Villa 101`, remark "First-floor slab",
+   line `OPC 53 Grade Cement` qty `50` → **Submit for approval**.
+2. More → **Approval Center** → the request is listed → **Approve** (read the confirmation: it says
+   what is about to happen).
+3. Back on the request → **Issue from stock** → confirm.
+
+| Expect | |
+|---|---|
+| Store | 150 BAG, value ₹63,750 |
+| Villa 101 material cost | **₹21,250** (50 × ₹425) |
+| Ledger | a `Consumption` row, −50 @ ₹425, tagged Villa 101 |
+| Identity | ₹21,250 + ₹63,750 = ₹85,000 purchased ✓ |
+
+The issue rate is the store's **weighted average**, not any single delivery's price — the bags in a
+pile are not labelled.
+
+**Try to break it:** request 500 bags and approve it — the issue is refused, *Insufficient stock*
+(unless `inventory.allow_negative_stock` is on for that site).
+
+**Code** · `MaterialRequestService` → `MaterialRequestIssuer.IssueAsync` → `InventoryService.IssueAsync`
++ `ProjectCostWriter.WriteMaterialCostAsync`.
+**Screens** · `web/src/pages/MaterialRequests.tsx`, `web/src/pages/Approvals.tsx`.
+**Tests** · `UseCaseWalkthroughTests.UseCase1_*`.
+
+---
+
+### Use case 2 — Purchase cement bags direct to a villa
+
+*"I got 100 bags for Villa 101 — it went straight there, but it must still show in inventory so the
+totals match."* Full reasoning in **§6b**; this is how to see it.
+
+**Walk it.** With 200 bags @ ₹400 in the store: Movement → **Record a purchase** → Green Valley,
+Sri Balaji → line `OPC 53 Grade Cement`, Qty `100`, Rate `450`, destination **Straight to Villa 101**
+→ **Save & post**.
+
+| Expect | |
+|---|---|
+| Store, before | 200 BAG @ ₹400 = ₹80,000 |
+| Store, after | **200 BAG @ ₹400 = ₹80,000** — unchanged |
+| Villa 101 material cost | **₹45,000** (what was actually paid) |
+| Ledger | `Purchase +100 @ ₹450` **and** `Consumption −100 @ ₹450 → Villa 101` |
+| Identity | ₹45,000 + ₹80,000 = ₹1,25,000 purchased ✓ |
+
+Both movements are recorded because the material goes **through** the store, not around it. The issue
+uses this purchase's own landed rate, which charges the villa what was paid *and* leaves the pool's
+average untouched — see §6b for why those two facts are the same fact.
+
+The destination is **per line**, so one invoice can put cement on the villa and steel into the store.
+Tax and discount are included: the villa bears the landed cost, not the headline rate.
+
+**Try to break it:** pick `Villa 103` (on Sunrise Villas) as the destination for a Green Valley
+purchase — refused, because inventory is site-level.
+
+**Code** · `PurchaseItem.DeliverToProjectId` → `PurchasePoster.DeliverToProjectAsync`.
+**Screens** · the destination `<Select>` on each line in `web/src/pages/Purchases.tsx`.
+**Tests** · `DirectToProjectPurchaseTests` (6) + `UseCaseWalkthroughTests.UseCase2_*`.
+
+---
+
+### Use case 4 — Approval for every purchase and every stock movement
+
+*Nothing moves and no money posts until the Owner says so.*
+
+**Material movement is always gated.** Create a request and try **Issue** before submitting — refused,
+*must be approved*. Submit it, try again while it is still pending — refused again, and the store is
+still untouched. Approve, then issue — now it moves. Reject one instead and the stock never moves.
+
+**Purchases are gated by a setting**, off by default so a small builder is not slowed down. There is
+no settings screen yet, so flip the row directly:
+
+```sql
+-- src/Swarnakshi.Api/swarnakshi.db
+UPDATE Settings SET Value = 'true' WHERE "Key" = 'purchase.needs_approval';
+```
+
+Restart the API, and a submitted purchase now sits at `PendingApproval` with **nothing entering the
+store** until the Owner approves it. (A settings screen is on the backlog — §11.)
+
+Everything approvable runs through one engine — see **§5** for how to add another. Money-out already
+on it: contractor payments, labour, employee salary/advances.
+
+| Setting | Default | Effect |
+|---|---|---|
+| `purchase.needs_approval` | `false` | purchases post straight to stock |
+| `inventory.adjustment_needs_approval` | `true` | adjustments are Owner-only |
+| `inventory.allow_negative_stock` | `false` | issues cannot overdraw the store |
+
+**Code** · `ApprovalService.DecideAsync` runs the entity's `IApprovalHandler` **inside one DB
+transaction** — if a side effect throws, everything rolls back and the request stays pending.
+**Tests** · `UseCaseWalkthroughTests.UseCase4_*` pins the gate from three sides: before submit, while
+pending, and after rejection.
+
+---
+
+### Use case 5 — Customer payments
+
+*What the villa is worth, what has come in, what is still owed.*
+
+**Walk it.** Projects → `Villa 101` → **Customer** tab. Sale value ₹80,00,000 (from the seed).
+**Record receipt** → ₹10,00,000, Bank Transfer, reference "NEFT-8891", remark "First instalment".
+Repeat for ₹15,00,000.
+
+| Expect | |
+|---|---|
+| Received | ₹25,00,000 |
+| Outstanding | ₹55,00,000 |
+| Customer ledger | More → Customers → Ramesh Kumar — same figures across all his projects |
+
+Receipts post immediately — money **in** does not need approval; money **out** does.
+A receipt on a project with no customer is refused (self-owned builds are legitimate, so the customer
+is optional on a project — but you cannot receive from nobody).
+
+**Note the asymmetry:** customer receipts are revenue and never touch project *cost*. Margin is
+`sale value − total cost`, which is why receiving money does not make a villa look more profitable.
+
+**Code** · `CustomerPaymentService`. **Screen** · Customer tab in `web/src/pages/ProjectDetail.tsx`.
+**Tests** · `UseCaseWalkthroughTests.UseCase5_*`.
+
+---
+
+### Use case 6 — Data entry stays simple, and carries remarks
+
+*Two rules that pull against each other, both of which matter on site.*
+
+**Simple.** A purchase needs only supplier, site, material, quantity and rate. Invoice number, tax,
+discount, delivery destination and remarks are all optional. A material request needs a project, a
+material and a quantity. Nothing else is compulsory anywhere in the daily loop.
+
+**With remarks.** Every daily entry carries a free-text note, and it is on the form, not just the API:
+
+| Entry | Field | What people actually write |
+|---|---|---|
+| Purchase | Remarks | "Lorry AP09 XX 1234, received by store keeper" |
+| Material request | Remarks | "First-floor slab" |
+| Customer receipt | Remarks | "Part payment, cheque handed to site office" |
+| Opening stock / adjustment | Remarks / Reason | "Counted at handover", "Damaged in unloading" |
+| Employee payment | Remarks | "Festival advance" |
+
+A number with no note is a number nobody can explain three months later. When you add a new entry
+screen, add the remark field — it is the cheapest thing in the system and the first thing asked for.
+
+**Tests** · `UseCaseWalkthroughTests.UseCase6_*` asserts each of those round-trips, and that a
+purchase can be recorded with nothing optional filled in.
+
+---
+
+### Where these six can go next
+
+Honest edges, so nobody assumes they are finished:
+
+- **Partial issue** works in the service (`IssueRequest.Items` takes per-line quantities) but the UI
+  only issues everything approved. Wiring the per-line boxes is a small, self-contained job.
+- **Returns from a villa** exist in the API (`POST /api/inventory/returns`, reverses the project cost)
+  with no screen.
+- **Opening stock and adjustments** are API-only — no UI at all yet.
+- **Scenario B** — a `RequestType = Purchase` request that auto-creates the linked PO on approval —
+  is modelled (`PurchaseHeader.MaterialRequestId`) but not wired.
+- **Customer receipts post directly.** If a company wants them approved, add an `IApprovalHandler`
+  (§5); the pattern is already there in `ContractorPayment`.
 
 ---
 
@@ -374,6 +581,9 @@ the tab bar because it feels important; promote it because it is opened daily.
 ---
 
 ## 9. Testing
+
+The six business journeys are walked by hand in **§6c** and asserted in `UseCaseWalkthroughTests`.
+Start there when a change touches stock, cost or approvals.
 
 `tests/Swarnakshi.Tests` (11 tests):
 - `InventoryBalanceTests` (5) — pure maths: weighted average, no-double-count identity, negative-stock.

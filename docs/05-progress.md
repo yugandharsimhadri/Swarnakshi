@@ -4,6 +4,30 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-01 — Handover rewritten around the six use cases
+
+§6c was a table of which tests covered what — useful for auditing, useless for picking the project up.
+It is now a **walkthrough**: run each of the six journeys in the app, in the order that makes sense
+(fill the store, empty some of it, then the special case), with the exact figures to expect at each
+step, what to try in order to break it, and which files to open when changing it.
+
+Each use case now carries: **Walk it** (click path + expected numbers) · **Try to break it** ·
+**Code** (entity → service → screen) · **Tests**.
+
+Also corrected several stale facts the doc had accumulated — it still claimed 11 tests and listed
+neither the Employees, Movement, Register nor PlatformConsole screens, nor the later migrations.
+
+**Every figure in the walkthrough was re-verified against a fresh database** by replaying the
+documented steps through the live API (, 20 checks): store
+100@₹400, blend to 200@₹425, issue 50 → villa ₹21,250 with ₹63,750 left, direct-to-villa leaving the
+store untouched at 150@₹425 while the villa gains ₹45,000, both ledger rows present, wrong-site
+delivery refused, receipts ₹25L against ₹80L leaving ₹55L, and remarks round-tripping.
+
+Fixed one thing the doc got wrong: it showed a  for turning on ,
+which has no endpoint. It is a SQL update until the settings screen exists.
+
+---
+
 ## 2026-09-01 — Named use cases pinned by tests, and remarks on every daily entry
 
 **Six journeys, tested as described** (`UseCaseWalkthroughTests`, 12 tests) — store→villa movement,
