@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { IconBack } from "@/components/icons";
 
 export function Card({ children, className = "", onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
@@ -115,7 +116,10 @@ export function PageHeader({ title, subtitle, action, back }: {
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const showBack = back !== false && !TAB_ROOTS.has(pathname);
+  // "/projects/" is the same screen as "/projects" — a trailing slash must not grow a back arrow
+  // on a tab root, where there is nothing behind it to go back to.
+  const route = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  const showBack = back !== false && !TAB_ROOTS.has(route);
 
   return (
     <div className="px-1 pb-3 pt-1">
@@ -123,9 +127,9 @@ export function PageHeader({ title, subtitle, action, back }: {
         <button
           type="button"
           onClick={() => (typeof back === "string" ? navigate(back) : navigate(-1))}
-          className="-ml-1 mb-1 inline-flex min-h-11 items-center gap-1 pr-2 text-xs text-text-dim hover:text-text"
+          className="-ml-1 mb-1 inline-flex min-h-11 items-center gap-1.5 pr-2 text-xs font-medium text-text-dim transition-colors hover:text-brand"
         >
-          <span aria-hidden className="text-base leading-none">←</span> Back
+          <IconBack size={16} /> Back
         </button>
       )}
       <div className="flex items-center justify-between gap-3">

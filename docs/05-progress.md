@@ -1072,3 +1072,34 @@ there is always a way out.
 **Next:** a colour theme the business picks rather than inherits.
 
 ---
+
+## 2026-09-02 — Blueprint, and icons that were drawn rather than typed
+
+The palette is now **Blueprint**: drafting blue on cool paper by day, cyanotype at night. Chosen
+from five directions mocked up on real screens.
+
+The old gold had a defect worth recording, because it is easy to reintroduce. `--brand` and
+`--warn` were the same value, so a low-stock warning was the same colour as every button on the
+screen — the one thing that should shout looked exactly like the things that shouldn't. In Blueprint
+the accent is a hue no status colour uses: approved green, pending amber and cancelled red each read
+as themselves against it. Light mode also gained real contrast, which matters because half the
+users are outdoors.
+
+**Icons are SVG now, hand-drawn, in `components/icons.tsx`.** The app was navigating on `⌂ ▤ ▦ ✓ ☰`
+and emoji, which render differently on every device and at every weight. The set is ~4KB with no new
+dependency, drawn on a 24-unit grid at constant stroke weight to match the drafting theme — and half
+of it is construction-specific (hard hat, cement sack, tower crane, tipper) which no icon package
+ships. A logomark went on Login and the registration success screen: a villa's gable inside a
+surveyor's crosshair.
+
+Three icons were redrawn after looking at them at actual tab-bar size rather than in isolation. A
+rubber stamp is the truer metaphor for approving something, but at 21px it reads as a trophy, so
+Approvals is a checked clipboard. Same for the hard hat (read as a bell until the brim widened) and
+the cement sack (read as a clipboard until the neck narrowed). **Judge an icon at the size it ships
+at.**
+
+Two fixes fell out: `PageHeader` grew a back arrow on `/projects/` because the trailing slash missed
+the tab-root set — routes are normalised now. And Sign out was a full-width solid red slab; it is
+outlined, with the loud red kept for things that actually cancel a transaction.
+
+---

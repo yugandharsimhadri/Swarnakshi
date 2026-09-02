@@ -4,6 +4,7 @@ import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
 import { moneyShort, num, dateStr } from "@/lib/format";
 import { Card, Chip, EmptyState, PageHeader, Spinner, StatCard } from "@/components/ui";
+import { IconChevron } from "@/components/icons";
 import type { DashboardPayload } from "@/lib/types";
 
 export default function Dashboard() {
@@ -41,7 +42,7 @@ export default function Dashboard() {
       <Link to="/reports" className="block">
         <Card className="flex items-center justify-between">
           <span className="text-sm font-semibold">Reports</span>
-          <span className="text-text-dim">▸</span>
+          <IconChevron size={16} className="text-text-dim" />
         </Card>
       </Link>
 

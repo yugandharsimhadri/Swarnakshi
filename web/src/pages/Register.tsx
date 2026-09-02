@@ -4,6 +4,7 @@ import { api, type ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import { Button, Card, ErrorText, Field, Input } from "@/components/ui";
 import { dateStr } from "@/lib/format";
+import { Logomark } from "@/components/icons";
 
 interface RegisterResponse {
   companyId: string;
@@ -98,8 +99,8 @@ export default function Register() {
     return (
       <div className="mx-auto flex min-h-full max-w-sm flex-col justify-center gap-4 px-6 py-10">
         <div className="text-center">
-          <div className="text-2xl">✓</div>
-          <h1 className="mt-2 text-xl font-bold">{done.companyName} is registered</h1>
+          <Logomark size={52} className="mx-auto text-brand" />
+          <h1 className="mt-3 text-xl font-bold">{done.companyName} is registered</h1>
         </div>
         <Card className="space-y-2">
           <div>

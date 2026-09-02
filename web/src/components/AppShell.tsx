@@ -1,14 +1,15 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/store/auth";
+import { IconApprovals, IconHome, IconInventory, IconMore, IconProjects } from "@/components/icons";
 
 // The four things a site person opens every day, plus More. Everything that is set-up or review
 // work — sites, masters, people, reports — sits behind More, where it is looked at once a month.
 const tabs = [
-  { to: "/", label: "Home", icon: "⌂", end: true },
-  { to: "/projects", label: "Projects", icon: "▤" },
-  { to: "/inventory", label: "Inventory", icon: "▦" },
-  { to: "/approvals", label: "Approvals", icon: "✓" },
-  { to: "/more", label: "More", icon: "☰" },
+  { to: "/", label: "Home", Icon: IconHome, end: true },
+  { to: "/projects", label: "Projects", Icon: IconProjects },
+  { to: "/inventory", label: "Inventory", Icon: IconInventory },
+  { to: "/approvals", label: "Approvals", Icon: IconApprovals },
+  { to: "/more", label: "More", Icon: IconMore },
 ];
 
 export default function AppShell() {
@@ -25,19 +26,31 @@ export default function AppShell() {
 
       <nav className="safe-b fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/95 backdrop-blur lg:max-w-5xl">
         <div className="grid grid-cols-5">
-          {tabs.map((t) => (
+          {tabs.map(({ to, end, label, Icon }) => (
             <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.end}
+              key={to}
+              to={to}
+              end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium ${
+                `relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
                   isActive ? "text-brand" : "text-text-dim"
                 }`
               }
             >
-              <span className="text-lg leading-none">{t.icon}</span>
-              {t.label}
+              {({ isActive }) => (
+                <>
+                  {/* A rule above the active tab rather than a filled pill — the same way a
+                      drawing marks the sheet you are on. */}
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-4 top-0 h-0.5 rounded-full transition-opacity ${
+                      isActive ? "bg-brand opacity-100" : "opacity-0"
+                    }`}
+                  />
+                  <Icon size={21} strokeWidth={isActive ? 2 : 1.7} />
+                  {label}
+                </>
+              )}
             </NavLink>
           ))}
         </div>

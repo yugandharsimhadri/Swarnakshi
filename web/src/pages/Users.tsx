@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { RoleName, type AdminUser, type Paged, type Role, type Site } from "@/lib/types";
@@ -16,7 +15,6 @@ export default function Users() {
 
   return (
     <div className="space-y-3">
-      <Link to="/more" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← More</Link>
       <PageHeader title="Users" action={<Button onClick={() => setCreating(true)}>+ New</Button>} />
 
       {loading ? <SkeletonList /> : error ? <ErrorText error={error} /> : (

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
@@ -33,7 +32,6 @@ export default function Employees() {
 
   return (
     <div className="space-y-3">
-      <Link to="/more" className="text-xs text-text-dim">← More</Link>
       <PageHeader title="Employees" action={canManage && <Button onClick={() => setCreating(true)}>+ New</Button>} />
 
       <div className="grid grid-cols-2 gap-3">

@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { tokens } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { Card, ErrorText, PageHeader, Spinner } from "@/components/ui";
+import { IconChevron } from "@/components/icons";
 import type { ReportTable } from "@/lib/types";
 
 const REPORTS: { slug: string; path: string; label: string; group: string }[] = [
@@ -30,7 +31,7 @@ export function ReportsHub() {
               <Link key={r.slug} to={`/reports/${r.slug}`}>
                 <Card className="flex items-center justify-between">
                   <span className="text-sm font-semibold">{r.label}</span>
-                  <span className="text-text-dim">▸</span>
+                  <IconChevron size={16} className="text-text-dim" />
                 </Card>
               </Link>
             ))}
@@ -75,13 +76,15 @@ export function ReportView() {
 
   return (
     <div className="space-y-3">
-      <Link to="/reports" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Reports</Link>
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">{report?.label ?? "Report"}</h1>
-        <button onClick={downloadCsv} disabled={downloading} className="min-h-11 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold">
-          {downloading ? "…" : "Export CSV"}
-        </button>
-      </div>
+      <PageHeader
+        title={report?.label ?? "Report"}
+        back="/reports"
+        action={
+          <button onClick={downloadCsv} disabled={downloading} className="min-h-11 shrink-0 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold">
+            {downloading ? "…" : "Export CSV"}
+          </button>
+        }
+      />
 
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : !data ? null : (
         data.rows.length === 0 ? (

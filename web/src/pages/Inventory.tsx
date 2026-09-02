@@ -8,6 +8,7 @@ import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, Spinner, StatCard,
 } from "@/components/ui";
 import { SitePicker, useSites, lastSite } from "@/components/SitePicker";
+import { IconPurchase, IconRequest } from "@/components/icons";
 import {
   InvTxnTypeName, type InventoryBalance, type InventoryTxn, type Material,
   type MaterialInventoryDetail, type Paged,
@@ -58,8 +59,16 @@ export function InventoryList() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <Link to="/inventory/purchases"><Card className="text-center text-sm font-semibold">🧾 Purchases</Card></Link>
-            <Link to="/inventory/requests"><Card className="text-center text-sm font-semibold">⇄ Requests</Card></Link>
+            <Link to="/inventory/purchases">
+              <Card className="flex items-center justify-center gap-2 text-sm font-semibold transition-colors hover:border-brand/40">
+                <IconPurchase size={18} className="text-brand" /> Purchases
+              </Card>
+            </Link>
+            <Link to="/inventory/requests">
+              <Card className="flex items-center justify-center gap-2 text-sm font-semibold transition-colors hover:border-brand/40">
+                <IconRequest size={18} className="text-brand" /> Requests
+              </Card>
+            </Link>
           </div>
 
           <Input placeholder="Search materials…" value={q} onChange={(e) => setQ(e.target.value)} />

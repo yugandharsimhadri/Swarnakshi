@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 import { Button, ErrorText, Field, Input } from "@/components/ui";
+import { Logomark } from "@/components/icons";
 import type { ApiError } from "@/lib/api";
 
 export default function Login() {
@@ -26,8 +27,9 @@ export default function Login() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-sm flex-col justify-center px-6 py-10">
-      <div className="mb-8 text-center">
-        <div className="text-2xl font-bold tracking-tight">Swarnakshi</div>
+      <div className="mb-8 flex flex-col items-center text-center">
+        <Logomark size={56} className="text-brand" />
+        <div className="mt-3 text-2xl font-bold tracking-tight">Swarnakshi</div>
         <div className="mt-1 text-sm text-text-dim">Construction Expense &amp; Inventory</div>
       </div>
 

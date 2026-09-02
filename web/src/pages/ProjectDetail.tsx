@@ -8,6 +8,7 @@ import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, ProgressBar, Select, Sheet,
   Spinner, StatCard,
 } from "@/components/ui";
+import { IconDelivery, IconIssue } from "@/components/icons";
 import {
   ContractStatusName, ExpenseTypeName, InvTxnTypeName, ProjectStatusName, TxnStatusName,
   type CostByHead, type Contractor, type ContractWork, type ContractorPayment, type Customer,
@@ -317,8 +318,8 @@ function MaterialTab({ projectId }: { projectId: string }) {
       <div className="grid grid-cols-2 gap-2">
         {canRequest && (
           <Link to={`/inventory/requests/new?projectId=${projectId}`}>
-            <Card className="text-center">
-              <div className="text-lg">⇄</div>
+            <Card className="flex flex-col items-center gap-1 text-center transition-colors hover:border-brand/40">
+              <IconIssue size={26} className="text-brand" />
               <div className="text-sm font-semibold">Take from store</div>
               <div className="text-xs text-text-dim">Issue site stock here</div>
             </Card>
@@ -326,8 +327,8 @@ function MaterialTab({ projectId }: { projectId: string }) {
         )}
         {canBuy && (
           <Link to={`/inventory/purchases/new?projectId=${projectId}`}>
-            <Card className="text-center">
-              <div className="text-lg">🧾</div>
+            <Card className="flex flex-col items-center gap-1 text-center transition-colors hover:border-brand/40">
+              <IconDelivery size={26} className="text-brand" />
               <div className="text-sm font-semibold">Bought for this villa</div>
               <div className="text-xs text-text-dim">Straight from the supplier</div>
             </Card>

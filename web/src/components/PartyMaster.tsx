@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { num } from "@/lib/format";
@@ -111,7 +110,6 @@ export default function PartyMaster({ config }: { config: PartyMasterConfig }) {
 
   return (
     <div className="space-y-3">
-      <Link to="/more" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← More</Link>
 
       <PageHeader
         title={config.title}

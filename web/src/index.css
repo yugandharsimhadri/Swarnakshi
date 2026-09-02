@@ -1,31 +1,39 @@
 @import "tailwindcss";
 
+/*
+ * Blueprint — the colour every building starts as.
+ *
+ * Drafting blue on cool paper by day, cyanotype by night. The accent is deliberately kept clear of
+ * all three status colours: the old gold was also the warning colour, so a low-stock alert looked
+ * identical to every button on the screen. Here approved / pending / cancelled each own a hue the
+ * brand never uses.
+ */
 :root {
-  --bg: #f6f6f8;
+  --bg: #eef1f6;
   --surface: #ffffff;
-  --surface-2: #f0f0f3;
-  --border: #e4e4ea;
-  --text: #14141a;
-  --text-dim: #6a6a76;
-  --brand: #b8860b;      /* Swarnakshi = "golden-eyed" — muted gold accent */
-  --brand-ink: #7a5a08;
-  --danger: #c0392b;
-  --ok: #1e8e5a;
-  --warn: #b8860b;
+  --surface-2: #e5eaf2;
+  --border: #d5dde9;
+  --text: #0f1a27;
+  --text-dim: #576a80;
+  --brand: #1a56a8;      /* drafting blue */
+  --brand-ink: #124480;  /* accent text, one step darker so it holds on white */
+  --danger: #b8332c;
+  --ok: #0f7a5a;
+  --warn: #a86a00;
 }
 
 :root.dark {
-  --bg: #0b0b0f;
-  --surface: #16161c;
-  --surface-2: #1e1e26;
-  --border: #2a2a33;
-  --text: #f2f2f5;
-  --text-dim: #9a9aa6;
-  --brand: #e0b552;
-  --brand-ink: #f0d08a;
-  --danger: #e5675a;
-  --ok: #35c489;
-  --warn: #e0b552;
+  --bg: #0a121c;
+  --surface: #121e2c;
+  --surface-2: #18283a;
+  --border: #22354b;
+  --text: #e9f0f8;
+  --text-dim: #8ea5bd;
+  --brand: #54a5ff;
+  --brand-ink: #8ec5ff;
+  --danger: #f0736a;
+  --ok: #37c79a;
+  --warn: #e8b552;
 }
 
 html, body, #root { height: 100%; }
