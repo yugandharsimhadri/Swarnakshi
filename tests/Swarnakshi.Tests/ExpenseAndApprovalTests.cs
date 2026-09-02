@@ -168,7 +168,7 @@ public class ExpenseAndApprovalTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 100, 400, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         var req = await requests.CreateAsync(new SaveMaterialRequestRequest(
             project.Id, MaterialRequestType.FromStock, Today, null,
@@ -206,7 +206,7 @@ public class ExpenseAndApprovalTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 50, 400, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         var req = await requests.CreateAsync(new SaveMaterialRequestRequest(
             project.Id, MaterialRequestType.FromStock, Today, null,

@@ -59,7 +59,7 @@ public class UseCaseWalkthroughTests
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
             y.SupplierId, y.SiteId, null, "INV-1", null, Today, 0, remarks,
             [new PurchaseItemInput(y.Cement.Id, y.Cement.UnitId, qty, rate, 0, 0, deliverTo)]));
-        return await purchases.SubmitAsync(created.Id);
+        return await sp.SubmitAndApproveAsync(created.Id);
     }
 
     private static async Task ApproveAsync(IServiceProvider sp, string entityType, string txnRef)
@@ -281,10 +281,9 @@ public class UseCaseWalkthroughTests
         var inventory = sp.GetRequiredService<IInventoryService>();
         var y = await ArrangeAsync(sp, db);
 
-        // The setting exists so a company can insist on it; flip it on for this yard.
-        var setting = await db.Settings.FirstAsync(s => s.Key == SettingKeys.PurchaseNeedsApproval);
-        setting.Value = "true";
-        await db.SaveChangesAsync();
+        // No setting is touched here — waiting for the owner is what a new company gets.
+        (await db.Settings.FirstAsync(s => s.Key == SettingKeys.PurchaseNeedsApproval))
+            .Value.Should().Be("true", "money leaving the company is the owner's decision by default");
 
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
             y.SupplierId, y.SiteId, null, null, null, Today, 0, null,
@@ -400,6 +399,13 @@ public class UseCaseWalkthroughTests
             [new PurchaseItemInput(y.Cement.Id, y.Cement.UnitId, 100, 400, 0, 0)]));
 
         created.TotalAmount.Should().Be(40_000);
-        (await purchases.SubmitAsync(created.Id)).Status.Should().Be(TransactionStatus.Posted);
+
+        // Submitting parks it with the owner rather than posting it — money leaving the company is
+        // their call, and a supervisor's entry reaching the supplier ledger unseen is the failure
+        // this guards against.
+        (await purchases.SubmitAsync(created.Id)).Status.Should().Be(TransactionStatus.PendingApproval);
+
+        await sp.ApproveAsync(ApprovalEntityTypes.Purchase, created.Id);
+        (await purchases.GetAsync(created.Id)).Status.Should().Be(TransactionStatus.Posted);
     }
 }

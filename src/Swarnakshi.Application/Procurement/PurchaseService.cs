@@ -205,7 +205,9 @@ public class PurchaseService(
         if (header.Status != TransactionStatus.Draft)
             throw new AppException($"Purchase is already {header.Status}.", 409);
 
-        var needsApproval = await settings.GetBoolAsync(SettingKeys.PurchaseNeedsApproval, header.SiteId, false, ct);
+        // Fallback is true: if the setting row is missing entirely, hold the purchase rather than
+        // post it. An unapproved purchase that reached stock is far worse than one that waited.
+        var needsApproval = await settings.GetBoolAsync(SettingKeys.PurchaseNeedsApproval, header.SiteId, true, ct);
         if (needsApproval)
         {
             header.Status = TransactionStatus.PendingApproval;

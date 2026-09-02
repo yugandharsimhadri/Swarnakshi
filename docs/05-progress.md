@@ -1103,3 +1103,47 @@ the tab-root set — routes are normalised now. And Sign out was a full-width so
 outlined, with the loud red kept for things that actually cancel a transaction.
 
 ---
+
+## 2026-09-02 — A real book of work, and what it exposed
+
+Built a full demo tenant through the public API — `scratchpad/seed-demo.mjs`, no direct database
+writes — so every number came out of the same validation, approval and posting code a real user
+drives. 2 sites, 10 villas (3 handed over, 3 at 50%, 3 at 10%, 1 on paper), 11 purchases, 12 store
+issues, 21 work orders, 27 contractor payments, 12 labour entries, 13 customer receipts, 62 items
+through the approval queue.
+
+**Fixed: purchases were posting without anybody agreeing to them.** `purchase.needs_approval` seeded
+as `"false"` and the code fell back to `false` when the row was missing, so a supervisor's purchase
+reached both site stock and the supplier ledger unseen. Both now default to **true** — an unapproved
+purchase that reached stock is worse than one that waited. That change broke 21 tests, which is the
+correct amount of noise for a change this wide; `ApprovalHelpers.SubmitAndApproveAsync` gives the
+tests that only want stock on the shelf a one-liner, and the tests that are *about* approval still
+drive `IApprovalService` directly.
+
+**Found, not yet fixed — material cost is dated when you type it, not when it happened.**
+`MaterialRequestService` passes `clock.Today` to both the stock ledger and the cost writer, and
+`IssueRequest` carries no date at all. In the seeded book all 54 material cost rows — ₹35.35L, the
+largest single cost category — carry today's date, against requests dated across five months. The
+purchase path does this correctly (`purchase.Date`), as does the return path (`req.Date`); only the
+issue path does not. Consequence: "Expenses this month" is meaningless, every period cost report is
+wrong, and month-end cut-off does not work — material issued on 31 March and entered on 2 April
+lands in April.
+
+**Found — profit is overstated by crediting unearned revenue.** `ProjectFinancialSummary.Margin` is
+`ContractSaleValue - TotalCost` with no reference to `CompletionPercent`. A villa at 50% shows the
+whole ₹58L sale against the ₹8.62L spent so far and reports ₹49.38L of "profit". Across the book the
+app claims ₹2.58Cr against a percentage-of-completion figure of ₹1.53Cr — **overstated by ₹1.05Cr.**
+
+**Found — committed contractor money is invisible at villa level.** ₹24.81L is contracted but unpaid.
+The company summary shows it; no villa's `TotalCost` does, so every in-progress villa understates
+its cost to complete.
+
+**Found — payroll reaches no cost figure.** Four employees, ₹1.19L/month, roughly ₹11.9L over the
+period. `EmployeePayment.ProjectId` is optional and nothing prompts for it, and there is no site
+overhead bucket at all — every cost must attach to a villa.
+
+Not a defect, though it looked like one: the purchase register's ₹43.64L is the pre-tax subtotal
+while stock is valued at the ₹51.49L landed total. They reconcile exactly. `consumed ₹35.35L +
+on hand ₹16.14L = ₹51.49L purchased` holds to the rupee.
+
+---

@@ -480,7 +480,7 @@ public class MaterialMasterTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, site.Id, null, null, null, DateOnly.FromDateTime(DateTime.UtcNow), 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, qty, rate, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         return (site, project, material);
     }

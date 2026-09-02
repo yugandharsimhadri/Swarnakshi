@@ -179,7 +179,7 @@ public class SiteReportingTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 100, 400, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         var payload = await dash.GetAsync();
         var inventoryKpi = payload.Kpis.FirstOrDefault(k => k.Label.Contains("Inventory", StringComparison.OrdinalIgnoreCase));
@@ -238,7 +238,7 @@ public class SiteReportingTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 60, 400, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         var stock = await reports.InventoryStockAsync(site.Id);
         var register = await reports.PurchaseRegisterAsync(null, null, site.Id);
@@ -268,7 +268,7 @@ public class SiteReportingTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, siteA.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 60, 400, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         var atA = await reports.InventoryStockAsync(siteA.Id);
         var atB = await reports.InventoryStockAsync(siteB.Id);
@@ -304,7 +304,7 @@ public class SiteReportingTests
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
             supplier.Id, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 10, 400, 0, 0)]));
-        await purchases.SubmitAsync(pur.Id);
+        await sp.SubmitAndApproveAsync(pur.Id);
 
         var low = await reports.LowStockAsync();
 

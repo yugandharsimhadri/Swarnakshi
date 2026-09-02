@@ -49,7 +49,7 @@ public class DirectToProjectPurchaseTests
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
             f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Material.Id, f.Material.UnitId, qty, rate, 0, 0, deliverTo)]));
-        return await purchases.SubmitAsync(created.Id);
+        return await sp.SubmitAndApproveAsync(created.Id);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class DirectToProjectPurchaseTests
                 new PurchaseItemInput(f.Material.Id, f.Material.UnitId, 100, 450, 0, 0, f.ProjectId),
                 new PurchaseItemInput(steel.Id, steel.UnitId, 500, 68, 0, 0, null),
             ]));
-        await purchases.SubmitAsync(created.Id);
+        await sp.SubmitAndApproveAsync(created.Id);
 
         (await projects.SummaryAsync(f.ProjectId)).MaterialCost.Should().Be(45_000, "only the cement was earmarked");
 
@@ -174,7 +174,7 @@ public class DirectToProjectPurchaseTests
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
             f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Material.Id, f.Material.UnitId, 100, 400, 1_000, 2_000, f.ProjectId)]));
-        await purchases.SubmitAsync(created.Id);
+        await sp.SubmitAndApproveAsync(created.Id);
 
         (await projects.SummaryAsync(f.ProjectId)).MaterialCost.Should().Be(41_000,
             "the villa bears the delivered cost, not the headline rate");
