@@ -1,13 +1,13 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 
-// Ordered by daily use, not by data hierarchy: the dashboard, then where material and money move,
-// then the store. Sites, masters and reports are set-up-or-review work and live under More.
+// The four things a site person opens every day, plus More. Everything that is set-up or review
+// work — sites, masters, people, reports — sits behind More, where it is looked at once a month.
 const tabs = [
   { to: "/", label: "Home", icon: "⌂", end: true },
-  { to: "/movement", label: "Movement", icon: "⇄" },
-  { to: "/stock/inventory", label: "Inventory", icon: "▦" },
   { to: "/projects", label: "Projects", icon: "▤" },
+  { to: "/inventory", label: "Inventory", icon: "▦" },
+  { to: "/approvals", label: "Approvals", icon: "✓" },
   { to: "/more", label: "More", icon: "☰" },
 ];
 
@@ -15,13 +15,15 @@ export default function AppShell() {
   const company = useAuth((s) => s.company);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col">
+    // Phone-width column by default. On a desktop the column simply gets wider — the same screens,
+    // more room for the tables and reports the office does its reconciliation in.
+    <div className="mx-auto flex min-h-full max-w-md flex-col lg:max-w-5xl">
       <LicenceBanner company={company} />
-      <main className="flex-1 px-3 pb-24 pt-3">
+      <main className="flex-1 px-3 pb-24 pt-3 lg:px-6 lg:pb-8">
         <Outlet />
       </main>
 
-      <nav className="safe-b fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/95 backdrop-blur">
+      <nav className="safe-b fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/95 backdrop-blur lg:max-w-5xl">
         <div className="grid grid-cols-5">
           {tabs.map((t) => (
             <NavLink

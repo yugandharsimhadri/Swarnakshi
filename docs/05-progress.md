@@ -1030,3 +1030,45 @@ Negative-stock request blocked with 409. Full ledger + traceability confirmed in
 - NU1903 transitive vuln warnings from EF/SQLitePCLRaw — pin `SQLitePCLRaw.bundle_e_sqlite3` +
   `System.Security.Cryptography.Xml` in P5 polish.
 - Solution file is `.slnx` (new XML format).
+
+## 2026-09-02 — Simplified for the people who actually use it
+
+The app was built by someone who knows the data model, for someone who does not. Five changes,
+all in that direction.
+
+**Codes are the app's business now.** Sites, projects, materials, employees, contractors and
+customers mint their own (`SITE-0001`, `PRJ-0007`) via a new `ICodeGenerator`. Every save request's
+`Code` became optional; supplying one still works, so an office that already numbers its sites keeps
+doing so. The subtle half is edits: an update that omits the code keeps the existing one rather than
+renumbering the record. `AutoCodeTests` pins both halves down.
+
+One real bug fell out of writing those tests — `MaterialService` added the new `Material` to the
+change tracker before minting its code, and minting commits the sequence row, so SQLite tried to
+flush a half-built row with a null Code. The code is now allocated before the entity is tracked.
+
+**The material master asks five questions.** Name, category, subcategory, brand, description. Unit
+is behind a "set a unit of measure" link and falls back to the company default. Commercial
+information, inventory controls and the specification matrix are gone from the screen — purchases
+carry the real rate and tax, inventory carries the real stock, so none of it was ever this form's
+job.
+
+**Inventory got an "Add stock" button.** Material, quantity, cost per unit. Putting 100 bags into
+the system used to mean raising a purchase with a supplier and an invoice; that path is still there
+for a real invoice, one tap away under Purchases.
+
+**Navigation is five tabs: Home · Projects · Inventory · Approvals · More.** Movement and Stock
+were hubs of hubs and are gone, their routes redirected. `More` is two short lists — set up, review.
+The shell widens to `max-w-5xl` on desktop, so the office gets room for tables while the phone
+layout is untouched.
+
+**A villa has three kinds of entry, and the tabs say so.** Overview · Material · Expenses ·
+Contractors · Customer. Material offers "Take from store" and "Bought for this villa", both of which
+open pre-filled with the villa's site and destination. Labour folded into Expenses and contractor
+payments into Contractors — on site those were never separate things.
+
+`PageHeader` now renders a back arrow on every screen that is not one of the five tab roots, so
+there is always a way out.
+
+**Next:** a colour theme the business picks rather than inherits.
+
+---

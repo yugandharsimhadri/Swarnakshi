@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
@@ -22,13 +22,13 @@ export function MaterialRequestList() {
     <div className="space-y-3">
       <PageHeader
         title="Material Requests"
-        action={canCreate && <Link to="/stock/requests/new"><Button>+ New</Button></Link>}
+        action={canCreate && <Link to="/inventory/requests/new"><Button>+ New</Button></Link>}
       />
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
         (data?.items.length ?? 0) === 0 ? <EmptyState title="No requests" /> : (
           <div className="space-y-2">
             {data!.items.map((r) => (
-              <Link key={r.id} to={`/stock/requests/${r.id}`}>
+              <Link key={r.id} to={`/inventory/requests/${r.id}`}>
                 <Card className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -53,7 +53,9 @@ export function NewMaterialRequest() {
   const nav = useNavigate();
   const { data: projects } = useAsync(() => api<Paged<Project>>("/projects", { query: { pageSize: 100 } }), []);
   const { data: materials } = useAsync(() => api<Paged<Material>>("/materials", { query: { pageSize: 200, active: true } }), []);
-  const [projectId, setProjectId] = useState("");
+  // Arrived from a villa's Material tab? Then the villa is already decided — don't ask again.
+  const [params] = useSearchParams();
+  const [projectId, setProjectId] = useState(params.get("projectId") ?? "");
   const [rows, setRows] = useState<{ materialId: string; qty: string }[]>([{ materialId: "", qty: "" }]);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
@@ -78,7 +80,7 @@ export function NewMaterialRequest() {
         body: { projectId, requestType: 1, date: new Date().toISOString().slice(0, 10), notes: notes.trim() || null, items },
       });
       if (submit) await api(`/material-requests/${created.id}/submit`, { method: "POST" });
-      nav(`/stock/requests/${created.id}`);
+      nav(`/inventory/requests/${created.id}`);
     } catch (e) {
       setError(e as ApiError);
     } finally {
@@ -88,8 +90,10 @@ export function NewMaterialRequest() {
 
   return (
     <div className="space-y-3">
-      <Link to="/stock/requests" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Requests</Link>
-      <PageHeader title="New request" />
+      <PageHeader
+        title="Take from store"
+        back={params.get("projectId") ? `/projects/${params.get("projectId")}` : "/inventory/requests"}
+      />
 
       <Field label="Project">
         <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
@@ -161,15 +165,13 @@ export function MaterialRequestDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/stock/requests" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Requests</Link>
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold">{data.projectName}</h1>
-          <Chip tone={statusTone(data.requestStatus)}>{MatReqStatusName[data.requestStatus]}</Chip>
-        </div>
-        <div className="text-xs text-text-dim">{data.txnNumber} · {data.siteName} · {dateStr(data.date)}</div>
-        {data.notes && <div className="mt-1 text-xs text-text-dim">“{data.notes}”</div>}
-      </div>
+      <PageHeader
+        title={data.projectName}
+        back="/inventory/requests"
+        subtitle={`${data.txnNumber} · ${data.siteName} · ${dateStr(data.date)}`}
+        action={<Chip tone={statusTone(data.requestStatus)}>{MatReqStatusName[data.requestStatus]}</Chip>}
+      />
+      {data.notes && <div className="-mt-2 px-1 text-xs text-text-dim">“{data.notes}”</div>}
 
       <div className="space-y-2">
         {data.items.map((it) => (

@@ -47,7 +47,7 @@ export default function Employees() {
         </Card>
       </div>
 
-      <Input placeholder="Search name, code, phone or designation…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <Input placeholder="Search name, phone or designation…" value={q} onChange={(e) => setQ(e.target.value)} />
       <label className="flex items-center gap-2 px-1 text-xs text-text-dim">
         <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
         Include people who have left
@@ -101,7 +101,7 @@ export default function Employees() {
 function EmployeeSheet({ employee, onClose, onSaved }: { employee: Employee | null; onClose: () => void; onSaved: () => void }) {
   const { data: sites } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 100 } }), []);
   const [form, setForm] = useState({
-    code: employee?.code ?? "", name: employee?.name ?? "", phone: employee?.phone ?? "",
+    name: employee?.name ?? "", phone: employee?.phone ?? "",
     monthlySalary: employee ? String(employee.monthlySalary) : "",
     joinDate: employee?.joinDate?.slice(0, 10) ?? today(),
     leaveDate: employee?.leaveDate?.slice(0, 10) ?? "",
@@ -114,14 +114,14 @@ function EmployeeSheet({ employee, onClose, onSaved }: { employee: Employee | nu
     setForm({ ...form, [k]: e.target.value });
 
   // The four the business insists on: who, how to reach them, what they earn, since when.
-  const ready = form.code.trim() && form.name.trim() && form.phone.trim()
+  const ready = form.name.trim() && form.phone.trim()
     && Number(form.monthlySalary) > 0 && form.joinDate;
 
   async function save() {
     setBusy(true); setErr(null);
     try {
       const body = {
-        code: form.code.trim(), name: form.name.trim(), phone: form.phone.trim(),
+        name: form.name.trim(), phone: form.phone.trim(),
         monthlySalary: Number(form.monthlySalary), joinDate: form.joinDate,
         leaveDate: form.leaveDate || null, designation: form.designation || null,
         address: form.address || null, notes: form.notes || null,
@@ -136,10 +136,7 @@ function EmployeeSheet({ employee, onClose, onSaved }: { employee: Employee | nu
   return (
     <Sheet open onClose={onClose} title={employee ? `Edit — ${employee.name}` : "New employee"}>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Code *"><Input value={form.code} onChange={set("code")} placeholder="EMP-001" /></Field>
-          <Field label="Designation"><Input value={form.designation} onChange={set("designation")} placeholder="Supervisor" /></Field>
-        </div>
+        <Field label="Designation"><Input value={form.designation} onChange={set("designation")} placeholder="Supervisor" /></Field>
         <Field label="Name *"><Input value={form.name} onChange={set("name")} /></Field>
         <Field label="Phone *"><Input inputMode="tel" value={form.phone} onChange={set("phone")} /></Field>
         <div className="grid grid-cols-2 gap-3">

@@ -20,6 +20,7 @@ public static class DependencyInjection
         // cross-cutting
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IProjectCostWriter, ProjectCostWriter>();
+        services.AddScoped<ICodeGenerator, CodeGenerator>();
 
         // P0
         services.AddScoped<IAuthService, AuthService>();

@@ -26,7 +26,7 @@ public record PartySummaryDto(int Total, int Active, int Inactive);
 
 /// <summary>Create/update payload. Status is deliberately absent — lifecycle runs through
 /// deactivate/reactivate so it is audited and confirmed, never flipped by a silent field.</summary>
-public record SavePartyRequest(string Code, string Name, string? CompanyName, string? Mobile, string? Email,
+public record SavePartyRequest(string? Code, string Name, string? CompanyName, string? Mobile, string? Email,
     string? Address, string? Pan, string? Gstin, string? BankDetails, string? Type, string? Notes);
 
 public class SavePartyValidator : AbstractValidator<SavePartyRequest>
@@ -38,7 +38,7 @@ public class SavePartyValidator : AbstractValidator<SavePartyRequest>
 
     public SavePartyValidator()
     {
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(40);
+        RuleFor(x => x.Code).MaximumLength(40);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.CompanyName).MaximumLength(200);
         RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
@@ -77,7 +77,8 @@ public interface IPartyService
 public class PartyService(
     IAppDbContext db,
     ICurrentUser currentUser,
-    IValidator<SavePartyRequest> validator) : IPartyService
+    IValidator<SavePartyRequest> validator,
+    ICodeGenerator codes) : IPartyService
 {
     // ---- queries ---------------------------------------------------------
 
@@ -182,8 +183,13 @@ public class PartyService(
     {
         await validator.ValidateAndThrowAsync(req, ct);
 
-        var code = req.Code.Trim();
         var isNew = id is null;
+        // Codes are minted on create and carried through on edit — the forms stopped asking for one.
+        var code = isNew
+            ? await codes.ResolveAsync(req.Code, PrefixFor(kind), ct)
+            : string.IsNullOrWhiteSpace(req.Code)
+                ? await ExistingCodeAsync(kind, id!.Value, ct)
+                : req.Code.Trim();
 
         if (await CodeExistsAsync(kind, code, id ?? Guid.Empty, ct))
             throw new AppException($"{kind} code '{code}' already exists.", 409);
@@ -285,6 +291,24 @@ public class PartyService(
     // ---- helpers ---------------------------------------------------------
 
     /// <summary>Queries the entity sets directly — EF cannot translate Any() over the projected list shape.</summary>
+    private static string PrefixFor(PartyKind kind) => kind switch
+    {
+        PartyKind.Contractor => CodePrefixes.Contractor,
+        PartyKind.Customer => CodePrefixes.Customer,
+        _ => CodePrefixes.Supplier,
+    };
+
+    private async Task<string> ExistingCodeAsync(PartyKind kind, Guid id, CancellationToken ct)
+        => kind switch
+        {
+            PartyKind.Contractor => await db.Contractors.AsNoTracking().Where(x => x.Id == id)
+                .Select(x => x.Code).FirstOrDefaultAsync(ct),
+            PartyKind.Customer => await db.Customers.AsNoTracking().Where(x => x.Id == id)
+                .Select(x => x.Code).FirstOrDefaultAsync(ct),
+            _ => await db.Suppliers.AsNoTracking().Where(x => x.Id == id)
+                .Select(x => x.Code).FirstOrDefaultAsync(ct),
+        } ?? throw new NotFoundException(kind.ToString(), id);
+
     private async Task<bool> CodeExistsAsync(PartyKind kind, string code, Guid excludeId, CancellationToken ct)
         => kind switch
         {

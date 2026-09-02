@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export function Card({ children, className = "", onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
@@ -98,11 +99,42 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select className={inputClass} {...props} />;
 }
 
-export function PageHeader({ title, action }: { title: string; action?: ReactNode }) {
+/**
+ * The five screens the bottom bar can already reach. Anywhere else in the app was arrived at by
+ * tapping something, so it gets a back arrow — a phone user who has drilled three levels into a
+ * villa should never have to guess their way out.
+ */
+const TAB_ROOTS = new Set(["/", "/projects", "/inventory", "/approvals", "/more"]);
+
+export function PageHeader({ title, subtitle, action, back }: {
+  title: string;
+  subtitle?: ReactNode;
+  action?: ReactNode;
+  /** A route to go back to, or false to suppress the arrow. Defaults to browser history. */
+  back?: string | false;
+}) {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const showBack = back !== false && !TAB_ROOTS.has(pathname);
+
   return (
-    <div className="flex items-center justify-between gap-3 px-1 pb-3 pt-1">
-      <h1 className="text-lg font-bold">{title}</h1>
-      {action}
+    <div className="px-1 pb-3 pt-1">
+      {showBack && (
+        <button
+          type="button"
+          onClick={() => (typeof back === "string" ? navigate(back) : navigate(-1))}
+          className="-ml-1 mb-1 inline-flex min-h-11 items-center gap-1 pr-2 text-xs text-text-dim hover:text-text"
+        >
+          <span aria-hidden className="text-base leading-none">←</span> Back
+        </button>
+      )}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-bold">{title}</h1>
+          {subtitle && <div className="truncate text-xs text-text-dim">{subtitle}</div>}
+        </div>
+        {action}
+      </div>
     </div>
   );
 }

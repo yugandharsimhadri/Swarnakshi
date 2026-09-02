@@ -13,7 +13,7 @@ public record EmployeeDto(Guid Id, string Code, string Name, string Phone, decim
     Guid? SiteId, string? SiteName, bool IsActive,
     decimal TotalPaid, decimal AdvanceOutstanding);
 
-public record SaveEmployeeRequest(string Code, string Name, string Phone, decimal MonthlySalary,
+public record SaveEmployeeRequest(string? Code, string Name, string Phone, decimal MonthlySalary,
     DateOnly JoinDate, DateOnly? LeaveDate, string? Designation, string? Address, string? Notes,
     Guid? SiteId, bool IsActive);
 
@@ -22,7 +22,7 @@ public class SaveEmployeeValidator : AbstractValidator<SaveEmployeeRequest>
 {
     public SaveEmployeeValidator()
     {
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(40);
+        RuleFor(x => x.Code).MaximumLength(40);
         RuleFor(x => x.Name).NotEmpty().WithMessage("Employee name is required.").MaximumLength(200);
         RuleFor(x => x.Phone).NotEmpty().WithMessage("Phone number is required.")
             .Matches(@"^[0-9+\-\s()]{6,20}$").WithMessage("Enter a valid phone number.");
@@ -42,7 +42,8 @@ public interface IEmployeeService
     Task<EmployeeDto> UpdateAsync(Guid id, SaveEmployeeRequest req, CancellationToken ct = default);
 }
 
-public class EmployeeService(IAppDbContext db, IValidator<SaveEmployeeRequest> validator) : IEmployeeService
+public class EmployeeService(IAppDbContext db, IValidator<SaveEmployeeRequest> validator,
+    ICodeGenerator codes) : IEmployeeService
 {
     public async Task<PagedResult<EmployeeDto>> ListAsync(PageQuery page, bool? active, Guid? siteId, CancellationToken ct = default)
     {
@@ -64,7 +65,7 @@ public class EmployeeService(IAppDbContext db, IValidator<SaveEmployeeRequest> v
     public async Task<EmployeeDto> CreateAsync(SaveEmployeeRequest req, CancellationToken ct = default)
     {
         await validator.ValidateAndThrowAsync(req, ct);
-        var code = req.Code.Trim();
+        var code = await codes.ResolveAsync(req.Code, CodePrefixes.Employee, ct);
         if (await db.Employees.AnyAsync(e => e.Code == code, ct))
             throw new AppException($"Employee code '{code}' already exists.", 409);
         await EnsureSiteAsync(req.SiteId, ct);
@@ -81,7 +82,8 @@ public class EmployeeService(IAppDbContext db, IValidator<SaveEmployeeRequest> v
         await validator.ValidateAndThrowAsync(req, ct);
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct)
                        ?? throw new NotFoundException("Employee", id);
-        var code = req.Code.Trim();
+        // An edit that omits the code keeps the one the employee already has.
+        var code = string.IsNullOrWhiteSpace(req.Code) ? employee.Code : req.Code.Trim();
         if (await db.Employees.AnyAsync(e => e.Code == code && e.Id != id, ct))
             throw new AppException($"Employee code '{code}' already exists.", 409);
         await EnsureSiteAsync(req.SiteId, ct);

@@ -37,8 +37,13 @@ public record MaterialSiteStockDto(Guid SiteId, string SiteName, decimal Quantit
 
 public record MaterialSummaryDto(int Total, int Active, int Inactive, int Categories);
 
-public record SaveMaterialRequest(string Code, string Name, Guid MaterialSubcategoryId, string? Brand,
-    Guid UnitId, Guid? SecondaryUnitId, decimal? ConversionFactor, string? GenericMeasurement,
+/// <summary>
+/// What a material actually needs: a name, where it sits in the catalogue, optionally who makes it.
+/// Code is minted (see <see cref="ICodeGenerator"/>) and the unit falls back to the company default,
+/// so the entry form is five fields rather than fifteen.
+/// </summary>
+public record SaveMaterialRequest(string? Code, string Name, Guid MaterialSubcategoryId, string? Brand,
+    Guid? UnitId, Guid? SecondaryUnitId, decimal? ConversionFactor, string? GenericMeasurement,
     decimal MinStockLevel, decimal ReorderLevel, decimal DefaultPurchaseRate, decimal? GstRate,
     string? Description, string? Notes, IReadOnlyDictionary<string, string?>? Specifications);
 
@@ -46,10 +51,9 @@ public class SaveMaterialValidator : AbstractValidator<SaveMaterialRequest>
 {
     public SaveMaterialValidator()
     {
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(40);
+        RuleFor(x => x.Code).MaximumLength(40);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.MaterialSubcategoryId).NotEmpty();
-        RuleFor(x => x.UnitId).NotEmpty();
         RuleFor(x => x.Brand).MaximumLength(120);
         RuleFor(x => x.GenericMeasurement).MaximumLength(120);
         RuleFor(x => x.DefaultPurchaseRate).GreaterThanOrEqualTo(0);
@@ -90,7 +94,8 @@ public interface IMaterialService
 public class MaterialService(
     IAppDbContext db,
     ICurrentUser currentUser,
-    IValidator<SaveMaterialRequest> validator) : IMaterialService
+    IValidator<SaveMaterialRequest> validator,
+    ICodeGenerator codes) : IMaterialService
 {
     // ---- queries ---------------------------------------------------------
 
@@ -197,7 +202,6 @@ public class MaterialService(
     {
         await validator.ValidateAndThrowAsync(req, ct);
 
-        var code = req.Code.Trim();
         var name = req.Name.Trim();
         var brand = Blank(req.Brand);
 
@@ -205,14 +209,21 @@ public class MaterialService(
             .FirstOrDefaultAsync(s => s.Id == req.MaterialSubcategoryId, ct)
             ?? throw new NotFoundException("MaterialSubcategory", req.MaterialSubcategoryId);
 
-        if (!await db.Units.AnyAsync(u => u.Id == req.UnitId, ct))
-            throw new NotFoundException("Unit", req.UnitId);
+        // Measurement is optional on the form. Stock still has to be counted in something, so an
+        // unstated unit becomes the company default rather than blocking the save.
+        var unitId = req.UnitId ?? await DefaultUnitIdAsync(ct);
+        if (!await db.Units.AnyAsync(u => u.Id == unitId, ct))
+            throw new NotFoundException("Unit", unitId);
         if (req.SecondaryUnitId is not null && !await db.Units.AnyAsync(u => u.Id == req.SecondaryUnitId, ct))
             throw new NotFoundException("Unit", req.SecondaryUnitId);
 
         Material material;
+        string code;
         if (id is null)
         {
+            // Mint the code BEFORE the entity joins the change tracker: allocating one commits the
+            // sequence row, and a half-built Material sitting in Added state would go with it.
+            code = await codes.ResolveAsync(req.Code, CodePrefixes.Material, ct);
             material = new Material();
             db.Materials.Add(material);
         }
@@ -222,6 +233,9 @@ public class MaterialService(
                 .Include(x => x.Specifications)
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new NotFoundException("Material", id);
+
+            // An edit that omits the code keeps the one it already has — the form no longer shows it.
+            code = string.IsNullOrWhiteSpace(req.Code) ? material.Code : req.Code.Trim();
 
             // Code is immutable once any transaction references the material, so history stays unambiguous.
             if (!string.Equals(material.Code, code, StringComparison.Ordinal)
@@ -283,7 +297,7 @@ public class MaterialService(
         material.Name = name;
         material.Brand = brand;
         material.MaterialSubcategoryId = sub.Id;
-        material.UnitId = req.UnitId;
+        material.UnitId = unitId;
         material.SecondaryUnitId = req.SecondaryUnitId;
         material.ConversionFactor = req.SecondaryUnitId is null ? null : req.ConversionFactor;
         material.GenericMeasurement = Blank(req.GenericMeasurement);
@@ -381,6 +395,22 @@ public class MaterialService(
         UserId = currentUser.UserId,
         At = DateTimeOffset.UtcNow
     });
+
+    /// <summary>
+    /// The unit a material gets when nobody picked one. "Nos" (a countable thing) is right far more
+    /// often than not for the miscellaneous items people add in a hurry from a phone.
+    /// </summary>
+    private async Task<Guid> DefaultUnitIdAsync(CancellationToken ct)
+    {
+        var nos = await db.Units.AsNoTracking()
+            .Where(u => u.IsActive && (u.Code == "NOS" || u.Code == "Nos" || u.Name == "Numbers"))
+            .Select(u => (Guid?)u.Id).FirstOrDefaultAsync(ct);
+        if (nos is { } id) return id;
+
+        return await db.Units.AsNoTracking().Where(u => u.IsActive)
+                   .OrderBy(u => u.Code).Select(u => (Guid?)u.Id).FirstOrDefaultAsync(ct)
+               ?? throw new AppException("No units are defined. Add a unit of measure first.", 409);
+    }
 
     private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 

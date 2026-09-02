@@ -200,11 +200,13 @@ export interface MaterialSummary {
 }
 
 export interface SaveMaterialBody {
-  code: string;
+  /** Omitted on create — the server mints one. */
+  code?: string | null;
   name: string;
   materialSubcategoryId: string;
   brand?: string | null;
-  unitId: string;
+  /** Optional: falls back to the company default unit. */
+  unitId?: string | null;
   secondaryUnitId?: string | null;
   conversionFactor?: number | null;
   genericMeasurement?: string | null;
@@ -391,7 +393,8 @@ export interface PartyDetail extends Party {
 export interface PartySummary { total: number; active: number; inactive: number }
 
 export interface SavePartyBody {
-  code: string;
+  /** Omitted — the server mints one on create and carries it through on edit. */
+  code?: string | null;
   name: string;
   companyName?: string | null;
   mobile?: string | null;

@@ -29,7 +29,7 @@ export default function Sites() {
                     <Chip tone={s.status === 1 ? "ok" : "neutral"}>{SiteStatusName[s.status]}</Chip>
                   </div>
                   <div className="truncate text-xs text-text-dim">
-                    {s.code} · {[s.city, s.state].filter(Boolean).join(", ") || "—"} · {s.projectCount} projects
+                    {[s.city, s.state].filter(Boolean).join(", ") || "—"} · {s.projectCount} projects
                   </div>
                 </div>
                 <div className="text-right text-xs text-text-dim">{moneyShort(s.inventoryValue)}</div>
@@ -47,7 +47,7 @@ export default function Sites() {
 
 function SiteSheet({ open, site, onClose, onSaved }: { open: boolean; site?: Site; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
-    code: site?.code ?? "", name: site?.name ?? "", city: site?.city ?? "", state: site?.state ?? "",
+    name: site?.name ?? "", city: site?.city ?? "", state: site?.state ?? "",
     pin: site?.pin ?? "", status: String(site?.status ?? 1),
   });
   const [error, setError] = useState<ApiError | null>(null);
@@ -73,7 +73,6 @@ function SiteSheet({ open, site, onClose, onSaved }: { open: boolean; site?: Sit
   return (
     <Sheet open={open} onClose={onClose} title={site ? "Edit site" : "New site"}>
       <div className="space-y-3">
-        <Field label="Code"><Input value={form.code} onChange={set("code")} placeholder="GV" /></Field>
         <Field label="Name"><Input value={form.name} onChange={set("name")} placeholder="Green Valley" /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="City"><Input value={form.city} onChange={set("city")} /></Field>
@@ -89,7 +88,7 @@ function SiteSheet({ open, site, onClose, onSaved }: { open: boolean; site?: Sit
           </Field>
         </div>
         <ErrorText error={error} />
-        <Button className="w-full" onClick={save} disabled={busy || !form.code || !form.name}>
+        <Button className="w-full" onClick={save} disabled={busy || !form.name}>
           {busy ? "Saving…" : site ? "Save" : "Create site"}
         </Button>
       </div>

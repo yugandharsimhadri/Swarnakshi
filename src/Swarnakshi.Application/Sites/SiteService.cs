@@ -11,14 +11,15 @@ public record SiteDto(Guid Id, string Code, string Name, string? City, string? S
     Guid? SupervisorUserId, DateOnly? StartDate, SiteStatus Status, string? Notes,
     int ProjectCount, decimal InventoryValue);
 
-public record SaveSiteRequest(string Code, string Name, string? Address, string? City, string? State,
+/// <summary>Code is optional — leave it null and one is minted. See <see cref="ICodeGenerator"/>.</summary>
+public record SaveSiteRequest(string? Code, string Name, string? Address, string? City, string? State,
     string? Pin, Guid? SupervisorUserId, DateOnly? StartDate, SiteStatus Status, string? Notes);
 
 public class SaveSiteValidator : AbstractValidator<SaveSiteRequest>
 {
     public SaveSiteValidator()
     {
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(30);
+        RuleFor(x => x.Code).MaximumLength(30);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Pin).Matches(@"^\d{6}$").When(x => !string.IsNullOrWhiteSpace(x.Pin));
     }
@@ -32,7 +33,7 @@ public interface ISiteService
     Task<SiteDto> UpdateAsync(Guid id, SaveSiteRequest req, CancellationToken ct = default);
 }
 
-public class SiteService(IAppDbContext db, IValidator<SaveSiteRequest> validator) : ISiteService
+public class SiteService(IAppDbContext db, IValidator<SaveSiteRequest> validator, ICodeGenerator codes) : ISiteService
 {
     public async Task<PagedResult<SiteDto>> ListAsync(PageQuery page, SiteStatus? status, CancellationToken ct = default)
     {
@@ -50,7 +51,7 @@ public class SiteService(IAppDbContext db, IValidator<SaveSiteRequest> validator
     public async Task<SiteDto> CreateAsync(SaveSiteRequest req, CancellationToken ct = default)
     {
         await validator.ValidateAndThrowAsync(req, ct);
-        var code = req.Code.Trim();
+        var code = await codes.ResolveAsync(req.Code, CodePrefixes.Site, ct);
         if (await db.Sites.AnyAsync(s => s.Code == code, ct))
             throw new AppException($"Site code '{code}' already exists.", 409);
 
@@ -70,7 +71,8 @@ public class SiteService(IAppDbContext db, IValidator<SaveSiteRequest> validator
         await validator.ValidateAndThrowAsync(req, ct);
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == id, ct)
                    ?? throw new NotFoundException("Site", id);
-        var code = req.Code.Trim();
+        // An edit that omits the code keeps the one the site already has — the screens no longer show it.
+        var code = string.IsNullOrWhiteSpace(req.Code) ? site.Code : req.Code.Trim();
         if (await db.Sites.AnyAsync(s => s.Code == code && s.Id != id, ct))
             throw new AppException($"Site code '{code}' already exists.", 409);
 

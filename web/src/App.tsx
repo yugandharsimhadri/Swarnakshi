@@ -10,7 +10,6 @@ import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Materials from "@/pages/Materials";
 import More from "@/pages/More";
-import Stock from "@/pages/Stock";
 import { InventoryList, MaterialInventory } from "@/pages/Inventory";
 import { MaterialRequestList, NewMaterialRequest, MaterialRequestDetail } from "@/pages/MaterialRequests";
 import { PurchaseList, NewPurchase, PurchaseDetail } from "@/pages/Purchases";
@@ -22,7 +21,6 @@ import Users from "@/pages/Users";
 import Register from "@/pages/Register";
 import PlatformConsole from "@/pages/PlatformConsole";
 import Employees from "@/pages/Employees";
-import Movement from "@/pages/Movement";
 
 export default function App() {
   const { user, platformUser, loading, bootstrap } = useAuth();
@@ -48,21 +46,26 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<Dashboard />} />
-            <Route path="movement" element={<Movement />} />
             <Route path="sites" element={<Sites />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetail />} />
 
-            <Route path="stock" element={<Stock />} />
-            <Route path="stock/inventory" element={<InventoryList />} />
-            <Route path="stock/inventory/:siteId/:materialId" element={<MaterialInventory />} />
-            <Route path="stock/requests" element={<MaterialRequestList />} />
-            <Route path="stock/requests/new" element={<NewMaterialRequest />} />
-            <Route path="stock/requests/:id" element={<MaterialRequestDetail />} />
-            <Route path="stock/purchases" element={<PurchaseList />} />
-            <Route path="stock/purchases/new" element={<NewPurchase />} />
-            <Route path="stock/purchases/:id" element={<PurchaseDetail />} />
+            <Route path="inventory" element={<InventoryList />} />
+            <Route path="inventory/purchases" element={<PurchaseList />} />
+            <Route path="inventory/purchases/new" element={<NewPurchase />} />
+            <Route path="inventory/purchases/:id" element={<PurchaseDetail />} />
+            <Route path="inventory/requests" element={<MaterialRequestList />} />
+            <Route path="inventory/requests/new" element={<NewMaterialRequest />} />
+            <Route path="inventory/requests/:id" element={<MaterialRequestDetail />} />
+            <Route path="inventory/:siteId/:materialId" element={<MaterialInventory />} />
             <Route path="materials" element={<Materials />} />
+
+            {/* Links people have bookmarked, or that live in an old approval email. */}
+            <Route path="movement" element={<Navigate to="/inventory" replace />} />
+            <Route path="stock" element={<Navigate to="/inventory" replace />} />
+            <Route path="stock/inventory" element={<Navigate to="/inventory" replace />} />
+            <Route path="stock/requests/*" element={<Navigate to="/inventory/requests" replace />} />
+            <Route path="stock/purchases/*" element={<Navigate to="/inventory/purchases" replace />} />
 
             <Route path="approvals" element={<Approvals />} />
             <Route path="contractors" element={<Contractors />} />

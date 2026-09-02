@@ -27,7 +27,8 @@ public record ProjectFinancialSummary(
     decimal TotalCost, decimal CustomerReceived, decimal CustomerOutstanding,
     decimal BudgetVariance, decimal? Margin);
 
-public record SaveProjectRequest(string Code, string Name, string? VillaNumber, Guid SiteId,
+/// <summary>Code is optional — leave it null and one is minted. See <see cref="ICodeGenerator"/>.</summary>
+public record SaveProjectRequest(string? Code, string Name, string? VillaNumber, Guid SiteId,
     Guid? CustomerId, Guid? ProjectTypeId, string? Address, DateOnly? StartDate,
     DateOnly? ExpectedCompletionDate, DateOnly? ActualCompletionDate, decimal EstimatedCost,
     decimal? ContractSaleValue, ProjectStatus Status, int CompletionPercent, string? Notes);
@@ -36,7 +37,7 @@ public class SaveProjectValidator : AbstractValidator<SaveProjectRequest>
 {
     public SaveProjectValidator()
     {
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(30);
+        RuleFor(x => x.Code).MaximumLength(30);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.SiteId).NotEmpty();
         RuleFor(x => x.EstimatedCost).GreaterThanOrEqualTo(0);
@@ -64,7 +65,7 @@ public interface IProjectService
     Task<ProjectProgressSummary> ProgressSummaryAsync(Guid? siteId, CancellationToken ct = default);
 }
 
-public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> validator) : IProjectService
+public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> validator, ICodeGenerator codes) : IProjectService
 {
     public async Task<PagedResult<ProjectDto>> ListAsync(PageQuery page, Guid? siteId, ProjectStatus? status, Guid? customerId, CancellationToken ct = default)
     {
@@ -85,7 +86,7 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
     {
         await validator.ValidateAndThrowAsync(req, ct);
         await EnsureRefsAsync(req, ct);
-        var code = req.Code.Trim();
+        var code = await codes.ResolveAsync(req.Code, CodePrefixes.Project, ct);
         if (await db.Projects.AnyAsync(p => p.Code == code, ct))
             throw new AppException($"Project code '{code}' already exists.", 409);
 
@@ -101,7 +102,8 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         await validator.ValidateAndThrowAsync(req, ct);
         var p = await db.Projects.FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new NotFoundException("Project", id);
-        var code = req.Code.Trim();
+        // An edit that omits the code keeps the one the project already has — the screens no longer show it.
+        var code = string.IsNullOrWhiteSpace(req.Code) ? p.Code : req.Code.Trim();
         if (await db.Projects.AnyAsync(x => x.Code == code && x.Id != id, ct))
             throw new AppException($"Project code '{code}' already exists.", 409);
 

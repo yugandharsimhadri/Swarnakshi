@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
@@ -18,12 +19,12 @@ export function PurchaseList() {
 
   return (
     <div className="space-y-3">
-      <PageHeader title="Purchases" action={canCreate && <Link to="/stock/purchases/new"><Button>+ New</Button></Link>} />
+      <PageHeader title="Purchases" action={canCreate && <Link to="/inventory/purchases/new"><Button>+ New</Button></Link>} />
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
         (data?.items.length ?? 0) === 0 ? <EmptyState title="No purchases" /> : (
           <div className="space-y-2">
             {data!.items.map((p) => (
-              <Link key={p.id} to={`/stock/purchases/${p.id}`}>
+              <Link key={p.id} to={`/inventory/purchases/${p.id}`}>
                 <Card className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -50,13 +51,24 @@ export function NewPurchase() {
   const { data: materials } = useAsync(() => api<Paged<Material>>("/materials", { query: { pageSize: 200, active: true } }), []);
   const { data: projects } = useAsync(() => api<Paged<Project>>("/projects", { query: { pageSize: 200 } }), []);
 
+  // Arrived from a villa's Material tab: its site and its name are already known, so the form
+  // opens with the destination filled in and every line pointed at that villa.
+  const [params] = useSearchParams();
+  const forProjectId = params.get("projectId") ?? "";
+
   const [siteId, setSiteId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNumber, setInvoice] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [rows, setRows] = useState<{ materialId: string; qty: string; rate: string; deliverTo: string }[]>([{ materialId: "", qty: "", rate: "", deliverTo: "" }]);
+  const [rows, setRows] = useState<{ materialId: string; qty: string; rate: string; deliverTo: string }[]>(
+    [{ materialId: "", qty: "", rate: "", deliverTo: forProjectId }]);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const forProject = projects?.items.find((p) => p.id === forProjectId);
+  useEffect(() => {
+    if (forProject && !siteId) setSiteId(forProject.siteId);
+  }, [forProject, siteId]);
 
   const setRow = (i: number, k: "materialId" | "qty" | "rate" | "deliverTo", v: string) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
@@ -91,7 +103,7 @@ export function NewPurchase() {
         },
       });
       if (submit) await api(`/purchases/${created.id}/submit`, { method: "POST" });
-      nav(`/stock/purchases/${created.id}`);
+      nav(`/inventory/purchases/${created.id}`);
     } catch (e) {
       setError(e as ApiError);
     } finally {
@@ -101,8 +113,10 @@ export function NewPurchase() {
 
   return (
     <div className="space-y-3">
-      <Link to="/stock/purchases" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Purchases</Link>
-      <PageHeader title="New purchase" />
+      <PageHeader
+        title={forProject ? `Buy for ${forProject.name}` : "New purchase"}
+        back={forProjectId ? `/projects/${forProjectId}` : "/inventory/purchases"}
+      />
 
       <Field label="Site (stock goes here)">
         <Select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
@@ -150,7 +164,7 @@ export function NewPurchase() {
             )}
           </Card>
         ))}
-        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { materialId: "", qty: "", rate: "", deliverTo: "" }])}>
+        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { materialId: "", qty: "", rate: "", deliverTo: forProjectId }])}>
           + Add line
         </Button>
       </div>
@@ -195,14 +209,12 @@ export function PurchaseDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/stock/purchases" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Purchases</Link>
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold">{data.supplierName}</h1>
-          <Chip tone={stTone(data.status)}>{TxnStatusName[data.status]}</Chip>
-        </div>
-        <div className="text-xs text-text-dim">{data.txnNumber} · {data.siteName} · {dateStr(data.date)}</div>
-      </div>
+      <PageHeader
+        title={data.supplierName}
+        back="/inventory/purchases"
+        subtitle={`${data.txnNumber} · ${data.siteName} · ${dateStr(data.date)}`}
+        action={<Chip tone={stTone(data.status)}>{TxnStatusName[data.status]}</Chip>}
+      />
 
       <div className="space-y-2">
         {data.items.map((it) => (

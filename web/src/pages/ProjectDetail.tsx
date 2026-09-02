@@ -3,18 +3,24 @@ import { Link, useParams } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, moneyShort, dateStr } from "@/lib/format";
+import { money, moneyShort, num, dateStr } from "@/lib/format";
 import {
-  Button, Card, Chip, EmptyState, ErrorText, Field, Input, ProgressBar, Select, Sheet, Spinner, StatCard,
+  Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, ProgressBar, Select, Sheet,
+  Spinner, StatCard,
 } from "@/components/ui";
 import {
-  ContractStatusName, ExpenseTypeName, ProjectStatusName, TxnStatusName,
+  ContractStatusName, ExpenseTypeName, InvTxnTypeName, ProjectStatusName, TxnStatusName,
   type CostByHead, type Contractor, type ContractWork, type ContractorPayment, type Customer,
-  type CustomerPayment, type LabourEntry, type Lookup, type Paged, type Project, type ProjectExpense,
-  type ProjectSummary,
+  type CustomerPayment, type InventoryTxn, type LabourEntry, type Lookup, type Paged, type Project,
+  type ProjectExpense, type ProjectSummary,
 } from "@/lib/types";
 
-type Tab = "overview" | "expenses" | "labour" | "contracts" | "payments" | "customer";
+/**
+ * A villa has exactly three things people record against it, and the tabs say so out loud:
+ * material that arrived, money spent, and work given to a contractor. Overview and Customer
+ * are for reading, not entering.
+ */
+type Tab = "overview" | "material" | "expenses" | "contractors" | "customer";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -34,23 +40,23 @@ export default function ProjectDetail() {
   const { project: p, summary: s } = data;
 
   const tabs: [Tab, string][] = [
-    ["overview", "Overview"], ["expenses", "Expenses"], ["labour", "Labour"],
-    ["contracts", "Contracts"], ["payments", "Payments"], ["customer", "Customer"],
+    ["overview", "Overview"], ["material", "Material"], ["expenses", "Expenses"],
+    ["contractors", "Contractors"], ["customer", "Customer"],
   ];
 
   return (
     <div className="space-y-4">
-      <Link to="/projects" className="-ml-1 inline-flex min-h-11 items-center px-1 text-xs text-text-dim">← Projects</Link>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold">{p.name}</h1>
+      <PageHeader
+        title={p.name}
+        back="/projects"
+        subtitle={`${p.siteName}${p.customerName ? ` · ${p.customerName}` : ""}`}
+        action={
+          <div className="flex shrink-0 items-center gap-2">
             <Chip tone={p.status === 1 ? "ok" : "neutral"}>{ProjectStatusName[p.status] ?? p.status}</Chip>
+            {canManage && <Button variant="ghost" onClick={() => setEditing(true)}>Edit</Button>}
           </div>
-          <div className="text-xs text-text-dim">{p.code} · {p.siteName}{p.customerName ? ` · ${p.customerName}` : ""}</div>
-        </div>
-        {canManage && <Button variant="ghost" onClick={() => setEditing(true)}>Edit</Button>}
-      </div>
+        }
+      />
       {(p.status === 1 || p.status === 2) && (
         <Card><ProgressBar percent={p.completionPercent} /></Card>
       )}
@@ -77,10 +83,9 @@ export default function ProjectDetail() {
       </div>
 
       {tab === "overview" && <Overview projectId={p.id} s={s} />}
+      {tab === "material" && <MaterialTab projectId={p.id} />}
       {tab === "expenses" && <Expenses projectId={p.id} />}
-      {tab === "labour" && <Labour projectId={p.id} />}
-      {tab === "contracts" && <Contracts projectId={p.id} />}
-      {tab === "payments" && <Payments projectId={p.id} />}
+      {tab === "contractors" && <ContractorsTab projectId={p.id} />}
       {tab === "customer" && <CustomerTab projectId={p.id} hasCustomer={!!p.customerId} summary={s} />}
     </div>
   );
@@ -226,7 +231,7 @@ function EditProjectSheet({ project, open, onClose, onSaved }: { project: Projec
       await api(`/projects/${project.id}`, {
         method: "PUT",
         body: {
-          code: project.code, name: form.name, villaNumber: form.villaNumber || null, siteId: project.siteId,
+          name: form.name, villaNumber: form.villaNumber || null, siteId: project.siteId,
           customerId: form.customerId || null, projectTypeId: form.projectTypeId || null,
           estimatedCost: Number(form.estimatedCost || 0),
           contractSaleValue: form.contractSaleValue ? Number(form.contractSaleValue) : null,
@@ -291,18 +296,130 @@ function EditProjectSheet({ project, open, onClose, onSaved }: { project: Projec
   );
 }
 
+// ---- Material tab ----------------------------------------------------
+/**
+ * Entry type one: material that reached this villa. Two ways in, and the screen says which is
+ * which in the words a supervisor uses — "take from the store" or "bought for this villa".
+ * Both land here afterwards, so the villa's material history is one list regardless of route.
+ */
+function MaterialTab({ projectId }: { projectId: string }) {
+  const canRequest = useAuth((s) => s.can("material_request.create"));
+  const canBuy = useAuth((s) => s.can("purchase.create"));
+  const { data, loading, error } = useAsync(
+    () => api<Paged<InventoryTxn>>("/inventory/transactions", { query: { projectId, pageSize: 100 } }),
+    [projectId],
+  );
+
+  const totalValue = (data?.items ?? []).reduce((sum, t) => sum + Math.abs(t.quantity) * t.rate, 0);
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        {canRequest && (
+          <Link to={`/inventory/requests/new?projectId=${projectId}`}>
+            <Card className="text-center">
+              <div className="text-lg">⇄</div>
+              <div className="text-sm font-semibold">Take from store</div>
+              <div className="text-xs text-text-dim">Issue site stock here</div>
+            </Card>
+          </Link>
+        )}
+        {canBuy && (
+          <Link to={`/inventory/purchases/new?projectId=${projectId}`}>
+            <Card className="text-center">
+              <div className="text-lg">🧾</div>
+              <div className="text-sm font-semibold">Bought for this villa</div>
+              <div className="text-xs text-text-dim">Straight from the supplier</div>
+            </Card>
+          </Link>
+        )}
+      </div>
+
+      {totalValue > 0 && (
+        <Card className="flex justify-between text-sm">
+          <span className="text-text-dim">Material charged to this villa</span>
+          <span className="font-semibold tabular-nums">{money(totalValue)}</span>
+        </Card>
+      )}
+
+      {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
+        (data?.items.length ?? 0) === 0
+          ? <EmptyState title="No material yet" hint="Take it from the store, or record a purchase for this villa." />
+          : data!.items.map((t) => (
+            <Card key={t.id} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{t.materialName}</div>
+                <div className="truncate text-xs text-text-dim">
+                  {dateStr(t.date)} · {InvTxnTypeName[t.type]} · {t.txnNumber}
+                </div>
+              </div>
+              <div className="shrink-0 text-right text-sm tabular-nums">
+                <div>{num(Math.abs(t.quantity))} {t.unitCode}</div>
+                <div className="text-xs text-text-dim">{money(Math.abs(t.quantity) * t.rate)}</div>
+              </div>
+            </Card>
+          ))
+      )}
+    </div>
+  );
+}
+
 // ---- Expenses tab -----------------------------------------------------
+/**
+ * Entry type two: money that left for this villa and is not a contractor's bill — a day's labour,
+ * a tip to the lorry driver, tea for the crew. Labour used to be a tab of its own; it is an
+ * expense with a category, so it is one option in the same form now.
+ */
 function Expenses({ projectId }: { projectId: string }) {
   const canCreate = useAuth((s) => s.can("expense.create"));
+  const canLabour = useAuth((s) => s.can("labour.create"));
   const [open, setOpen] = useState(false);
+  const [labourOpen, setLabourOpen] = useState(false);
   const { data, loading, error, reload } = useAsync(
     () => api<Paged<ProjectExpense>>("/expenses", { query: { projectId, pageSize: 100 } }),
+    [projectId],
+  );
+  const { data: labour, reload: reloadLabour } = useAsync(
+    () => api<Paged<LabourEntry>>("/labour", { query: { projectId, pageSize: 100 } }),
     [projectId],
   );
 
   return (
     <div className="space-y-2">
-      {canCreate && <Button className="w-full" onClick={() => setOpen(true)}>+ Add expense</Button>}
+      <div className="flex gap-2">
+        {canCreate && <Button className="flex-1" onClick={() => setOpen(true)}>+ Expense</Button>}
+        {canLabour && <Button variant="ghost" className="flex-1" onClick={() => setLabourOpen(true)}>+ Labour</Button>}
+      </div>
+
+      {(labour?.items.length ?? 0) > 0 && (
+        <div className="space-y-2">
+          {labour!.items.map((l) => (
+            <Card key={l.id} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold">{l.labourCategoryName}</span>
+                  <Chip tone={l.status === 6 ? "ok" : l.status === 4 ? "danger" : l.status === 2 ? "brand" : "neutral"}>
+                    {TxnStatusName[l.status]}
+                  </Chip>
+                </div>
+                <div className="text-xs text-text-dim">Labour · {dateStr(l.periodEnd)} · {l.txnNumber}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm tabular-nums">{money(l.amount)}</span>
+                {l.status === 0 && canLabour && (
+                  <Button variant="ghost"
+                    onClick={() => api(`/labour/${l.id}/submit`, { method: "POST" }).then(reloadLabour)}>
+                    Submit
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <AddLabourSheet projectId={projectId} open={labourOpen} onClose={() => setLabourOpen(false)}
+        onSaved={() => { setLabourOpen(false); reloadLabour(); }} />
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
         (data?.items.length ?? 0) === 0 ? <EmptyState title="No expenses" /> : data!.items.map((e) => (
           <Card key={e.id} className="flex items-center justify-between">
@@ -373,47 +490,6 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
   );
 }
 
-// ---- Labour tab -----------------------------------------------------
-function Labour({ projectId }: { projectId: string }) {
-  const canCreate = useAuth((s) => s.can("labour.create"));
-  const [open, setOpen] = useState(false);
-  const { data, loading, error, reload } = useAsync(
-    () => api<Paged<LabourEntry>>("/labour", { query: { projectId, pageSize: 100 } }),
-    [projectId],
-  );
-
-  async function submit(lid: string) {
-    await api(`/labour/${lid}/submit`, { method: "POST" });
-    reload();
-  }
-
-  return (
-    <div className="space-y-2">
-      {canCreate && <Button className="w-full" onClick={() => setOpen(true)}>+ Add labour cost</Button>}
-      {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
-        (data?.items.length ?? 0) === 0 ? <EmptyState title="No labour entries" /> : data!.items.map((l) => (
-          <Card key={l.id} className="flex items-center justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold">{l.labourCategoryName}</span>
-                <Chip tone={l.status === 6 ? "ok" : l.status === 4 ? "danger" : l.status === 2 ? "brand" : "neutral"}>
-                  {TxnStatusName[l.status]}
-                </Chip>
-              </div>
-              <div className="text-xs text-text-dim">{dateStr(l.periodEnd)} · {l.txnNumber}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm tabular-nums">{money(l.amount)}</span>
-              {l.status === 0 && canCreate && <Button variant="ghost" onClick={() => submit(l.id)}>Submit</Button>}
-            </div>
-          </Card>
-        ))
-      )}
-      <AddLabourSheet projectId={projectId} open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
-    </div>
-  );
-}
-
 function AddLabourSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
   const { data: cats } = useAsync(() => api<Lookup[]>("/labour-categories"), []);
   const [form, setForm] = useState({ categoryId: "", amount: "", remarks: "" });
@@ -458,20 +534,38 @@ function AddLabourSheet({ projectId, open, onClose, onSaved }: { projectId: stri
   );
 }
 
-// ---- Contracts tab -------------------------------------------------
-function Contracts({ projectId }: { projectId: string }) {
+// ---- Contractors tab -------------------------------------------------
+/**
+ * Entry type three: work handed to a contractor. The work order and what has been paid against it
+ * are one thing to the person on site — "we gave Ramesh the plumbing, he's had 40 of the 90" —
+ * so they are one tab rather than a Contracts tab and a Payments tab that never line up.
+ */
+function ContractorsTab({ projectId }: { projectId: string }) {
   const canManage = useAuth((s) => s.can("contract.manage"));
-  const [open, setOpen] = useState(false);
+  const canPay = useAuth((s) => s.can("contractor_payment.create"));
+  const [workOpen, setWorkOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+
   const { data, loading, error, reload } = useAsync(
     () => api<Paged<ContractWork>>("/contracts", { query: { projectId, pageSize: 100 } }),
     [projectId],
   );
+  const { data: payments, reload: reloadPayments } = useAsync(
+    () => api<Paged<ContractorPayment>>("/contractor-payments", { query: { projectId, pageSize: 100 } }),
+    [projectId],
+  );
+
+  const refresh = () => { reload(); reloadPayments(); };
 
   return (
     <div className="space-y-2">
-      {canManage && <Button className="w-full" onClick={() => setOpen(true)}>+ New contract</Button>}
+      <div className="flex gap-2">
+        {canManage && <Button className="flex-1" onClick={() => setWorkOpen(true)}>+ Work order</Button>}
+        {canPay && <Button variant="ghost" className="flex-1" onClick={() => setPayOpen(true)}>+ Payment</Button>}
+      </div>
+
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
-        (data?.items.length ?? 0) === 0 ? <EmptyState title="No contracts" /> : data!.items.map((c) => (
+        (data?.items.length ?? 0) === 0 ? <EmptyState title="No work orders" hint="Assign work to a contractor to start tracking it." /> : data!.items.map((c) => (
           <Card key={c.id} className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">{c.workCategory}</span>
@@ -485,7 +579,39 @@ function Contracts({ projectId }: { projectId: string }) {
           </Card>
         ))
       )}
-      <NewContractSheet projectId={projectId} open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
+
+      {(payments?.items.length ?? 0) > 0 && (
+        <>
+          <div className="px-1 pt-2 text-xs font-semibold uppercase tracking-wide text-text-dim">Payments</div>
+          {payments!.items.map((pay) => (
+            <Card key={pay.id} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold">{pay.contractorName}</span>
+                  <Chip tone={pay.status === 6 ? "ok" : pay.status === 4 ? "danger" : pay.status === 2 ? "brand" : "neutral"}>
+                    {TxnStatusName[pay.status]}
+                  </Chip>
+                </div>
+                <div className="text-xs text-text-dim">{dateStr(pay.date)} · {pay.txnNumber}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm tabular-nums">{money(pay.amount)}</span>
+                {pay.status === 0 && canPay && (
+                  <Button variant="ghost"
+                    onClick={() => api(`/contractor-payments/${pay.id}/submit`, { method: "POST" }).then(reloadPayments)}>
+                    Submit
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+
+      <NewContractSheet projectId={projectId} open={workOpen} onClose={() => setWorkOpen(false)}
+        onSaved={() => { setWorkOpen(false); refresh(); }} />
+      <NewPaymentSheet projectId={projectId} open={payOpen} onClose={() => setPayOpen(false)}
+        onSaved={() => { setPayOpen(false); refresh(); }} />
     </div>
   );
 }
@@ -526,47 +652,6 @@ function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: st
         <Button className="w-full" onClick={save} disabled={busy || !form.contractorId || !form.workCategory || !Number(form.contractAmount)}>Create</Button>
       </div>
     </Sheet>
-  );
-}
-
-// ---- Payments tab (contractor) ------------------------------------
-function Payments({ projectId }: { projectId: string }) {
-  const canCreate = useAuth((s) => s.can("contractor_payment.create"));
-  const [open, setOpen] = useState(false);
-  const { data, loading, error, reload } = useAsync(
-    () => api<Paged<ContractorPayment>>("/contractor-payments", { query: { projectId, pageSize: 100 } }),
-    [projectId],
-  );
-
-  async function submit(pid: string) {
-    await api(`/contractor-payments/${pid}/submit`, { method: "POST" });
-    reload();
-  }
-
-  return (
-    <div className="space-y-2">
-      {canCreate && <Button className="w-full" onClick={() => setOpen(true)}>+ Contractor payment</Button>}
-      {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
-        (data?.items.length ?? 0) === 0 ? <EmptyState title="No payments" /> : data!.items.map((pay) => (
-          <Card key={pay.id} className="flex items-center justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold">{pay.contractorName}</span>
-                <Chip tone={pay.status === 6 ? "ok" : pay.status === 4 ? "danger" : pay.status === 2 ? "brand" : "neutral"}>
-                  {TxnStatusName[pay.status]}
-                </Chip>
-              </div>
-              <div className="text-xs text-text-dim">{dateStr(pay.date)} · {pay.txnNumber}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm tabular-nums">{money(pay.amount)}</span>
-              {pay.status === 0 && canCreate && <Button variant="ghost" onClick={() => submit(pay.id)}>Submit</Button>}
-            </div>
-          </Card>
-        ))
-      )}
-      <NewPaymentSheet projectId={projectId} open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
-    </div>
   );
 }
 

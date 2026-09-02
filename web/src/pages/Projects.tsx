@@ -55,7 +55,7 @@ export default function Projects() {
                           {ProjectStatusName[p.status]}
                         </Chip>
                       </div>
-                      <div className="truncate text-xs text-text-dim">{p.code} · {p.siteName}</div>
+                      <div className="truncate text-xs text-text-dim">{p.siteName}</div>
                     </div>
                     <div className="shrink-0 text-right text-xs text-text-dim">{moneyShort(p.estimatedCost)}</div>
                   </div>
@@ -79,7 +79,7 @@ export default function Projects() {
 function NewProjectSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
   const { data: sites } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 100 } }), []);
   const [form, setForm] = useState({
-    code: "", name: "", villaNumber: "", siteId: "", estimatedCost: "", contractSaleValue: "",
+    name: "", villaNumber: "", siteId: "", estimatedCost: "", contractSaleValue: "",
     status: "0", completionPercent: "0",
   });
   const [error, setError] = useState<ApiError | null>(null);
@@ -94,7 +94,6 @@ function NewProjectSheet({ open, onClose, onSaved }: { open: boolean; onClose: (
       await api("/projects", {
         method: "POST",
         body: {
-          code: form.code,
           name: form.name,
           villaNumber: form.villaNumber || null,
           siteId: form.siteId,
@@ -121,11 +120,8 @@ function NewProjectSheet({ open, onClose, onSaved }: { open: boolean; onClose: (
             {sites?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Code"><Input value={form.code} onChange={set("code")} placeholder="GV-101" /></Field>
-          <Field label="Villa no."><Input value={form.villaNumber} onChange={set("villaNumber")} placeholder="101" /></Field>
-        </div>
         <Field label="Name"><Input value={form.name} onChange={set("name")} placeholder="Villa 101" /></Field>
+        <Field label="Villa no."><Input value={form.villaNumber} onChange={set("villaNumber")} placeholder="101" /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Estimated cost"><Input value={form.estimatedCost} onChange={set("estimatedCost")} inputMode="numeric" /></Field>
           <Field label="Sale value"><Input value={form.contractSaleValue} onChange={set("contractSaleValue")} inputMode="numeric" /></Field>

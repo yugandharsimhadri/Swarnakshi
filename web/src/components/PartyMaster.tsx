@@ -30,13 +30,13 @@ export interface PartyMasterConfig {
 }
 
 type Draft = {
-  code: string; name: string; companyName: string; type: string;
+  name: string; companyName: string; type: string;
   mobile: string; email: string; address: string;
   pan: string; gstin: string; bankDetails: string; notes: string;
 };
 
 const emptyDraft: Draft = {
-  code: "", name: "", companyName: "", type: "",
+  name: "", companyName: "", type: "",
   mobile: "", email: "", address: "", pan: "", gstin: "", bankDetails: "", notes: "",
 };
 
@@ -175,7 +175,7 @@ export default function PartyMaster({ config }: { config: PartyMasterConfig }) {
                         <div className="truncate text-xs text-text-dim">{p.companyName}</div>
                       )}
                       <div className="truncate text-xs text-text-dim">
-                        {p.code}{p.mobile ? ` · ${p.mobile}` : ""}
+                        {p.mobile ?? "—"}
                       </div>
                       {!config.hasCompany && p.email && (
                         <div className="truncate text-xs text-text-dim">{p.email}</div>
@@ -202,7 +202,6 @@ export default function PartyMaster({ config }: { config: PartyMasterConfig }) {
               <TableWrap>
                 <thead>
                   <tr>
-                    <Th>Code</Th>
                     <Th>{config.singular === "contractor" ? "Contractor" : "Customer"}</Th>
                     {config.hasCompany && <Th>Company</Th>}
                     <Th>Mobile</Th>
@@ -215,7 +214,6 @@ export default function PartyMaster({ config }: { config: PartyMasterConfig }) {
                 <tbody>
                   {data!.items.map((p) => (
                     <tr key={p.id} className={p.isActive ? "" : "opacity-60"}>
-                      <Td className="font-mono text-xs">{p.code}</Td>
                       <Td className="font-medium">{p.name}</Td>
                       {config.hasCompany && <Td>{p.companyName ?? "—"}</Td>}
                       <Td className="text-xs">{p.mobile ?? "—"}</Td>
@@ -296,7 +294,7 @@ function PartyForm({ config, party, onClose, onSaved }: {
   const isEdit = party !== null;
   const [draft, setDraft] = useState<Draft>(() => party
     ? {
-        code: party.code, name: party.name, companyName: party.companyName ?? "",
+        name: party.name, companyName: party.companyName ?? "",
         type: party.type ?? "", mobile: party.mobile ?? "", email: party.email ?? "",
         address: party.address ?? "", pan: party.pan ?? "", gstin: party.gstin ?? "",
         bankDetails: party.bankDetails ?? "", notes: party.notes ?? "",
@@ -312,7 +310,6 @@ function PartyForm({ config, party, onClose, onSaved }: {
     setSaving(true);
     setError(null);
     const body: SavePartyBody = {
-      code: draft.code.trim(),
       name: draft.name.trim(),
       companyName: config.hasCompany ? blank(draft.companyName) : null,
       type: config.hasType ? blank(draft.type) : null,
@@ -335,7 +332,7 @@ function PartyForm({ config, party, onClose, onSaved }: {
     }
   };
 
-  const canSubmit = draft.code.trim() && draft.name.trim();
+  const canSubmit = draft.name.trim();
   const label = config.singular.charAt(0).toUpperCase() + config.singular.slice(1);
 
   return (
@@ -343,7 +340,7 @@ function PartyForm({ config, party, onClose, onSaved }: {
       open
       onClose={onClose}
       title={isEdit ? `Edit ${label}` : `Add ${label}`}
-      subtitle={isEdit ? `${party!.code} · ${party!.name}` : `New ${config.singular} master record`}
+      subtitle={isEdit ? party!.name : `New `}
       footer={
         <div className="flex gap-2">
           <Button variant="ghost" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
@@ -356,12 +353,6 @@ function PartyForm({ config, party, onClose, onSaved }: {
       <ErrorText error={error && { message: error.message, errors: error.errors }} />
 
       <FormSection title="Basic Information">
-        <Field label={`${label} Code *`}
-          error={isEdit && party!.codeLocked ? "Locked — this record has transaction history." : undefined}>
-          <Input value={draft.code} onChange={(e) => set("code", e.target.value)}
-            disabled={isEdit && party!.codeLocked}
-            placeholder={config.hasCompany ? "CON-001" : "CUST-001"} />
-        </Field>
         <Field label="Name *">
           <Input value={draft.name} onChange={(e) => set("name", e.target.value)} />
         </Field>
@@ -440,7 +431,7 @@ function PartyView({ config, party, onClose, onEdit }: {
       open
       onClose={onClose}
       title={party.name}
-      subtitle={`${party.code}${party.companyName ? ` · ${party.companyName}` : ""}`}
+      subtitle={party.companyName ?? undefined}
       footer={onEdit && <Button className="w-full" onClick={onEdit}>Edit {label}</Button>}
     >
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -450,7 +441,6 @@ function PartyView({ config, party, onClose, onEdit }: {
 
       <FormSection title="Identity">
         <div className="sm:col-span-2">
-          <DetailRow label={`${label} Code`} value={<span className="font-mono">{party.code}</span>} />
           <DetailRow label="Name" value={party.name} />
           {config.hasCompany && <DetailRow label="Company Name" value={party.companyName} />}
           {config.hasType && <DetailRow label="Contractor Type" value={party.type} />}
