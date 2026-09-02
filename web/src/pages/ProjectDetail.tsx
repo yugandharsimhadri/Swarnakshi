@@ -62,13 +62,28 @@ export default function ProjectDetail() {
         <Card><ProgressBar percent={p.completionPercent} /></Card>
       )}
 
+      <Alerts s={s} />
+
       <EditProjectSheet project={p} open={editing} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); }} />
 
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Total cost" value={moneyShort(s.totalCost)} />
+        <StatCard label="Spent so far" value={moneyShort(s.totalCost)}
+          sub={s.committedContractorCost > 0 ? `+ ${moneyShort(s.committedContractorCost)} committed` : undefined} />
         <StatCard label="Estimated" value={moneyShort(s.estimatedCost)} />
-        <StatCard label="Budget variance" value={moneyShort(s.budgetVariance)} tone={s.budgetVariance < 0 ? "danger" : "ok"} />
-        <StatCard label="Margin" value={s.margin == null ? "—" : moneyShort(s.margin)} tone={s.margin != null && s.margin < 0 ? "danger" : "ok"} />
+        {/* Burn beats budget variance on an unfinished villa: variance shows a large positive that
+            reads as money saved when it is really a house that is not finished. */}
+        <StatCard
+          label="Spend vs progress"
+          value={s.burnPercent == null ? "—" : `${s.burnPercent}%`}
+          sub={s.burnPercent == null ? "not started yet" : `of ${moneyShort(s.estimatedCost * s.completionPercent / 100)} expected`}
+          tone={s.burnPercent == null ? undefined : s.burnPercent > 110 ? "danger" : s.burnPercent > 100 ? "warn" : "ok"}
+        />
+        <StatCard
+          label="Earned margin"
+          value={s.earnedMargin == null ? "unsold" : moneyShort(s.earnedMargin)}
+          sub={s.earnedRevenue == null ? undefined : `on ${moneyShort(s.earnedRevenue)} earned`}
+          tone={s.earnedMargin == null ? undefined : s.earnedMargin < 0 ? "danger" : "ok"}
+        />
       </div>
 
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-surface-2 p-1">
@@ -88,6 +103,39 @@ export default function ProjectDetail() {
       {tab === "expenses" && <Expenses projectId={p.id} />}
       {tab === "contractors" && <ContractorsTab projectId={p.id} />}
       {tab === "customer" && <CustomerTab projectId={p.id} hasCustomer={!!p.customerId} summary={s} />}
+    </div>
+  );
+}
+
+/**
+ * The two things about a villa that need somebody to do something today. Both were derivable from
+ * numbers already on the screen and neither was ever said out loud, which is the same as not being
+ * there — an owner scanning ten villas reads chips, not arithmetic.
+ */
+function Alerts({ s }: { s: ProjectSummary }) {
+  const overBudget = s.burnPercent != null && s.burnPercent > 100;
+  if (!s.duesOnHandover && !overBudget) return null;
+
+  return (
+    <div className="space-y-2">
+      {s.duesOnHandover && (
+        <Card className="border-danger/40 bg-danger/5">
+          <div className="text-sm font-semibold text-danger">Handed over, still owed {money(s.customerOutstanding)}</div>
+          <div className="mt-0.5 text-xs text-text-dim">
+            The villa is complete and the customer has not paid in full.
+          </div>
+        </Card>
+      )}
+      {overBudget && (
+        <Card className={s.burnPercent! > 110 ? "border-danger/40 bg-danger/5" : "border-warn/40 bg-warn/5"}>
+          <div className={`text-sm font-semibold ${s.burnPercent! > 110 ? "text-danger" : "text-warn"}`}>
+            {s.burnPercent}% of budget spent at {s.completionPercent}% built
+          </div>
+          <div className="mt-0.5 text-xs text-text-dim">
+            {moneyShort(s.totalCost)} spent against {moneyShort(s.estimatedCost * s.completionPercent / 100)} expected by this stage.
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

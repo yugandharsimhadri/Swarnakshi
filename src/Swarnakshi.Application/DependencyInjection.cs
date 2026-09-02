@@ -44,6 +44,7 @@ public static class DependencyInjection
 
         // P2 — expenses, labour, contractors
         services.AddScoped<IProjectExpenseService, ProjectExpenseService>();
+        services.AddScoped<Expenses.ISiteExpenseService, Expenses.SiteExpenseService>();
         services.AddScoped<ILabourService, LabourService>();
         services.AddScoped<IContractWorkService, ContractWorkService>();
         services.AddScoped<IContractorPaymentService, ContractorPaymentService>();

@@ -37,6 +37,32 @@ public class ExpensesController(IProjectExpenseService expenses) : ControllerBas
 
 public record CancelBody(string Reason);
 
+/// <summary>
+/// Costs that belong to a site rather than to one villa — the watchman, temporary power, the site
+/// office. Kept apart from project expenses so a villa's cost stays exactly what was spent on it.
+/// </summary>
+[ApiController]
+[Route("api/site-expenses")]
+[Authorize]
+[TenantOnly]
+public class SiteExpensesController(ISiteExpenseService expenses) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? siteId,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
+        => this.Envelope(await expenses.ListAsync(paging, siteId, from, to, ct));
+
+    [HttpPost]
+    [RequiresPermission(Permissions.ExpenseCreate)]
+    public async Task<IActionResult> Create(SaveSiteExpenseRequest req, CancellationToken ct)
+        => this.EnvelopeCreated(await expenses.CreateAsync(req, ct));
+
+    [HttpPost("{id:guid}/cancel")]
+    [RequiresPermission(Permissions.ExpenseCreate)]
+    public async Task<IActionResult> Cancel(Guid id, [FromBody] CancelBody body, CancellationToken ct)
+        => this.Envelope(await expenses.CancelAsync(id, body.Reason, ct));
+}
+
 [ApiController]
 [Route("api/labour")]
 [Authorize]

@@ -57,12 +57,22 @@ export default function Projects() {
                       </div>
                       <div className="truncate text-xs text-text-dim">{p.siteName}</div>
                     </div>
-                    <div className="shrink-0 text-right text-xs text-text-dim">{moneyShort(p.estimatedCost)}</div>
+                    <div className="shrink-0 text-right text-xs">
+                      <div className="text-text-dim">{moneyShort(p.spentCost)}</div>
+                      <div className="text-text-dim/70">of {moneyShort(p.estimatedCost)}</div>
+                    </div>
                   </div>
                   {/* Only for work that has actually begun: a bar reading 0% on every planned villa
                       is noise, and a completed one is already said by its chip. */}
                   {(p.status === 1 || p.status === 2) && (
                     <div className="mt-3"><ProgressBar percent={p.completionPercent} /></div>
+                  )}
+                  {/* The one thing worth seeing without opening the villa: money going out faster
+                      than work is going up. */}
+                  {p.burnPercent != null && p.burnPercent > 100 && (
+                    <div className={`mt-2 text-xs font-semibold ${p.burnPercent > 110 ? "text-danger" : "text-warn"}`}>
+                      {p.burnPercent}% of budget spent at {p.completionPercent}% built
+                    </div>
                   )}
                 </Card>
               </Link>

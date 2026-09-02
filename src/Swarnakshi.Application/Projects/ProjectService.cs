@@ -7,10 +7,16 @@ using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Application.Projects;
 
+/// <summary>
+/// <para><see cref="SpentCost"/> and <see cref="BurnPercent"/> are filled after projection — see
+/// <see cref="ProjectService.WithSpendAsync"/>. They are on the list row because the owner scans
+/// the villa list, not ten villa screens, and a villa running hot has to be visible from there.</para>
+/// </summary>
 public record ProjectDto(Guid Id, string Code, string Name, string? VillaNumber, Guid SiteId, string SiteName,
     Guid? CustomerId, string? CustomerName, Guid? ProjectTypeId, DateOnly? StartDate,
     DateOnly? ExpectedCompletionDate, decimal EstimatedCost, decimal? ContractSaleValue,
-    ProjectStatus Status, int CompletionPercent, string? Notes);
+    ProjectStatus Status, int CompletionPercent, string? Notes,
+    decimal SpentCost = 0m, decimal? BurnPercent = null);
 
 /// <summary>
 /// How the book of work is spread across its stages, plus the average completion of what is under
@@ -21,11 +27,31 @@ public record ProjectProgressSummary(
     int Total, int NotStarted, int InProgress, int Completed, int OnHold, int Cancelled,
     int AverageCompletionOfInProgress);
 
+/// <summary>
+/// A villa's money, told honestly.
+///
+/// <para><see cref="Margin"/> used to be sale price minus cost so far, which on a half-built villa
+/// credits the whole sale value against half the cost and reports a profit nobody has earned.
+/// <see cref="EarnedRevenue"/> recognises the sale in proportion to how much has actually been
+/// built, and <see cref="EarnedMargin"/> is the number to trust. The contracted value stays on the
+/// record because it is the right figure for the sales pipeline — just not for profit.</para>
+///
+/// <para><see cref="BurnPercent"/> compares what has been spent with what the estimate says should
+/// have been spent by this stage. <see cref="BudgetVariance"/> alone shows a big positive on every
+/// unfinished villa, which reads as money saved when it is really a house that is not finished.</para>
+///
+/// <para><see cref="CommittedContractorCost"/> is money promised under open work orders and not yet
+/// paid. It is not in <see cref="TotalCost"/> — nothing has left the bank — but it is owed, so
+/// <see cref="CommittedTotalCost"/> is the figure that answers "what will finishing this cost".</para>
+/// </summary>
 public record ProjectFinancialSummary(
     Guid ProjectId, string Name, decimal EstimatedCost, decimal? ContractSaleValue,
     decimal MaterialCost, decimal LabourCost, decimal ContractorCost, decimal OtherCost,
     decimal TotalCost, decimal CustomerReceived, decimal CustomerOutstanding,
-    decimal BudgetVariance, decimal? Margin);
+    decimal BudgetVariance, decimal? Margin,
+    int CompletionPercent, decimal? EarnedRevenue, decimal? EarnedMargin,
+    decimal CommittedContractorCost, decimal CommittedTotalCost,
+    decimal? BurnPercent, bool DuesOnHandover);
 
 /// <summary>Code is optional — leave it null and one is minted. See <see cref="ICodeGenerator"/>.</summary>
 public record SaveProjectRequest(string? Code, string Name, string? VillaNumber, Guid SiteId,
@@ -75,12 +101,49 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         if (customerId is not null) q = q.Where(p => p.CustomerId == customerId);
         if (!string.IsNullOrWhiteSpace(page.Q))
             q = q.Where(p => p.Name.Contains(page.Q) || p.Code.Contains(page.Q) || (p.VillaNumber != null && p.VillaNumber.Contains(page.Q)));
-        return await q.OrderBy(p => p.Name).Select(Projection).ToPagedAsync(page, ct);
+        var paged = await q.OrderBy(p => p.Name).Select(Projection).ToPagedAsync(page, ct);
+        return new PagedResult<ProjectDto>
+        {
+            Items = await WithSpendAsync(paged.Items, ct),
+            Page = paged.Page, PageSize = paged.PageSize, Total = paged.Total,
+        };
     }
 
     public async Task<ProjectDto> GetAsync(Guid id, CancellationToken ct = default)
-        => await db.Projects.AsNoTracking().Where(p => p.Id == id).Select(Projection).FirstOrDefaultAsync(ct)
-           ?? throw new NotFoundException("Project", id);
+    {
+        var dto = await db.Projects.AsNoTracking().Where(p => p.Id == id).Select(Projection).FirstOrDefaultAsync(ct)
+                  ?? throw new NotFoundException("Project", id);
+        return (await WithSpendAsync([dto], ct))[0];
+    }
+
+    /// <summary>
+    /// Fills in spend and burn for a page of rows with one grouped query, rather than a correlated
+    /// subquery per row. Burn is spend against what the estimate says should have gone by this
+    /// stage; a villa with nothing built has no burn, because dividing by nothing built is not an
+    /// overrun.
+    /// </summary>
+    private async Task<IReadOnlyList<ProjectDto>> WithSpendAsync(IReadOnlyList<ProjectDto> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0) return rows;
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var costs = await db.ProjectExpenses.AsNoTracking()
+            .Where(e => ids.Contains(e.ProjectId) && e.Status == TransactionStatus.Posted)
+            .GroupBy(e => e.ProjectId)
+            .Select(g => new { ProjectId = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToDictionaryAsync(x => x.ProjectId, x => x.Total, ct);
+
+        return rows.Select(r =>
+        {
+            var spent = costs.GetValueOrDefault(r.Id, 0m);
+            var expected = Math.Round(r.EstimatedCost * r.CompletionPercent / 100m, 2);
+            return r with
+            {
+                SpentCost = spent,
+                BurnPercent = expected > 0 ? Math.Round(spent / expected * 100m, 0) : null,
+            };
+        }).ToList();
+    }
 
     public async Task<ProjectDto> CreateAsync(SaveProjectRequest req, CancellationToken ct = default)
     {
@@ -172,12 +235,26 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
             .Where(cp => cp.ProjectId == id && cp.Status == TransactionStatus.Posted)
             .SumAsync(cp => (decimal?)cp.Amount, ct) ?? 0m;
 
+        // Open work orders: promised, not yet paid, and therefore not in TotalCost.
+        var committed = await db.ContractWorks.AsNoTracking()
+            .Where(w => w.ProjectId == id && w.WorkStatus != ContractWorkStatus.Cancelled)
+            .SumAsync(w => (decimal?)w.Balance, ct) ?? 0m;
+
         var total = material + labour + contractor + other;
         var sale = p.ContractSaleValue;
+        var earned = sale.HasValue ? Math.Round(sale.Value * p.CompletionPercent / 100m, 2) : (decimal?)null;
+        var expectedByNow = Math.Round(p.EstimatedCost * p.CompletionPercent / 100m, 2);
+        // Nothing built yet means nothing to compare against — an unstarted villa is not "over budget".
+        var burn = expectedByNow > 0 ? Math.Round(total / expectedByNow * 100m, 0) : (decimal?)null;
+        var outstanding = (sale ?? 0m) - received;
+
         return new ProjectFinancialSummary(p.Id, p.Name, p.EstimatedCost, sale,
             material, labour, contractor, other, total,
-            received, (sale ?? 0m) - received,
-            p.EstimatedCost - total, sale.HasValue ? sale - total : null);
+            received, outstanding,
+            p.EstimatedCost - total, sale.HasValue ? sale - total : null,
+            p.CompletionPercent, earned, earned.HasValue ? earned.Value - total : null,
+            committed, total + committed, burn,
+            p.Status == ProjectStatus.Completed && outstanding > 0);
     }
 
     private async Task EnsureRefsAsync(SaveProjectRequest req, CancellationToken ct)

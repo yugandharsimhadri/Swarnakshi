@@ -99,6 +99,9 @@ export interface Project {
   status: number;
   completionPercent: number;
   notes?: string | null;
+  spentCost: number;
+  /** Spend against what the estimate says should have gone by this stage. Null if nothing is built. */
+  burnPercent?: number | null;
 }
 
 /** Counts by stage across the book of work. Cancelled is reported apart from the buckets. */
@@ -125,7 +128,21 @@ export interface ProjectSummary {
   customerReceived: number;
   customerOutstanding: number;
   budgetVariance: number;
+  /** Sale value minus cost. Misleading on a part-built villa — prefer earnedMargin. */
   margin?: number | null;
+
+  completionPercent: number;
+  /** Sale value in proportion to how much has actually been built. */
+  earnedRevenue?: number | null;
+  /** earnedRevenue − totalCost. The profit figure to trust. */
+  earnedMargin?: number | null;
+  /** Promised under open work orders, not yet paid, so not in totalCost. */
+  committedContractorCost: number;
+  /** totalCost + committedContractorCost — what finishing this will have cost. */
+  committedTotalCost: number;
+  /** Spend as a percentage of what the estimate says should have been spent by now. */
+  burnPercent?: number | null;
+  duesOnHandover: boolean;
 }
 
 export type SpecFieldKind = 1 | 2 | 3; // Text, Number, Select

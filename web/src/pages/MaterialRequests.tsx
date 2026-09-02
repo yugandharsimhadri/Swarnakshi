@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
 import { num, dateStr } from "@/lib/format";
-import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, SkeletonList, Spinner } from "@/components/ui";
+import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { MatReqStatusName, type Material, type MaterialRequest, type Paged, type Project } from "@/lib/types";
 
@@ -200,19 +200,59 @@ export function MaterialRequestDetail() {
 
       <div className="pt-2"><AttachmentPanel entityType="MaterialRequest" entityId={data.id} canEdit={canIssue} /></div>
 
+      <IssueSheet
+        open={pendingAct === "issue"}
+        defaultDate={data.date.slice(0, 10)}
+        busy={busy}
+        onClose={() => setPendingAct(null)}
+        onIssue={(date) => act("issue", { items: null, date })}
+      />
+
       <Confirm
-        open={pendingAct !== null}
-        title={pendingAct === "issue" ? "Issue material from stock?" : "Cancel this request?"}
-        body={
-          pendingAct === "issue"
-            ? "Stock leaves the site inventory now and is booked as project consumption at the current weighted-average rate."
-            : "The request will be cancelled and cannot be reopened."
-        }
-        confirmLabel={pendingAct === "issue" ? "Issue" : "Cancel request"}
-        danger={pendingAct === "cancel"}
-        onConfirm={() => act(pendingAct === "issue" ? "issue" : "cancel", pendingAct === "issue" ? { items: null } : undefined)}
+        open={pendingAct === "cancel"}
+        title="Cancel this request?"
+        body="The request will be cancelled and cannot be reopened."
+        confirmLabel="Cancel request"
+        danger
+        onConfirm={() => act("cancel")}
         onCancel={() => setPendingAct(null)}
       />
     </div>
+  );
+}
+
+/**
+ * Issuing asks for a date, because the store and the office are rarely in step. A supervisor types
+ * up Tuesday's issue on Saturday; without a date the cost lands on Saturday, and material issued on
+ * the 31st but entered on the 2nd falls into the wrong month. Defaults to the request's own date,
+ * which is right far more often than "today" is.
+ */
+function IssueSheet({ open, defaultDate, busy, onClose, onIssue }: {
+  open: boolean;
+  defaultDate: string;
+  busy: boolean;
+  onClose: () => void;
+  onIssue: (date: string) => void;
+}) {
+  const [date, setDate] = useState(defaultDate);
+  useEffect(() => { if (open) setDate(defaultDate); }, [open, defaultDate]);
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Issue material from stock">
+      <div className="space-y-3">
+        <p className="text-sm text-text-dim">
+          Stock leaves the site inventory and is booked to the villa at the current weighted-average rate.
+        </p>
+        <Field label="Date the material left the store">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <div className="flex gap-2">
+          <Button variant="ghost" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button className="flex-1" onClick={() => onIssue(date)} disabled={busy || !date}>
+            {busy ? "Issuing…" : "Issue"}
+          </Button>
+        </div>
+      </div>
+    </Sheet>
   );
 }

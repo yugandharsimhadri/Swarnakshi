@@ -1147,3 +1147,53 @@ while stock is valued at the ₹51.49L landed total. They reconcile exactly. `co
 on hand ₹16.14L = ₹51.49L purchased` holds to the rupee.
 
 ---
+
+## 2026-09-03 — The six findings, fixed
+
+Everything the seeded book of work exposed, in the order it was worth doing.
+
+**Earned revenue.** `ProjectFinancialSummary` gained `EarnedRevenue`, `EarnedMargin` and
+`CompletionPercent`. Revenue is recognised in proportion to how much of the villa is actually
+built, so a villa at 50% carries half its sale value instead of all of it. Villa 104 reported
+₹49.38L of profit on ₹8.62L of spend; it now reports ₹20.38L. Across the seeded book that is
+₹1.05Cr of imaginary profit removed. `Margin` is still on the record — some callers want the
+contracted figure — but the screens read `EarnedMargin`.
+
+**Burn rate.** `BurnPercent` is spend over what the estimate says should have gone by this stage.
+It is on the villa screen, on the villa list row, and in its own report, with a chip over 100% and a
+red one over 110%. Villa 201 — 109% spent at 10% built — was invisible before and is now the first
+thing on its screen. Estimate-minus-actual is still there but demoted: on an unfinished villa it
+shows a large positive that reads as money saved.
+
+**Issue dates.** `IssueRequest` gained a `Date`, threaded through to both the stock ledger and the
+cost writer, defaulting to the request's own date rather than `clock.Today`. Verified on a fresh
+tenant: 54 material cost rows, 0 dated today, each matching the day the material left the store. The
+old tenant's rows still carry the wrong date — **existing installations need a one-off backfill from
+each row's source transaction.**
+
+**Dues on handover.** `DuesOnHandover` on the summary, a red banner on the villa, a flag column in
+the report. Villa 103 is complete with ₹14.75L owed and now says so.
+
+**Committed contractor cost.** `CommittedContractorCost` and `CommittedTotalCost` on the summary —
+the unpaid balance of open work orders. Not in `TotalCost`, because nothing has left the bank, but
+shown next to it: "spent ₹4.27L · + ₹4.06L committed". A `Contractor Commitment` report lists it by
+work order.
+
+**Site-level costs.** New `SiteExpense` entity, deliberately a separate table rather than a nullable
+`ProjectId` on `ProjectExpense`. The invariant that a project's cost is exactly the sum of its
+ProjectExpense rows is what stops material being double counted; loosening it to allow orphan rows
+would risk that for the sake of a different kind of cost. Site overhead appears in Site Summary and
+Company Summary and stays out of every villa's cost — dumping the watchman on Villa 104 would make
+one villa look expensive and its neighbours cheap.
+
+**Five new reports**, all with the colour treatment that makes a flag read as a flag: Villa Profit &
+Loss, Budget vs Progress, Site Summary, Contractor Commitment, Supplier Outstanding. The Reports hub
+is regrouped into Profit / Money / Inventory.
+
+**Still open.** No screen for the approval settings — `purchase.needs_approval` can only be changed
+in the database. Employee payments can be charged to a project but nothing prompts for it, and they
+cannot yet be charged to a site; the `SiteExpense` bucket they would write into now exists.
+
+222 tests pass, 12 of them new in `ProfitReportingTests`.
+
+---

@@ -17,7 +17,16 @@ public record SaveMaterialRequestRequest(Guid ProjectId, MaterialRequestType Req
     string? Notes, List<MaterialRequestItemInput> Items);
 
 public record IssueItemInput(Guid ItemId, decimal Quantity);
-public record IssueRequest(List<IssueItemInput>? Items);
+
+/// <summary>
+/// Items to issue, and when it happened.
+///
+/// <para><see cref="Date"/> matters more than it looks. Site activity is typed up in the evening or
+/// on a Saturday, and without a date the cost lands on the day it was typed rather than the day the
+/// material left the store. Material issued on 31 March and entered on 2 April then falls in April,
+/// which quietly breaks month-end. Left null it falls back to the request's own date.</para>
+/// </summary>
+public record IssueRequest(List<IssueItemInput>? Items, DateOnly? Date = null);
 
 public record MaterialRequestItemDto(Guid Id, Guid MaterialId, string MaterialName, string UnitCode,
     decimal RequestedQty, decimal? ApprovedQty, decimal IssuedQty, Guid? ExpenseHeadId, Guid? ExpenseSubheadId);
@@ -38,10 +47,15 @@ public class SaveMaterialRequestValidator : AbstractValidator<SaveMaterialReques
 
 // ---- Issuer (shared) --------------------------------------------------
 public class MaterialRequestIssuer(
-    IAppDbContext db, IInventoryLedger ledger, IProjectCostWriter costWriter, IDateTimeProvider clock)
+    IAppDbContext db, IInventoryLedger ledger, IProjectCostWriter costWriter)
 {
-    /// <summary>Moves approved stock to the project, records consumption + project material cost.</summary>
-    public async Task IssueAsync(Guid requestId, Guid actorId, IReadOnlyDictionary<Guid, decimal>? overrides, CancellationToken ct)
+    /// <summary>
+    /// Moves approved stock to the project, records consumption + project material cost.
+    /// <paramref name="on"/> is the day the material actually left the store; null falls back to the
+    /// request's own date, never to "now".
+    /// </summary>
+    public async Task IssueAsync(Guid requestId, Guid actorId, IReadOnlyDictionary<Guid, decimal>? overrides,
+        DateOnly? on, CancellationToken ct)
     {
         var req = await db.MaterialRequests.Include(r => r.Items)
             .FirstOrDefaultAsync(r => r.Id == requestId, ct)
@@ -49,6 +63,10 @@ public class MaterialRequestIssuer(
 
         if (req.RequestStatus is not (MaterialRequestStatus.Approved or MaterialRequestStatus.PartiallyIssued))
             throw new AppException($"Request {req.TxnNumber} is {req.RequestStatus}; it must be approved before issue.", 409);
+
+        // The ledger entry and the cost row must carry the same date, and it must be the date the
+        // material moved — not the date somebody got round to typing it in.
+        var issuedOn = on ?? req.Date;
 
         var anyIssued = false;
         var anyPending = false;
@@ -65,7 +83,7 @@ public class MaterialRequestIssuer(
             if (toIssue <= 0) { anyPending = true; continue; }
 
             var (txn, rate) = await ledger.IssueAsync(req.SiteId, item.MaterialId, item.UnitId, toIssue,
-                InventoryTransactionType.ProjectConsumption, clock.Today, ApprovalEntityTypes.MaterialRequest,
+                InventoryTransactionType.ProjectConsumption, issuedOn, ApprovalEntityTypes.MaterialRequest,
                 req.Id, req.TxnNumber, req.ProjectId, null, actorId, ct);
 
             item.IssuedQty += toIssue;
@@ -73,7 +91,7 @@ public class MaterialRequestIssuer(
             anyIssued = true;
             if (item.IssuedQty < approved) anyPending = true;
 
-            await costWriter.WriteMaterialCostAsync(req.ProjectId, Math.Round(toIssue * rate, 2), clock.Today,
+            await costWriter.WriteMaterialCostAsync(req.ProjectId, Math.Round(toIssue * rate, 2), issuedOn,
                 item.ExpenseHeadId, item.ExpenseSubheadId, "InventoryTransaction", txn.Id,
                 $"Consumption: {req.TxnNumber}", ct);
         }
@@ -164,7 +182,7 @@ public class MaterialRequestService(
     {
         var overrides = req.Items?.ToDictionary(x => x.ItemId, x => x.Quantity);
         await using var txn = await db.Database.BeginTransactionAsync(ct);
-        await issuer.IssueAsync(id, currentUser.UserId!.Value, overrides, ct);
+        await issuer.IssueAsync(id, currentUser.UserId!.Value, overrides, req.Date, ct);
         await txn.CommitAsync(ct);
         return await GetAsync(id, ct);
     }

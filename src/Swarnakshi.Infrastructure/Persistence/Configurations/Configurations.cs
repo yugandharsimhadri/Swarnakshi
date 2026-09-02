@@ -185,7 +185,7 @@ public class InventoryTransactionConfig : IEntityTypeConfiguration<InventoryTran
 
 public class TxnNumberConfigs :
     IEntityTypeConfiguration<PurchaseHeader>, IEntityTypeConfiguration<MaterialRequest>,
-    IEntityTypeConfiguration<ProjectExpense>, IEntityTypeConfiguration<LabourEntry>,
+    IEntityTypeConfiguration<ProjectExpense>, IEntityTypeConfiguration<SiteExpense>, IEntityTypeConfiguration<LabourEntry>,
     IEntityTypeConfiguration<ContractorPayment>, IEntityTypeConfiguration<CustomerPayment>
 {
     public void Configure(EntityTypeBuilder<PurchaseHeader> e)
@@ -214,6 +214,15 @@ public class TxnNumberConfigs :
         e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Head).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Subhead).WithMany().HasForeignKey(x => x.ExpenseSubheadId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.PaymentMethod).WithMany().HasForeignKey(x => x.PaymentMethodId).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    public void Configure(EntityTypeBuilder<SiteExpense> e)
+    {
+        e.HasIndex(x => new { x.CompanyId, x.TxnNumber }).IsUnique();
+        e.HasIndex(x => new { x.SiteId, x.Date });
+        e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.Head).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.PaymentMethod).WithMany().HasForeignKey(x => x.PaymentMethodId).OnDelete(DeleteBehavior.Restrict);
     }
 

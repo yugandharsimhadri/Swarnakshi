@@ -60,6 +60,26 @@ public class ReportsController(IReportsService reports) : ControllerBase
     public Task<IActionResult> CompanySummary([FromQuery] string? format, CancellationToken ct)
         => Result(reports.CompanySummaryAsync(ct), format);
 
+    [HttpGet("project/profitability")]
+    public Task<IActionResult> VillaProfitability([FromQuery] string? format, CancellationToken ct)
+        => Result(reports.VillaProfitabilityAsync(ct), format);
+
+    [HttpGet("project/budget-burn")]
+    public Task<IActionResult> BudgetBurn([FromQuery] string? format, CancellationToken ct)
+        => Result(reports.BudgetBurnAsync(ct), format);
+
+    [HttpGet("site/summary")]
+    public Task<IActionResult> SiteSummary([FromQuery] string? format, CancellationToken ct)
+        => Result(reports.SiteSummaryAsync(ct), format);
+
+    [HttpGet("contractor/commitment")]
+    public Task<IActionResult> ContractorCommitment([FromQuery] string? format, CancellationToken ct)
+        => Result(reports.ContractorCommitmentAsync(ct), format);
+
+    [HttpGet("supplier/outstanding")]
+    public Task<IActionResult> SupplierOutstanding([FromQuery] string? format, CancellationToken ct)
+        => Result(reports.SupplierOutstandingAsync(ct), format);
+
     private async Task<IActionResult> Result(Task<ReportTable> task, string? format)
     {
         var table = await task;
