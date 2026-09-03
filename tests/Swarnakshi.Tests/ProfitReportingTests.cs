@@ -55,7 +55,7 @@ public class ProfitReportingTests
     {
         var purchases = sp.GetRequiredService<IPurchaseService>();
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
+            f.SupplierId, null, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Cement.Id, f.Cement.UnitId, 1, amount, 0, 0, projectId)]));
         await sp.SubmitAndApproveAsync(created.Id);
     }
@@ -236,7 +236,7 @@ public class ProfitReportingTests
         // …and a lot that stayed in the store.
         var purchases = sp.GetRequiredService<IPurchaseService>();
         var stockBuy = await purchases.CreateAsync(new SavePurchaseRequest(
-            f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
+            f.SupplierId, null, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Cement.Id, f.Cement.UnitId, 500, 400, 0, 0)]));
         await sp.SubmitAndApproveAsync(stockBuy.Id);
 

@@ -166,7 +166,7 @@ public class ExpenseAndApprovalTests
         var material = await db.Materials.Include(m => m.Unit).FirstAsync(m => m.Code == "MAT-CEM-OPC");
 
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
-            supplier.Id, site.Id, null, null, null, Today, 0, null,
+            supplier.Id, null, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 100, 400, 0, 0)]));
         await sp.SubmitAndApproveAsync(pur.Id);
 
@@ -204,7 +204,7 @@ public class ExpenseAndApprovalTests
         var material = await db.Materials.FirstAsync(m => m.Code == "MAT-CEM-OPC");
 
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
-            supplier.Id, site.Id, null, null, null, Today, 0, null,
+            supplier.Id, null, site.Id, null, null, null, Today, 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, 50, 400, 0, 0)]));
         await sp.SubmitAndApproveAsync(pur.Id);
 

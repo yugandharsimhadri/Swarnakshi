@@ -4,6 +4,28 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — Type the supplier on a purchase, do not set one up first
+
+Recording a delivery no longer starts with a trip to the supplier master. The supplier field on
+the purchase form is now a text box with an autocomplete list of existing names. Type an existing
+one and it is matched case-insensitively; type anything else and a bare supplier — just the name
+and an auto `SUP-` code — is created as the purchase is saved. GSTIN, bank details and the rest
+can be filled in later on the new **More → Suppliers** screen.
+
+- `SavePurchaseRequest.SupplierId` is now `Guid?`, joined by `string? SupplierName`; the validator
+  requires one of them. `PurchaseService.ResolveSupplierAsync` does id → existing-by-name → create
+  and pulls in `ICodeGenerator`.
+- Creating the supplier this way happens inside `purchase.create`, so a Supervisor can name a new
+  supplier without `masters.manage`. A supplier is a name; blocking the purchase over it is worse.
+- The frontend resolves the typed name against its loaded list, sending `supplierId` on a match and
+  `supplierName` otherwise, with a "New supplier — …will be added" hint while typing.
+- New `Suppliers.tsx` reuses `PartyMaster`; route `/suppliers`, linked from More — it was
+  previously reachable only by URL.
+
+7 test files updated for the record's new shape, 4 new in `TypeableSupplierTests`. 244 pass.
+
+---
+
 ## 2026-09-03 — A Supervisor no longer sees the company dashboard or the reports
 
 A site Supervisor runs a site — raise requests, record purchases, keep projects moving. The

@@ -57,7 +57,9 @@ export function NewPurchase() {
   const forProjectId = params.get("projectId") ?? "";
 
   const [siteId, setSiteId] = useState("");
-  const [supplierId, setSupplierId] = useState("");
+  // Typed, not picked: the name resolves on save — an exact (case-insensitive) match reuses that
+  // supplier, anything else is created. A builder logging a delivery shouldn't stop to add a master.
+  const [supplierName, setSupplierName] = useState("");
   const [invoiceNumber, setInvoice] = useState("");
   const [remarks, setRemarks] = useState("");
   const [rows, setRows] = useState<{ materialId: string; qty: string; rate: string; deliverTo: string }[]>(
@@ -93,11 +95,15 @@ export function NewPurchase() {
             deliverToProjectId: r.deliverTo || null,
           };
         });
-      if (!siteId || !supplierId || items.length === 0) throw { message: "Site, supplier and at least one line are required.", errors: [], status: 400 };
+      const typed = supplierName.trim();
+      if (!siteId || !typed || items.length === 0) throw { message: "Site, supplier and at least one line are required.", errors: [], status: 400 };
+      const matched = suppliers?.items.find((x) => x.name.toLowerCase() === typed.toLowerCase());
       const created = await api<Purchase>("/purchases", {
         method: "POST",
         body: {
-          supplierId, siteId, invoiceNumber: invoiceNumber || null,
+          supplierId: matched?.id ?? null,
+          supplierName: matched ? null : typed,
+          siteId, invoiceNumber: invoiceNumber || null,
           date: new Date().toISOString().slice(0, 10), otherCharges: 0,
           remarks: remarks.trim() || null, items,
         },
@@ -125,10 +131,19 @@ export function NewPurchase() {
         </Select>
       </Field>
       <Field label="Supplier">
-        <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-          <option value="">Select…</option>
-          {suppliers?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </Select>
+        <Input
+          list="supplier-names"
+          value={supplierName}
+          onChange={(e) => setSupplierName(e.target.value)}
+          placeholder="Type a name — new or existing"
+          autoCapitalize="words"
+        />
+        <datalist id="supplier-names">
+          {suppliers?.items.map((sup) => <option key={sup.id} value={sup.name} />)}
+        </datalist>
+        {supplierName.trim() && !suppliers?.items.some((x) => x.name.toLowerCase() === supplierName.trim().toLowerCase()) && (
+          <span className="mt-1 block text-xs text-text-dim">New supplier — &ldquo;{supplierName.trim()}&rdquo; will be added.</span>
+        )}
       </Field>
       <Field label="Invoice no. (optional)"><Input value={invoiceNumber} onChange={(e) => setInvoice(e.target.value)} /></Field>
       <Field label="Remarks"><Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Vehicle number, who received it…" /></Field>

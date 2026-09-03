@@ -5,7 +5,7 @@ import { useTheme } from "@/store/theme";
 import { RoleName } from "@/lib/types";
 import { Button, Card, PageHeader } from "@/components/ui";
 import {
-  IconAccess, IconChevron, IconContractor, IconCustomer, IconEmployees, IconMaterials,
+  IconAccess, IconChevron, IconContractor, IconCustomer, IconEmployees, IconMaterials, IconPurchase,
   IconMoon, IconReports, IconSite, IconSun,
 } from "@/components/icons";
 
@@ -27,6 +27,7 @@ export default function More() {
     ["/sites", IconSite, "Sites", true],
     ["/materials", IconMaterials, "Materials", true],
     ["/contractors", IconContractor, "Contractors", true],
+    ["/suppliers", IconPurchase, "Suppliers", true],
     ["/customers", IconCustomer, "Customers", true],
     ["/employees", IconEmployees, "Employees", true],
     ["/users", IconAccess, "Users & access", canManageUsers],

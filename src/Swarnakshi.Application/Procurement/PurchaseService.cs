@@ -14,8 +14,14 @@ namespace Swarnakshi.Application.Procurement;
 public record PurchaseItemInput(Guid MaterialId, Guid UnitId, decimal Quantity, decimal Rate,
     decimal Discount, decimal TaxAmount, Guid? DeliverToProjectId = null, Guid? ExpenseHeadId = null);
 
-public record SavePurchaseRequest(Guid SupplierId, Guid SiteId, Guid? ProjectId, string? InvoiceNumber,
-    DateOnly? InvoiceDate, DateOnly Date, decimal OtherCharges, string? Remarks, List<PurchaseItemInput> Items);
+/// <summary>
+/// The supplier is given as an id when picked from the list, or as a name when typed. A name that
+/// matches nothing becomes a new supplier there and then — a builder recording a delivery should
+/// not have to stop and set up a master first.
+/// </summary>
+public record SavePurchaseRequest(Guid? SupplierId, string? SupplierName, Guid SiteId, Guid? ProjectId,
+    string? InvoiceNumber, DateOnly? InvoiceDate, DateOnly Date, decimal OtherCharges, string? Remarks,
+    List<PurchaseItemInput> Items);
 
 public record SupplierPaymentInput(decimal Amount, DateOnly Date, Guid? PaymentMethodId, string? Reference);
 
@@ -32,7 +38,10 @@ public class SavePurchaseValidator : AbstractValidator<SavePurchaseRequest>
 {
     public SavePurchaseValidator()
     {
-        RuleFor(x => x.SupplierId).NotEmpty();
+        RuleFor(x => x)
+            .Must(x => x.SupplierId.HasValue || !string.IsNullOrWhiteSpace(x.SupplierName))
+            .WithMessage("Choose a supplier or type a new one.");
+        RuleFor(x => x.SupplierName).MaximumLength(200);
         RuleFor(x => x.SiteId).NotEmpty();
         RuleFor(x => x.Items).NotEmpty();
         RuleForEach(x => x.Items).ChildRules(i =>
@@ -125,6 +134,7 @@ public class PurchaseService(
     IApprovalService approvals,
     PurchasePoster poster,
     ITransactionSequenceService sequences,
+    ICodeGenerator codes,
     IValidator<SavePurchaseRequest> validator) : IPurchaseService
 {
     public async Task<PagedResult<PurchaseDto>> ListAsync(PageQuery page, Guid? siteId, TransactionStatus? status, CancellationToken ct = default)
@@ -138,6 +148,38 @@ public class PurchaseService(
             .Select(Projection).ToPagedAsync(page, ct);
     }
 
+    /// <summary>
+    /// Turns whatever the form sent into a real supplier id: the id if one was picked, an existing
+    /// supplier if the typed name matches one (case-insensitively), otherwise a fresh minimal
+    /// supplier — just the name and an auto code. Details like GSTIN can be filled in later.
+    /// </summary>
+    private async Task<Guid> ResolveSupplierAsync(SavePurchaseRequest req, CancellationToken ct)
+    {
+        if (req.SupplierId is { } id)
+        {
+            if (!await db.Suppliers.AnyAsync(s => s.Id == id && s.IsActive, ct))
+                throw new AppException("Supplier not found or inactive.", 400);
+            return id;
+        }
+
+        var name = req.SupplierName!.Trim();
+        var existing = await db.Suppliers
+            .Where(s => s.IsActive && s.Name.ToLower() == name.ToLower())
+            .Select(s => (Guid?)s.Id)
+            .FirstOrDefaultAsync(ct);
+        if (existing is { } match) return match;
+
+        var supplier = new Supplier
+        {
+            Code = await codes.NextAsync(CodePrefixes.Supplier, ct),
+            Name = name,
+            IsActive = true,
+        };
+        db.Suppliers.Add(supplier);
+        await db.SaveChangesAsync(ct);
+        return supplier.Id;
+    }
+
     public async Task<PurchaseDto> GetAsync(Guid id, CancellationToken ct = default)
         => await db.PurchaseHeaders.AsNoTracking().Where(p => p.Id == id).Select(Projection).FirstOrDefaultAsync(ct)
            ?? throw new NotFoundException("Purchase", id);
@@ -145,8 +187,7 @@ public class PurchaseService(
     public async Task<PurchaseDto> CreateAsync(SavePurchaseRequest req, CancellationToken ct = default)
     {
         await validator.ValidateAndThrowAsync(req, ct);
-        if (!await db.Suppliers.AnyAsync(s => s.Id == req.SupplierId && s.IsActive, ct))
-            throw new AppException("Supplier not found or inactive.", 400);
+        var supplierId = await ResolveSupplierAsync(req, ct);
         if (!await db.Sites.AnyAsync(s => s.Id == req.SiteId, ct))
             throw new NotFoundException("Site", req.SiteId);
 
@@ -169,7 +210,7 @@ public class PurchaseService(
         var header = new PurchaseHeader
         {
             TxnNumber = await sequences.NextAsync("PUR", ct),
-            SupplierId = req.SupplierId, SiteId = req.SiteId, ProjectId = req.ProjectId,
+            SupplierId = supplierId, SiteId = req.SiteId, ProjectId = req.ProjectId,
             InvoiceNumber = req.InvoiceNumber, InvoiceDate = req.InvoiceDate, Date = req.Date,
             OtherCharges = req.OtherCharges, Remarks = req.Remarks, Status = TransactionStatus.Draft
         };

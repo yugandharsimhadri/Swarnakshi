@@ -47,7 +47,7 @@ public class DirectToProjectPurchaseTests
     {
         var purchases = sp.GetRequiredService<IPurchaseService>();
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
+            f.SupplierId, null, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Material.Id, f.Material.UnitId, qty, rate, 0, 0, deliverTo)]));
         return await sp.SubmitAndApproveAsync(created.Id);
     }
@@ -143,7 +143,7 @@ public class DirectToProjectPurchaseTests
 
         // Entered as one delivery: cement earmarked for the villa, steel into the common pool.
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            f.SupplierId, f.SiteId, null, "INV-77", null, Today, 0, null,
+            f.SupplierId, null, f.SiteId, null, "INV-77", null, Today, 0, null,
             [
                 new PurchaseItemInput(f.Material.Id, f.Material.UnitId, 100, 450, 0, 0, f.ProjectId),
                 new PurchaseItemInput(steel.Id, steel.UnitId, 500, 68, 0, 0, null),
@@ -172,7 +172,7 @@ public class DirectToProjectPurchaseTests
 
         // 100 × ₹400 = ₹40,000, less ₹1,000 discount, plus ₹2,000 tax → ₹41,000 landed.
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
+            f.SupplierId, null, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Material.Id, f.Material.UnitId, 100, 400, 1_000, 2_000, f.ProjectId)]));
         await sp.SubmitAndApproveAsync(created.Id);
 
@@ -196,7 +196,7 @@ public class DirectToProjectPurchaseTests
         var elsewhere = await projects.CreateAsync(new SaveProjectRequest("SR-1", "Villa 900", null, otherSite.Id, null, null, null, null, null, null, 100_000, null, ProjectStatus.Active, 0, null));
 
         var act = () => purchases.CreateAsync(new SavePurchaseRequest(
-            f.SupplierId, f.SiteId, null, null, null, Today, 0, null,
+            f.SupplierId, null, f.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(f.Material.Id, f.Material.UnitId, 10, 400, 0, 0, elsewhere.Id)]));
 
         // Inventory is site-level; this would otherwise issue from a store the project cannot draw on.

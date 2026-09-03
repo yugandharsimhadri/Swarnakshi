@@ -57,7 +57,7 @@ public class UseCaseWalkthroughTests
     {
         var purchases = sp.GetRequiredService<IPurchaseService>();
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            y.SupplierId, y.SiteId, null, "INV-1", null, Today, 0, remarks,
+            y.SupplierId, null, y.SiteId, null, "INV-1", null, Today, 0, remarks,
             [new PurchaseItemInput(y.Cement.Id, y.Cement.UnitId, qty, rate, 0, 0, deliverTo)]));
         return await sp.SubmitAndApproveAsync(created.Id);
     }
@@ -286,7 +286,7 @@ public class UseCaseWalkthroughTests
             .Value.Should().Be("true", "money leaving the company is the owner's decision by default");
 
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            y.SupplierId, y.SiteId, null, null, null, Today, 0, null,
+            y.SupplierId, null, y.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(y.Cement.Id, y.Cement.UnitId, 100, 400, 0, 0)]));
         var submitted = await purchases.SubmitAsync(created.Id);
 
@@ -395,7 +395,7 @@ public class UseCaseWalkthroughTests
 
         // No invoice number, no date juggling, no tax, no remarks — the shortest honest entry.
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
-            y.SupplierId, y.SiteId, null, null, null, Today, 0, null,
+            y.SupplierId, null, y.SiteId, null, null, null, Today, 0, null,
             [new PurchaseItemInput(y.Cement.Id, y.Cement.UnitId, 100, 400, 0, 0)]));
 
         created.TotalAmount.Should().Be(40_000);

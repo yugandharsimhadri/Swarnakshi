@@ -84,7 +84,7 @@ deactivation with stock.
 ## Procurement
 | Method | Route |
 |--------|-------|
-| GET/POST | `/api/purchases`, `/api/purchases/{id}` |
+| GET/POST | `/api/purchases`, `/api/purchases/{id}` — POST takes `supplierId` OR `supplierName`; a typed name matching nothing creates a bare supplier |
 | POST | `/api/purchases/{id}/submit` , `/api/purchases/{id}/post` |
 | POST | `/api/purchases/{id}/payments` — record supplier payment |
 | GET/POST | `/api/material-requests`, `/api/material-requests/{id}` |

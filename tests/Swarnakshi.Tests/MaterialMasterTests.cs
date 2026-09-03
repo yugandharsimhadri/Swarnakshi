@@ -478,7 +478,7 @@ public class MaterialMasterTests
         var material = await db.Materials.FirstAsync(m => m.Code == "MAT-CEM-OPC");
         var purchases = sp.GetRequiredService<IPurchaseService>();
         var pur = await purchases.CreateAsync(new SavePurchaseRequest(
-            supplier.Id, site.Id, null, null, null, DateOnly.FromDateTime(DateTime.UtcNow), 0, null,
+            supplier.Id, null, site.Id, null, null, null, DateOnly.FromDateTime(DateTime.UtcNow), 0, null,
             [new PurchaseItemInput(material.Id, material.UnitId, qty, rate, 0, 0)]));
         await sp.SubmitAndApproveAsync(pur.Id);
 

@@ -15,6 +15,7 @@ import { MaterialRequestList, NewMaterialRequest, MaterialRequestDetail } from "
 import { PurchaseList, NewPurchase, PurchaseDetail } from "@/pages/Purchases";
 import Approvals from "@/pages/Approvals";
 import Contractors from "@/pages/Contractors";
+import Suppliers from "@/pages/Suppliers";
 import Customers from "@/pages/Customers";
 import { ReportsHub, ReportView } from "@/pages/Reports";
 import Users from "@/pages/Users";
@@ -72,6 +73,7 @@ export default function App() {
 
             <Route path="approvals" element={<Approvals />} />
             <Route path="contractors" element={<Contractors />} />
+            <Route path="suppliers" element={<Suppliers />} />
             <Route path="customers" element={<Customers />} />
             <Route path="reports" element={canReports ? <ReportsHub /> : <Navigate to="/" replace />} />
             <Route path="reports/:slug" element={canReports ? <ReportView /> : <Navigate to="/" replace />} />
