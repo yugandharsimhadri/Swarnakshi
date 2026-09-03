@@ -4,6 +4,26 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — Two dropdowns to pick a material, search kept as the alternative
+
+The picker led with a search box. Typing is fast for someone who knows the catalogue and useless
+for someone who does not — a storekeeper looking at a delivery note wants to be shown the options,
+not asked to guess a word.
+
+`MaterialPicker` now leads with **two dropdowns: material category, then material name**. Nine
+categories is a list read in a glance, and choosing one cuts the second list to what that trade
+buys — Civil & Structure is 14 of the seeded 40 rather than all of them. On a phone both open as
+the native wheel, so nothing has to be typed. "Search by name instead" swaps them for the old box
+for whoever prefers it, and "Pick from the lists instead" comes back.
+
+Picking still collapses to a settled row — name, category / type, unit, and a Change link — so the
+row stops asking a question once it has been answered. Purchases, material requests and Add stock
+all get this, the direct-to-villa purchase included.
+
+245 tests pass.
+
+---
+
 ## 2026-09-03 — A villa's material list says which trade each line belongs to
 
 The Material tab listed a name and a date. "Vitrified Tiles 600x600" tells you what arrived;
