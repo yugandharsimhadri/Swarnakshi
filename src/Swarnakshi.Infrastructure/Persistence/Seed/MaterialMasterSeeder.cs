@@ -111,6 +111,11 @@ public static class MaterialMasterSeeder
 
     public static async Task RunAsync(AppDbContext db, CancellationToken ct = default)
     {
+        // Before anything is created: move the rows that already exist under the old fifty-category
+        // shape. Doing this first is what keeps the seeder idempotent — otherwise the upsert below
+        // would not find them under their new parent and would make a second copy.
+        await FlattenTaxonomyAsync(db, ct);
+
         var subIndex = await UpsertTaxonomyAsync(db, ct);
         await RemapLegacyMaterialsAsync(db, subIndex, ct);
         await UpsertSpecDefinitionsAsync(db, subIndex, ct);
@@ -119,14 +124,74 @@ public static class MaterialMasterSeeder
         await RefreshMaterialIdentityAsync(db, ct);
     }
 
-    /// <summary>Creates or reactivates every approved category/subcategory. Existing rows keep their Id.</summary>
+    /// <summary>
+    /// Re-parents and renames subcategory rows from the old fifty-category shape into the nine the
+    /// app now shows. The row keeps its Id, so every Material, InventoryBalance,
+    /// InventoryTransaction, PurchaseItem and MaterialRequestItem pointing at it still resolves —
+    /// only its parent and its label change. Categories left with nothing under them are
+    /// deactivated, never deleted, so an old row that still names one renders.
+    /// </summary>
+    private static async Task FlattenTaxonomyAsync(AppDbContext db, CancellationToken ct)
+    {
+        var subs = await db.MaterialSubcategories.Include(s => s.Category).ToListAsync(ct);
+        var categories = await db.MaterialCategories.ToListAsync(ct);
+
+        // Nothing to move on a fresh database, or on one already flattened.
+        var toMove = subs
+            .Select(s => (Sub: s, Target: MaterialTaxonomy.Flatten.GetValueOrDefault($"{s.Category.Name}/{s.Name}")))
+            .Where(x => x.Target is not null)
+            .ToList();
+        if (toMove.Count == 0) return;
+
+        MaterialCategory CategoryNamed(string name)
+        {
+            var found = categories.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (found is not null) return found;
+            found = new MaterialCategory { Name = name, IsActive = true };
+            db.MaterialCategories.Add(found);
+            categories.Add(found);
+            return found;
+        }
+
+        // The nine have to exist (and have Ids) before anything is pointed at them.
+        foreach (var (catName, _) in MaterialTaxonomy.Tree) CategoryNamed(catName);
+        await db.SaveChangesAsync(ct);
+
+        foreach (var (sub, target) in toMove)
+        {
+            var slash = target!.IndexOf('/');
+            var newCat = CategoryNamed(target[..slash]);
+            var newName = target[(slash + 1)..];
+
+            // Two old subcategories can land on one name — "Fittings" under PVC and under GI. The
+            // rename map splits those, so a survivor here means the row is already where it belongs.
+            var clash = subs.FirstOrDefault(x => x.Id != sub.Id
+                && x.MaterialCategoryId == newCat.Id
+                && x.Name.Equals(newName, StringComparison.OrdinalIgnoreCase));
+            if (clash is not null) continue;
+
+            sub.MaterialCategoryId = newCat.Id;
+            sub.Name = newName;
+            sub.IsActive = true;
+        }
+        await db.SaveChangesAsync(ct);
+
+        // Anything that is not one of the nine and now holds nothing is retired.
+        var keep = MaterialTaxonomy.Tree.Select(t => t.Category).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var live = await db.MaterialSubcategories.Select(x => x.MaterialCategoryId).Distinct().ToListAsync(ct);
+        foreach (var c in categories.Where(c => !keep.Contains(c.Name) && !live.Contains(c.Id)))
+            c.IsActive = false;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Creates or reactivates every category/material type. Existing rows keep their Id.</summary>
     private static async Task<Dictionary<string, Guid>> UpsertTaxonomyAsync(AppDbContext db, CancellationToken ct)
     {
         var categories = await db.MaterialCategories.ToListAsync(ct);
         var subs = await db.MaterialSubcategories.ToListAsync(ct);
 
         var order = 1;
-        foreach (var (catName, subNames) in MaterialTaxonomy.Tree)
+        foreach (var (catName, typeNames) in MaterialTaxonomy.Tree)
         {
             var cat = categories.FirstOrDefault(c => c.Name.Equals(catName, StringComparison.OrdinalIgnoreCase));
             if (cat is null)
@@ -138,7 +203,7 @@ public static class MaterialMasterSeeder
             cat.SortOrder = order++;
             cat.IsActive = true;
 
-            foreach (var subName in subNames)
+            foreach (var subName in typeNames)
             {
                 var sub = subs.FirstOrDefault(s => s.MaterialCategoryId == cat.Id
                     && s.Name.Equals(subName, StringComparison.OrdinalIgnoreCase));
@@ -222,7 +287,7 @@ public static class MaterialMasterSeeder
     {
         var approvedCats = MaterialTaxonomy.Tree.Select(t => t.Category).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var approvedPaths = MaterialTaxonomy.Tree
-            .SelectMany(t => t.Subcategories.Select(s => $"{t.Category}/{s}"))
+            .SelectMany(t => t.Types.Select(s => $"{t.Category}/{s}"))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var c in await db.MaterialCategories.Where(c => c.IsActive).ToListAsync(ct))

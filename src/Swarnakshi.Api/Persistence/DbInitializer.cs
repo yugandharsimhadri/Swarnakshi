@@ -30,5 +30,25 @@ public static class DbInitializer
             if (isDevelopment && bool.TryParse(config["Seed:Demo"], out var demo) && demo)
                 await DemoDataSeeder.RunAsync(db);
         }
+
+        // Every other company was provisioned once, at registration, and never seeded again — so a
+        // change to the shape of the taxonomy would reach the founding tenant and no one else.
+        // The seeder is idempotent and does nothing when a tenant is already current, so running it
+        // per company on startup is cheap and keeps them all on the same tree.
+        await MigrateTenantTaxonomiesAsync(db, companyId);
+    }
+
+    private static async Task MigrateTenantTaxonomiesAsync(AppDbContext db, Guid foundingCompanyId)
+    {
+        var others = await db.Companies.AsNoTracking()
+            .Where(c => c.Id != foundingCompanyId)
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        foreach (var id in others)
+        {
+            using var tenant = db.BeginTenantScope(id);
+            await MaterialMasterSeeder.RunAsync(db);
+        }
     }
 }

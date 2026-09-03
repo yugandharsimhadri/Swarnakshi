@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { money, moneyShort, num, dateStr } from "@/lib/format";
 import { useAuth } from "@/store/auth";
 import {
-  Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, Spinner, StatCard,
+  Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Sheet, Spinner, StatCard,
 } from "@/components/ui";
 import { SitePicker, useSites, lastSite } from "@/components/SitePicker";
 import { IconPurchase, IconRequest } from "@/components/icons";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import {
   InvTxnTypeName, type InventoryBalance, type InventoryTxn, type Material,
   type MaterialInventoryDetail, type Paged,
@@ -119,9 +120,7 @@ export function InventoryList() {
 function AddStockSheet({ open, siteId, onClose, onSaved }: {
   open: boolean; siteId: string; onClose: () => void; onSaved: () => void;
 }) {
-  const { data: materials } = useAsync(
-    () => api<Paged<Material>>("/materials", { query: { pageSize: 500, active: true } }), []);
-  const [materialId, setMaterialId] = useState("");
+  const [material, setMaterial] = useState<Material | null>(null);
   const [quantity, setQuantity] = useState("");
   const [rate, setRate] = useState("");
   const [date, setDate] = useState(today());
@@ -129,12 +128,8 @@ function AddStockSheet({ open, siteId, onClose, onSaved }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const material = useMemo(
-    () => materials?.items.find((m) => m.id === materialId),
-    [materials, materialId],
-  );
   const total = (Number(quantity) || 0) * (Number(rate) || 0);
-  const canSave = Boolean(siteId && materialId && Number(quantity) > 0 && Number(rate) >= 0);
+  const canSave = Boolean(siteId && material && Number(quantity) > 0 && Number(rate) >= 0);
 
   async function save() {
     setBusy(true);
@@ -143,14 +138,14 @@ function AddStockSheet({ open, siteId, onClose, onSaved }: {
       await api("/inventory/opening-stock", {
         method: "POST",
         body: {
-          siteId, materialId,
+          siteId, materialId: material!.id,
           quantity: Number(quantity),
           rate: Number(rate),
           date,
           remarks: remarks.trim() || null,
         },
       });
-      setMaterialId(""); setQuantity(""); setRate(""); setRemarks("");
+      setMaterial(null); setQuantity(""); setRate(""); setRemarks("");
       onSaved();
     } catch (e) {
       setError(e as ApiError);
@@ -163,12 +158,7 @@ function AddStockSheet({ open, siteId, onClose, onSaved }: {
     <Sheet open={open} onClose={onClose} title="Add stock">
       <div className="space-y-3">
         <Field label="Material">
-          <Select value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
-            <option value="">Select a material…</option>
-            {materials?.items.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}{m.brand ? ` · ${m.brand}` : ""}</option>
-            ))}
-          </Select>
+          <MaterialPicker value={material} onChange={setMaterial} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Quantity${material ? ` (${material.unitCode})` : ""}`}>

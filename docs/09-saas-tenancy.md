@@ -69,7 +69,7 @@ At registration, `contactMobile` — if it is a real 10-digit number — becomes
 ```
 
 It creates the company, its first Owner (`IsCompanyAdmin = true`), and then **provisions the tenant**
-— its own units, the 50-category material taxonomy with specification fields, expense heads and
+— its own units, the nine-category material taxonomy with specification fields, expense heads and
 subheads, labour categories, payment methods, project types and default settings.
 
 Every company owns its **own copy** of the master data rather than sharing a global catalogue: a

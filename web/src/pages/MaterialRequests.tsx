@@ -6,6 +6,7 @@ import { useAuth } from "@/store/auth";
 import { num, dateStr } from "@/lib/format";
 import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import { MatReqStatusName, type Material, type MaterialRequest, type Paged, type Project } from "@/lib/types";
 
 const statusTone = (s: number) =>
@@ -52,28 +53,26 @@ export function MaterialRequestList() {
 export function NewMaterialRequest() {
   const nav = useNavigate();
   const { data: projects } = useAsync(() => api<Paged<Project>>("/projects", { query: { pageSize: 100 } }), []);
-  const { data: materials } = useAsync(() => api<Paged<Material>>("/materials", { query: { pageSize: 200, active: true } }), []);
   // Arrived from a villa's Material tab? Then the villa is already decided — don't ask again.
   const [params] = useSearchParams();
   const [projectId, setProjectId] = useState(params.get("projectId") ?? "");
-  const [rows, setRows] = useState<{ materialId: string; qty: string }[]>([{ materialId: "", qty: "" }]);
+  const [rows, setRows] = useState<{ material: Material | null; qty: string }[]>([{ material: null, qty: "" }]);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const setRow = (i: number, k: "materialId" | "qty", v: string) =>
+  const setRow = (i: number, k: "qty", v: string) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const setMaterial = (i: number, m: Material | null) =>
+    setRows(rows.map((r, idx) => (idx === i ? { ...r, material: m } : r)));
 
   async function save(submit: boolean) {
     setBusy(true);
     setError(null);
     try {
       const items = rows
-        .filter((r) => r.materialId && Number(r.qty) > 0)
-        .map((r) => {
-          const m = materials!.items.find((x) => x.id === r.materialId)!;
-          return { materialId: r.materialId, unitId: m.unitId, requestedQty: Number(r.qty) };
-        });
+        .filter((r) => r.material && Number(r.qty) > 0)
+        .map((r) => ({ materialId: r.material!.id, unitId: r.material!.unitId, requestedQty: Number(r.qty) }));
       if (!projectId || items.length === 0) throw { message: "Pick a project and at least one material.", errors: [], status: 400 };
       const created = await api<MaterialRequest>("/material-requests", {
         method: "POST",
@@ -105,10 +104,7 @@ export function NewMaterialRequest() {
       <div className="space-y-2">
         {rows.map((r, i) => (
           <Card key={i} className="space-y-2">
-            <Select value={r.materialId} onChange={(e) => setRow(i, "materialId", e.target.value)}>
-              <option value="">Select material…</option>
-              {materials?.items.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unitCode})</option>)}
-            </Select>
+            <MaterialPicker value={r.material} onChange={(m) => setMaterial(i, m)} />
             <div className="flex gap-2">
               <Input placeholder="Quantity" inputMode="decimal" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} />
               {rows.length > 1 && (
@@ -117,7 +113,7 @@ export function NewMaterialRequest() {
             </div>
           </Card>
         ))}
-        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { materialId: "", qty: "" }])}>
+        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { material: null, qty: "" }])}>
           + Add material
         </Button>
       </div>

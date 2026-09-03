@@ -7,6 +7,7 @@ import { useAuth } from "@/store/auth";
 import { money, dateStr } from "@/lib/format";
 import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import { TxnStatusName, type Material, type Paged, type Project, type Purchase, type Site } from "@/lib/types";
 
 interface Supplier { id: string; name: string; code: string }
@@ -48,7 +49,6 @@ export function NewPurchase() {
   const nav = useNavigate();
   const { data: sites } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 100 } }), []);
   const { data: suppliers } = useAsync(() => api<Paged<Supplier>>("/suppliers", { query: { pageSize: 200, active: true } }), []);
-  const { data: materials } = useAsync(() => api<Paged<Material>>("/materials", { query: { pageSize: 200, active: true } }), []);
   const { data: projects } = useAsync(() => api<Paged<Project>>("/projects", { query: { pageSize: 200 } }), []);
 
   // Arrived from a villa's Material tab: its site and its name are already known, so the form
@@ -62,8 +62,8 @@ export function NewPurchase() {
   const [supplierName, setSupplierName] = useState("");
   const [invoiceNumber, setInvoice] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [rows, setRows] = useState<{ materialId: string; qty: string; rate: string; deliverTo: string }[]>(
-    [{ materialId: "", qty: "", rate: "", deliverTo: forProjectId }]);
+  const [rows, setRows] = useState<{ material: Material | null; qty: string; rate: string; deliverTo: string }[]>(
+    [{ material: null, qty: "", rate: "", deliverTo: forProjectId }]);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -72,13 +72,14 @@ export function NewPurchase() {
     if (forProject && !siteId) setSiteId(forProject.siteId);
   }, [forProject, siteId]);
 
-  const setRow = (i: number, k: "materialId" | "qty" | "rate" | "deliverTo", v: string) =>
+  const setRow = (i: number, k: "qty" | "rate" | "deliverTo", v: string) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const total = rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.rate) || 0), 0);
 
-  function pickMaterial(i: number, id: string) {
-    const m = materials?.items.find((x) => x.id === id);
-    setRows(rows.map((r, idx) => (idx === i ? { ...r, materialId: id, rate: r.rate || String(m?.defaultPurchaseRate ?? "") } : r)));
+  function pickMaterial(i: number, m: Material | null) {
+    setRows(rows.map((r, idx) => (idx === i
+      ? { ...r, material: m, rate: r.rate || (m?.defaultPurchaseRate ? String(m.defaultPurchaseRate) : "") }
+      : r)));
   }
 
   async function save(submit: boolean) {
@@ -86,15 +87,12 @@ export function NewPurchase() {
     setError(null);
     try {
       const items = rows
-        .filter((r) => r.materialId && Number(r.qty) > 0)
-        .map((r) => {
-          const m = materials!.items.find((x) => x.id === r.materialId)!;
-          return {
-            materialId: r.materialId, unitId: m.unitId, quantity: Number(r.qty),
-            rate: Number(r.rate) || 0, discount: 0, taxAmount: 0,
-            deliverToProjectId: r.deliverTo || null,
-          };
-        });
+        .filter((r) => r.material && Number(r.qty) > 0)
+        .map((r) => ({
+          materialId: r.material!.id, unitId: r.material!.unitId, quantity: Number(r.qty),
+          rate: Number(r.rate) || 0, discount: 0, taxAmount: 0,
+          deliverToProjectId: r.deliverTo || null,
+        }));
       const typed = supplierName.trim();
       if (!siteId || !typed || items.length === 0) throw { message: "Site, supplier and at least one line are required.", errors: [], status: 400 };
       const matched = suppliers?.items.find((x) => x.name.toLowerCase() === typed.toLowerCase());
@@ -151,10 +149,7 @@ export function NewPurchase() {
       <div className="space-y-2">
         {rows.map((r, i) => (
           <Card key={i} className="space-y-2">
-            <Select value={r.materialId} onChange={(e) => pickMaterial(i, e.target.value)}>
-              <option value="">Select material…</option>
-              {materials?.items.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unitCode})</option>)}
-            </Select>
+            <MaterialPicker value={r.material} onChange={(m) => pickMaterial(i, m)} />
             <div className="flex gap-2">
               <Input placeholder="Qty" inputMode="decimal" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} />
               <Input placeholder="Rate" inputMode="decimal" value={r.rate} onChange={(e) => setRow(i, "rate", e.target.value)} />
@@ -179,7 +174,7 @@ export function NewPurchase() {
             )}
           </Card>
         ))}
-        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { materialId: "", qty: "", rate: "", deliverTo: forProjectId }])}>
+        <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { material: null, qty: "", rate: "", deliverTo: forProjectId }])}>
           + Add line
         </Button>
       </div>

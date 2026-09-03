@@ -110,7 +110,7 @@ public class SiteReportingTests
         var masters = scope.ServiceProvider.GetRequiredService<IMasterService>();
 
         (await masters.UnitsAsync()).Should().NotBeEmpty();
-        (await masters.MaterialCategoriesAsync()).Should().HaveCountGreaterThan(49, "the approved taxonomy has 50");
+        (await masters.MaterialCategoriesAsync()).Should().HaveCount(9, "nine categories a builder recognises");
         (await masters.ExpenseHeadsAsync()).Should().NotBeEmpty();
         (await masters.LabourCategoriesAsync()).Should().NotBeEmpty();
         (await masters.PaymentMethodsAsync()).Should().NotBeEmpty();
@@ -126,14 +126,14 @@ public class SiteReportingTests
         var db = sp.GetRequiredService<AppDbContext>();
         var masters = sp.GetRequiredService<IMasterService>();
 
-        var cement = await db.MaterialCategories.FirstAsync(c => c.Name == "Cement");
+        var civil = await db.MaterialCategories.FirstAsync(c => c.Name == "Civil & Structure");
 
         var all = await masters.MaterialSubcategoriesAsync(null);
-        var scoped = await masters.MaterialSubcategoriesAsync(cement.Id);
+        var scoped = await masters.MaterialSubcategoriesAsync(civil.Id);
 
-        scoped.Should().OnlyContain(s => s.ParentId == cement.Id);
+        scoped.Should().OnlyContain(s => s.ParentId == civil.Id);
         scoped.Count.Should().BeLessThan(all.Count);
-        scoped.Select(s => s.Name).Should().Contain("OPC");
+        scoped.Select(s => s.Name).Should().Contain("OPC Cement");
     }
 
     // ---- dashboard -------------------------------------------------------

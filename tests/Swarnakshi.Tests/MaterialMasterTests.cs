@@ -45,7 +45,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         var created = await svc.CreateAsync(Wire("ELE-WIR-POL-025", "Electrical Wire", subId, unitId, "Polycab"));
 
         created.Brand.Should().Be("Polycab");
@@ -64,7 +64,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab"));
 
         var act = () => svc.CreateAsync(Wire("ELE-2", "Electrical Wire", subId, unitId, "Polycab"));
@@ -80,7 +80,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab", "2.5"));
 
         var other = await svc.CreateAsync(Wire("ELE-2", "Electrical Wire", subId, unitId, "Polycab", "4"));
@@ -96,7 +96,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab"));
 
         var finolex = await svc.CreateAsync(Wire("ELE-2", "Electrical Wire", subId, unitId, "Finolex"));
@@ -112,7 +112,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         var req = new SaveMaterialRequest("ELE-9", "Electrical Wire", subId, "Polycab", unitId,
             null, null, null, 0, 0, 10, null, null, null,
             new Dictionary<string, string?> { ["size"] = "2.5", ["size_unit"] = "sq.mm", ["grade"] = "Fe500" });
@@ -132,7 +132,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab", "2.5"));
 
         var byBrand = await svc.ListAsync(new PageQuery { Q = "Polycab" }, null, null, null, null, null);
@@ -154,7 +154,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab"));
 
         // EF maps string.Contains to SQLite's case-sensitive instr(); these would all miss without
@@ -178,7 +178,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         var m = await svc.CreateAsync(Wire("ELE-OLD", "Electrical Wire", subId, unitId, "Polycab"));
 
         var updated = await svc.UpdateAsync(m.Id, Wire("ELE-NEW", "Electrical Wire", subId, unitId, "Polycab"));
@@ -239,7 +239,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         var m = await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab"));
 
         var off = await svc.DeactivateAsync(m.Id);
@@ -298,7 +298,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         var m = await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab"));
         await svc.DeactivateAsync(m.Id);
 
@@ -313,7 +313,7 @@ public class MaterialMasterTests
     // ---- taxonomy & specification definitions ---------------------------
 
     [Fact]
-    public async Task Seeds_the_fifty_approved_categories_with_the_separations_the_business_requires()
+    public async Task Seeds_nine_categories_a_builder_would_recognise()
     {
         await using var host = await TestHost.CreateAsync();
         using var scope = host.Scope();
@@ -321,12 +321,39 @@ public class MaterialMasterTests
 
         var names = await db.MaterialCategories.Where(c => c.IsActive).Select(c => c.Name).ToListAsync();
 
-        names.Should().HaveCount(50);
-        names.Should().Contain(["Sand", "Aggregates & Gravel"]);        // never merged
-        names.Should().Contain(["Bricks", "Blocks"]);                   // never merged
-        names.Should().Contain(["Granite", "Tiles"]);                   // never merged
-        names.Should().Contain("Waterproofing Materials");              // its own category
-        names.Should().NotContain("Construction Chemicals & Waterproofing");
+        // Few enough to read in one glance — that is the whole reason the fifty were collapsed.
+        names.Should().HaveCount(9);
+        names.Should().BeEquivalentTo(
+        [
+            "Civil & Structure", "Plumbing", "Electrical", "Flooring & Stone", "Doors & Windows",
+            "Painting", "Hardware & Fasteners", "Roofing & Ceiling", "Site & Safety",
+        ]);
+
+        // What used to be a category is now a material type, and it still names itself.
+        var types = await db.MaterialSubcategories.Include(t => t.Category)
+            .Where(t => t.IsActive)
+            .Select(t => t.Category.Name + "/" + t.Name).ToListAsync();
+        types.Should().Contain("Civil & Structure/OPC Cement");
+        types.Should().Contain("Civil & Structure/20mm Aggregate");
+        types.Should().Contain("Plumbing/CPVC Elbow", "prefixed, because the parent no longer says CPVC");
+        types.Should().Contain("Plumbing/UPVC Elbow");
+        types.Should().Contain("Electrical/Single Core Wire");
+        types.Should().Contain("Flooring & Stone/Vitrified Tile");
+    }
+
+    [Fact]
+    public async Task Every_material_type_name_is_unique_inside_its_category()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // Collapsing fifty parents into nine put "Elbow" and "Fittings" on a collision course; the
+        // rename map is what keeps them apart, and this is the assertion that says so.
+        var paths = await db.MaterialSubcategories.Include(t => t.Category)
+            .Select(t => t.Category.Name + "/" + t.Name).ToListAsync();
+
+        paths.Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
@@ -337,8 +364,8 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (wireSub, _) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
-        var (tmtSub, _) = await WireSubcategoryAsync(db, "Iron & Steel", "TMT Bars");
+        var (wireSub, _) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
+        var (tmtSub, _) = await WireSubcategoryAsync(db, "Civil & Structure", "TMT Bars");
 
         var wireSpecs = await svc.SpecDefinitionsAsync(wireSub);
         var tmtSpecs = await svc.SpecDefinitionsAsync(tmtSub);
@@ -358,7 +385,7 @@ public class MaterialMasterTests
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
         var sub = await db.MaterialSubcategories.Include(s => s.Category)
-            .FirstAsync(s => s.Category.Name == "Iron & Steel" && s.Name == "TMT Bars");
+            .FirstAsync(s => s.Category.Name == "Civil & Structure" && s.Name == "TMT Bars");
         var kg = await db.Units.FirstAsync(u => u.Code == "KG");
 
         var specs = new Dictionary<string, string?> { ["diameter"] = "12", ["diameter_unit"] = "mm", ["grade"] = "Fe500" };
@@ -382,7 +409,7 @@ public class MaterialMasterTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IMaterialService>();
 
-        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical Wire", "Single Core");
+        var (subId, unitId) = await WireSubcategoryAsync(db, "Electrical", "Single Core Wire");
         var m = await svc.CreateAsync(Wire("ELE-1", "Electrical Wire", subId, unitId, "Polycab"));
         await svc.DeactivateAsync(m.Id);
         await svc.ReactivateAsync(m.Id);

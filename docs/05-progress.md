@@ -4,6 +4,41 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — Nine categories, and a material picker you type into
+
+Choosing a material meant scrolling a `<select>` of every material in the company, under a
+taxonomy of fifty categories. Both halves are fixed.
+
+**The taxonomy is nine categories** — Civil & Structure, Plumbing, Electrical, Flooring & Stone,
+Doors & Windows, Painting, Hardware & Fasteners, Roofing & Ceiling, Site & Safety. Everything that
+used to be a category ("CPVC Plumbing", "Plumbing Valves", "Distribution Boards") became a material
+type inside one, which is the level people name things at anyway. Type names are self-describing
+because in a search box they appear with no parent to lean on: `CPVC Elbow` not `Elbow`, `OPC
+Cement` not `OPC`.
+
+The move is `MaterialTaxonomy.Flatten` plus `MaterialMasterSeeder.FlattenTaxonomyAsync`.
+**Subcategory rows are re-parented and renamed in place, never recreated** — every Material,
+InventoryBalance, InventoryTransaction, PurchaseItem and MaterialRequestItem points at that row, so
+nothing breaks. The old fifty are deactivated, not deleted. Collapsing eleven plumbing parents into
+one put `Elbow` and `Fittings` on a collision course; the rename map splits them, and
+`Every_material_type_name_is_unique_inside_its_category` is the test that says so.
+
+**`DbInitializer` now runs the taxonomy seeder for every company on startup**, not just the
+founding one. Other tenants are provisioned once at registration and never seeded again, so a change
+to the tree would otherwise reach exactly one company. The seeder is idempotent and returns
+immediately when a tenant is already current.
+
+**`MaterialPicker`** replaces every material dropdown — purchases, material requests, add stock.
+Type and it searches the server (name, brand, category, type); the nine category chips narrow the
+same search rather than replacing it. Nothing is fetched until there is something to narrow by, so
+the screen never loads four hundred rows to throw them away. Picking one collapses it to a settled
+row with a Change button rather than leaving a text box still asking a question.
+
+Verified against the live `sivayaan2` data: 9 active categories, 50 retired, materials and
+inventory all still resolve under their new parents. 245 tests pass.
+
+---
+
 ## 2026-09-03 — Type the supplier on a purchase, do not set one up first
 
 Recording a delivery no longer starts with a trip to the supplier master. The supplier field on

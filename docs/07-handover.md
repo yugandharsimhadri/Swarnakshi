@@ -714,7 +714,7 @@ Redesigned end-to-end against `Swarnakshi_Material_Master_50_Categories.xlsx`.
 
 | Piece | Where |
 |---|---|
-| Taxonomy (50 categories, subcategories, spec fields) | `Infrastructure/Persistence/Seed/MaterialTaxonomy.cs` |
+| Taxonomy (9 categories, material types, spec fields) | `Infrastructure/Persistence/Seed/MaterialTaxonomy.cs` |
 | Idempotent seeding + legacy remap | `Infrastructure/Persistence/Seed/MaterialMasterSeeder.cs` |
 | Service (CRUD, lifecycle, duplicate + code-lock rules) | `Application/Masters/MaterialService.cs` |
 | Signature / summary rules (shared) | `Application/Masters/MaterialIdentity.cs` |

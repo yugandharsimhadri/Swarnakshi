@@ -21,7 +21,7 @@ Role is an enum: `Owner, SubOwner, Supervisor, Accountant`.
 
 ## Masters (global)
 - **Unit** (Code, Name, IsActive) — Nos, Bag, Kg, Ton, Cft, Cum, RM, SqFt, …
-- **MaterialCategory** (Name, SortOrder, IsActive) — the approved 50-category taxonomy
+- **MaterialCategory** (Name, SortOrder, IsActive) — nine categories a builder recognises; the detail lives one level down
 - **MaterialSubcategory** (MaterialCategoryId, Name, IsActive) — unique (CategoryId, Name)
 - **Material** (Code*, Name, MaterialSubcategoryId, **Brand**, Description, UnitId, SecondaryUnitId?,
   ConversionFactor?, **GenericMeasurement**, MinStockLevel, ReorderLevel, DefaultPurchaseRate,

@@ -39,8 +39,8 @@ public static class MasterDataSeeder
 
     private static async Task SeedMaterialsAsync(AppDbContext db, CancellationToken ct)
     {
-        // Categories/subcategories/spec definitions live in MaterialMasterSeeder (the approved
-        // 50-category taxonomy). It also remaps any legacy tree, so run it before seeding materials.
+        // Categories, material types and spec definitions live in MaterialMasterSeeder. It also
+        // flattens any older tree, so it has to run before materials are looked up.
         await MaterialMasterSeeder.RunAsync(db, ct);
 
         if (await db.Materials.AnyAsync(ct)) return;
@@ -53,16 +53,24 @@ public static class MasterDataSeeder
         var ltr = await db.Units.FirstAsync(u => u.Code == "LTR", ct);
         var sft = await db.Units.FirstAsync(u => u.Code == "SFT", ct);
 
-        Guid Sub(string cat, string sub) =>
-            db.MaterialSubcategories.Include(x => x.Category)
-              .First(x => x.Category.Name == cat && x.Name == sub).Id;
+        // The list below is written in the words the taxonomy used to use. Flatten turns each of
+        // those into its place in the nine-category shape, so the seed data and the migration for
+        // an existing database read from one map rather than drifting apart.
+        Guid Sub(string cat, string sub)
+        {
+            var path = MaterialTaxonomy.Flatten.GetValueOrDefault($"{cat}/{sub}", $"{cat}/{sub}");
+            var slash = path.IndexOf('/');
+            var category = path[..slash];
+            var type = path[(slash + 1)..];
+            return db.MaterialSubcategories.Include(x => x.Category)
+                .First(x => x.Category.Name == category && x.Name == type).Id;
+        }
 
         // NOTE: codes below are stable identifiers referenced by tests and by any existing
         // transaction history — never renumber them.
 
         // Codes are stable identifiers referenced by tests and by any existing transaction
-        // history — never renumber them. Categories/subcategories use the approved 50-category paths.
-        // Specs are seeded where the material name already encodes them.
+        // history — never renumber them. Specs are seeded where the material name already encodes them.
         var mats = new (string Code, string Name, string Cat, string Sub, Guid Unit, decimal Rate,
             (string Key, string Value)[] Specs)[]
         {
