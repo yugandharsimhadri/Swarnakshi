@@ -4,6 +4,35 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — Sign in with a mobile number
+
+The login box now takes a bare 10-digit mobile number as well as `username@companycode`. On a
+phone, for a supervisor, the number is what they know; the `@company` half is friction.
+
+**Parsing.** `LoginIdentity.TryParse` decides in order: a value with `@` is a company login; a value
+made only of phone characters (`^[d+(][ds-()]*$`) is a mobile; anything else is a bare
+username, which is the platform operator. `NormaliseMobile` strips a `+91`, spaces, brackets or a
+trunk `0` down to the canonical 10 digits — that is what `User.Mobile` stores and matches on.
+
+**The lookup crosses the tenant filter, on purpose.** A number does not name a company, so
+`AuthService.MobileLoginAsync` is the one login path that runs `IgnoreQueryFilters()`. It takes the
+first two matches: none → the same 401 as a bad password (a stranger must not learn a number is
+registered); one → sign in; two → a 409 telling the person to use `username@companycode`, because
+the same number in two companies is genuinely ambiguous and guessing would be worse.
+
+**Uniqueness within a company** is enforced in `UserService`, not by a unique index — a filtered
+unique index is provider-specific and SQL Server treats NULLs as equal in a plain one, both of
+which break the SQLite-agnostic rule. The index on `Mobile` is there for lookup speed only.
+
+**Set at registration.** `contactMobile`, if it is a real 10-digit number, becomes the founding
+owner's `Mobile`, so a new company can sign in by phone from the first minute. The Users screen has
+a Mobile field on the create and edit sheets for everyone else.
+
+Migration `UserMobileLogin` adds the nullable column and its index — existing users have
+`Mobile = null` until someone fills it in. 12 new tests in `MobileLoginTests` (234 total).
+
+---
+
 ## 2026-09-01 — Demo captions are paced to be spoken
 
 The content engine's review found the transcript unusable as an audio script, and it was right. A

@@ -108,7 +108,8 @@ export default function Register() {
             <div className="text-lg font-semibold tabular-nums">{done.login}</div>
           </div>
           <p className="text-xs text-text-dim">
-            Everyone in your company signs in as <code>username@{done.companyCode}</code>.
+            Everyone in your company signs in as <code>username@{done.companyCode}</code>
+            {form.contactMobile.trim() && <> — or you can use your mobile number</>}.
             Your licence runs to <strong>{dateStr(done.licenseExpiresOn)}</strong>.
           </p>
         </Card>
@@ -184,8 +185,11 @@ export default function Register() {
         <Field label="Contact email (optional)">
           <Input inputMode="email" value={form.contactEmail} onChange={set("contactEmail")} />
         </Field>
-        <Field label="Contact mobile (optional)">
-          <Input inputMode="tel" value={form.contactMobile} onChange={set("contactMobile")} />
+        <Field label="Your mobile number (optional)">
+          <Input inputMode="tel" value={form.contactMobile} onChange={set("contactMobile")} placeholder="9876543210" />
+          <span className="mt-1 block text-xs text-text-dim">
+            Add it and you can sign in with just your number — no @company needed.
+          </span>
         </Field>
 
         <ErrorText error={error} />

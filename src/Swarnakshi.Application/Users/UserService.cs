@@ -9,11 +9,12 @@ using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Application.Users;
 
-public record UserDto(Guid Id, string Name, string Username, string Login, string? Email, UserRole Role, bool IsActive, bool IsCompanyAdmin,
+public record UserDto(Guid Id, string Name, string Username, string Login, string? Email, string? Mobile,
+    UserRole Role, bool IsActive, bool IsCompanyAdmin,
     IReadOnlyList<string> ExtraPermissions, IReadOnlyList<Guid> SiteIds);
 
-public record CreateUserRequest(string Name, string Username, string Password, UserRole Role, string? Email);
-public record UpdateUserRequest(string Name, UserRole Role, bool IsActive);
+public record CreateUserRequest(string Name, string Username, string Password, UserRole Role, string? Email, string? Mobile = null);
+public record UpdateUserRequest(string Name, UserRole Role, bool IsActive, string? Mobile = null);
 public record SetPasswordRequest(string Password);
 public record SetPermissionsRequest(List<string> Permissions);
 public record SetSitesRequest(List<Guid> SiteIds);
@@ -26,6 +27,9 @@ public class CreateUserValidator : AbstractValidator<CreateUserRequest>
         RuleFor(x => x.Username).Must(u => LoginIdentity.IsValidUsername(LoginIdentity.NormaliseUsername(u)))
             .WithMessage("Username must be 3-60 characters: lowercase letters, digits, dot, underscore or hyphen.");
         RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
+        RuleFor(x => x.Mobile).Must(m => LoginIdentity.IsValidMobile(m))
+            .When(x => !string.IsNullOrWhiteSpace(x.Mobile))
+            .WithMessage("Enter a 10-digit mobile number.");
         RuleFor(x => x.Password).MinimumLength(8).WithMessage("Password must be at least 8 characters.");
     }
 }
@@ -68,11 +72,16 @@ public class UserService(
         if (await db.Users.AnyAsync(u => u.Username == username, ct))
             throw new AppException($"A user with username '{username}' already exists in this company.", 409);
 
+        var mobile = LoginIdentity.NormaliseMobile(req.Mobile);
+        if (mobile is not null && await db.Users.AnyAsync(u => u.Mobile == mobile, ct))
+            throw new AppException($"Mobile number '{mobile}' is already used by another user in this company.", 409);
+
         var user = new User
         {
             Name = req.Name.Trim(),
             Username = username,
             Email = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim().ToLowerInvariant(),
+            Mobile = mobile,
             PasswordHash = hasher.Hash(req.Password),
             Role = req.Role,
             IsActive = true
@@ -91,9 +100,14 @@ public class UserService(
             && !await db.Users.AnyAsync(u => u.Role == UserRole.Owner && u.Id != id && u.IsActive, ct))
             throw new AppException("There must be at least one active Owner.", 409);
 
+        var mobile = LoginIdentity.NormaliseMobile(req.Mobile);
+        if (mobile is not null && await db.Users.AnyAsync(u => u.Mobile == mobile && u.Id != id, ct))
+            throw new AppException($"Mobile number '{mobile}' is already used by another user in this company.", 409);
+
         user.Name = req.Name.Trim();
         user.Role = req.Role;
         user.IsActive = req.IsActive;
+        user.Mobile = mobile;
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
@@ -149,7 +163,7 @@ public class UserService(
     }
 
     private static UserDto Map(User u, string companyCode) => new(
-        u.Id, u.Name, u.Username, LoginIdentity.Format(u.Username, companyCode), u.Email,
+        u.Id, u.Name, u.Username, LoginIdentity.Format(u.Username, companyCode), u.Email, u.Mobile,
         u.Role, u.IsActive, u.IsCompanyAdmin,
         u.Permissions.Where(p => p.Granted).Select(p => p.PermissionKey).ToList(),
         u.SiteAssignments.Select(a => a.SiteId).ToList());

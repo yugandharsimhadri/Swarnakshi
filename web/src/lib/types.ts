@@ -8,6 +8,8 @@ export interface AuthUser {
   /** username@companycode — what the person actually types to sign in. */
   login: string;
   email?: string | null;
+  /** 10-digit number; a second way to sign in, skipping @companycode. */
+  mobile?: string | null;
   role: Role;
   isCompanyAdmin: boolean;
   permissions: string[];
@@ -42,6 +44,7 @@ export interface AdminUser {
   username: string;
   login: string;
   email?: string | null;
+  mobile?: string | null;
   role: Role;
   isActive: boolean;
   isCompanyAdmin: boolean;

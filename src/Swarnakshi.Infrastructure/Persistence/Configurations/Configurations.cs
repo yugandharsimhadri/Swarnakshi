@@ -35,6 +35,11 @@ public class UserConfig : IEntityTypeConfiguration<User>
         e.HasIndex(x => new { x.CompanyId, x.Username }).IsUnique();
         e.Property(x => x.Username).HasMaxLength(60);
         e.Property(x => x.Email).HasMaxLength(256);
+        e.Property(x => x.Mobile).HasMaxLength(20);
+        // Not a unique index: a filtered unique index is provider-specific, and SQL Server treats
+        // NULLs as equal in a plain one. Uniqueness within a company is enforced in UserService;
+        // login-by-mobile tolerates a cross-company clash by asking for the username instead.
+        e.HasIndex(x => x.Mobile);
         e.Property(x => x.Name).HasMaxLength(200);
         e.HasMany(x => x.Permissions).WithOne(x => x.User).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         e.HasMany(x => x.SiteAssignments).WithOne(x => x.User).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);

@@ -30,9 +30,50 @@ public class AuthService(
         if (!LoginIdentity.TryParse(request.Login, out var id))
             throw new AppException(BadCredentials, 401);
 
+        if (id.IsMobile)
+            return await MobileLoginAsync(id.Mobile!, request.Password, ct);
+
         return id.IsPlatform
-            ? await PlatformLoginAsync(id.Username, request.Password, ct)
-            : await TenantLoginAsync(id.Username, id.CompanyCode!, request.Password, ct);
+            ? await PlatformLoginAsync(id.Username!, request.Password, ct)
+            : await TenantLoginAsync(id.Username!, id.CompanyCode!, request.Password, ct);
+    }
+
+    /// <summary>
+    /// Login by phone number. The number does not name a company, so this crosses the tenant filter
+    /// to find the account -- the one place a login lookup has to. A number registered in two
+    /// companies is ambiguous; the person is told to use their username rather than the app guessing
+    /// which company they meant.
+    /// </summary>
+    private async Task<AuthResponse> MobileLoginAsync(string mobile, string password, CancellationToken ct)
+    {
+        var matches = await db.Users.IgnoreQueryFilters()
+            .Where(u => u.Mobile == mobile)
+            .Select(u => new { u.Id, u.CompanyId })
+            .Take(2)
+            .ToListAsync(ct);
+
+        if (matches.Count == 0) throw new AppException(BadCredentials, 401);
+        if (matches.Count > 1)
+            throw new AppException(
+                "This mobile number is registered with more than one company. "
+                + "Sign in with your username@companycode instead.", 409);
+
+        var companyId = matches[0].CompanyId;
+        using var scope = db.BeginTenantScope(companyId);
+
+        var user = await db.Users.Include(u => u.Permissions).FirstAsync(u => u.Id == matches[0].Id, ct);
+        var company = await db.Companies.AsNoTracking().FirstAsync(c => c.Id == companyId, ct);
+
+        if (!user.IsActive || !hasher.Verify(password, user.PasswordHash))
+            throw new AppException(BadCredentials, 401);
+        if (!company.IsActive)
+            throw new AppException("This company account is suspended. Contact your administrator.", 403);
+        if (!company.IsLicenseValidOn(clock.Today))
+            throw new AppException(
+                $"The licence for {company.Name} expired on {company.LicenseExpiresOn:dd MMM yyyy}. "
+                + "Ask your Swarnakshi administrator to renew it.", 402);
+
+        return await IssueTenantAsync(user, company, ct);
     }
 
     private async Task<AuthResponse> TenantLoginAsync(string username, string companyCode, string password, CancellationToken ct)
@@ -187,7 +228,7 @@ public class AuthService(
 
     private static AuthUserDto ToDto(User user, Company company, IReadOnlyCollection<string>? perms = null)
         => new(user.Id, user.Name, user.Username, LoginIdentity.Format(user.Username, company.Code),
-            user.Email, user.Role, user.IsCompanyAdmin, perms ?? ResolvePermissions(user));
+            user.Email, user.Mobile, user.Role, user.IsCompanyAdmin, perms ?? ResolvePermissions(user));
 
     internal static CompanyDto ToDto(Company c, DateOnly today)
         => new(c.Id, c.Code, c.Name, c.LicenseExpiresOn,

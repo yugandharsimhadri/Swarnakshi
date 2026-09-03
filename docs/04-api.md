@@ -14,7 +14,7 @@ List endpoints accept `?page=&pageSize=&sort=&q=` plus resource-specific filters
 ## Auth
 | Method | Route | Role | Notes |
 |--------|-------|------|-------|
-| POST | `/api/auth/login` | anon | `{login, password}` — `username@companycode` for a company user, a bare username for an EnterpriseAdmin. Returns `kind: "tenant" | "platform"`. |
+| POST | `/api/auth/login` | anon | `{login, password}` — `username@companycode` or a 10-digit mobile for a company user, a bare username for an EnterpriseAdmin. Returns `kind: "tenant" | "platform"`. |
 | POST | `/api/auth/refresh` | anon | rotate tokens |
 | POST | `/api/auth/logout` | any | revoke refresh token |
 | GET  | `/api/auth/me` | any | current user + permissions + company licence state |

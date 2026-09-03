@@ -34,12 +34,12 @@ export default function Login() {
       </div>
 
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Username">
+        <Field label="Mobile number or username">
           <Input
             autoComplete="username"
             autoCapitalize="none"
             autoCorrect="off"
-            placeholder="yourname@companycode"
+            placeholder="9876543210  or  yourname@company"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             required

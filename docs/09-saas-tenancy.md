@@ -32,12 +32,29 @@ That single choice buys three things:
   `store`. The unique index is `(CompanyId, Username)`.
 - **The company code is the only globally unique string**, which is why it cannot be duplicated
   while company *names* freely can — two builders may legitimately trade under the same name.
-- **One login box serves both audiences.** A platform operator has no company, so it signs in with
-  a bare username and no `@`. `LoginIdentity.TryParse` splits at the last `@`; no `@` means platform.
+- **One login box serves three shapes.** A value with `@` is `username@companycode`. A value made
+  only of phone characters is a **mobile number** — the same company user taking the short way in,
+  since their number already picks out the company. Anything else is a bare username, which is the
+  platform operator (it has no company). `LoginIdentity.TryParse` decides in that order.
 
 Company codes: 2–30 characters, lowercase letters, digits and hyphens, must start and end
 alphanumeric, no `@`. Typed in capitals they are accepted and normalised — being strict there would
 only punish someone with caps lock on.
+
+### Login by mobile
+
+A person can sign in with just their 10-digit number. `LoginIdentity.NormaliseMobile` reduces
+whatever they type — `+91`, spaces, brackets, a trunk `0` — to the canonical 10 digits, which is
+what `User.Mobile` stores. The number does not name a company, so `AuthService.MobileLoginAsync`
+does the one login lookup that has to cross the tenant filter (`IgnoreQueryFilters`).
+
+The mobile is unique **within** a company (enforced in `UserService`, not by a unique index — a
+filtered one is provider-specific and SQL Server treats NULLs as equal in a plain one). Across
+companies it may collide; login-by-mobile then finds two rows and returns a 409 telling the person
+to use `username@companycode` instead, rather than guessing which company they meant.
+
+At registration, `contactMobile` — if it is a real 10-digit number — becomes the founding owner's
+`Mobile`, so a new company can sign in by phone from the first minute.
 
 ---
 

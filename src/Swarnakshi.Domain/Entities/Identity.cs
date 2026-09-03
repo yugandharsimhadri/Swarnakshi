@@ -13,8 +13,16 @@ public class User : BaseEntity
     /// </summary>
     public string Username { get; set; } = null!;
 
-    /// <summary>Contact address. Optional, and NOT the login — see <see cref="Username"/>.</summary>
+    /// <summary>Contact address. Optional, and NOT a login.</summary>
     public string? Email { get; set; }
+
+    /// <summary>
+    /// A second way in. Stored as the canonical 10-digit form (see <c>LoginIdentity.NormaliseMobile</c>),
+    /// so someone can sign in with just their phone number and skip the <c>@companycode</c>. Unique
+    /// within a company; if the same number is used in two companies, login-by-mobile is ambiguous and
+    /// the person is asked to use their username instead.
+    /// </summary>
+    public string? Mobile { get; set; }
 
     public string PasswordHash { get; set; } = null!;
     public UserRole Role { get; set; }

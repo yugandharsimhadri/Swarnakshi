@@ -27,7 +27,7 @@ export default function Users() {
                     <span className="text-sm font-semibold">{u.name}</span>
                     {!u.isActive && <Chip tone="danger">Inactive</Chip>}
                   </div>
-                  <div className="text-xs text-text-dim">{u.login}</div>
+                  <div className="text-xs text-text-dim">{u.login}{u.mobile ? ` · ${u.mobile}` : ""}</div>
                 </div>
                 <Chip tone="brand">{RoleName[u.role]}</Chip>
               </div>
@@ -56,7 +56,7 @@ export default function Users() {
 }
 
 function CreateUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: "", username: "", password: "", role: "3", email: "" });
+  const [form, setForm] = useState({ name: "", username: "", password: "", role: "3", email: "", mobile: "" });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -84,6 +84,10 @@ function CreateUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: (
         <Field label="Email (optional)">
           <Input inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </Field>
+        <Field label="Mobile (optional)">
+          <Input inputMode="tel" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="9876543210" />
+          <span className="mt-1 block text-xs text-text-dim">Lets them sign in with just their number.</span>
+        </Field>
         <Field label="Temporary password"><Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
         <Field label="Role">
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
@@ -102,7 +106,7 @@ function CreateUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: (
 function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: () => void }) {
   const { data: permKeys } = useAsync(() => api<string[]>("/users/permission-keys"), []);
   const { data: sites } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 100 } }), []);
-  const [form, setForm] = useState({ name: user.name, role: String(user.role), isActive: user.isActive });
+  const [form, setForm] = useState({ name: user.name, role: String(user.role), isActive: user.isActive, mobile: user.mobile ?? "" });
   const [perms, setPerms] = useState<string[]>(user.extraPermissions);
   const [siteIds, setSiteIds] = useState<string[]>(user.siteIds);
   const [pwd, setPwd] = useState("");
@@ -115,7 +119,7 @@ function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   async function saveAll() {
     setBusy(true); setErr(null);
     try {
-      await api(`/users/${user.id}`, { method: "PUT", body: { name: form.name, role: Number(form.role), isActive: form.isActive } });
+      await api(`/users/${user.id}`, { method: "PUT", body: { name: form.name, role: Number(form.role), isActive: form.isActive, mobile: form.mobile.trim() || null } });
       if (Number(form.role) === 2) await api(`/users/${user.id}/permissions`, { method: "PUT", body: { permissions: perms } });
       if (Number(form.role) === 3) await api(`/users/${user.id}/sites`, { method: "PUT", body: { siteIds } });
       if (pwd.length >= 8) await api(`/users/${user.id}/password`, { method: "POST", body: { password: pwd } });
@@ -127,6 +131,9 @@ function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: (
     <Sheet open onClose={onClose} title={user.name}>
       <div className="space-y-3">
         <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+        <Field label="Mobile">
+          <Input inputMode="tel" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="9876543210" />
+        </Field>
         <Field label="Role">
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             {ROLES.map((r) => <option key={r} value={r}>{RoleName[r]}</option>)}

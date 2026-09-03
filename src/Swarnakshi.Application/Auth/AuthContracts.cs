@@ -20,6 +20,7 @@ public record AuthUserDto(
     string Username,
     string Login,
     string? Email,
+    string? Mobile,
     UserRole Role,
     bool IsCompanyAdmin,
     IReadOnlyCollection<string> Permissions);

@@ -42,6 +42,8 @@ public class CompanyRegistrationService(
         var name = (request.CompanyName ?? "").Trim();
         var code = LoginIdentity.NormaliseCode(request.CompanyCode);
         var username = LoginIdentity.NormaliseUsername(request.Username);
+        // The company's contact number doubles as the owner's login-by-mobile, if it is a real one.
+        var ownerMobile = LoginIdentity.NormaliseMobile(request.ContactMobile);
 
         var errors = new List<string>();
         if (name.Length is < 2 or > 200) errors.Add("Company name must be between 2 and 200 characters.");
@@ -81,6 +83,7 @@ public class CompanyRegistrationService(
                 Name = name,
                 Username = username,
                 Email = company.ContactEmail,
+                Mobile = ownerMobile,
                 PasswordHash = hasher.Hash(request.Password!),
                 Role = UserRole.Owner,
                 IsCompanyAdmin = true,
