@@ -131,7 +131,8 @@ deactivation with stock.
 ## Dashboard & Reports
 | Method | Route |
 |--------|-------|
-| GET | `/api/dashboard` — role-aware payload (owner/supervisor/accountant) |
+| GET | `/api/dashboard` — role-aware payload. Needs `dashboard.view` (Owner, Sub-Owner, Accountant — **not** Supervisor). 403 otherwise. |
+| GET | `/api/reports/*` — all need `reports.view` (Owner, Sub-Owner, Accountant — **not** Supervisor). |
 | GET | `/api/reports/inventory/stock|valuation|ledger|purchase-register|consumption|low-stock` |
 | GET | `/api/reports/project/cost-summary|expense-detail|budget-vs-actual|profitability` |
 | GET | `/api/reports/contractor/ledger|outstanding` |

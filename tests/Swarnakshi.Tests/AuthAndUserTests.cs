@@ -332,9 +332,16 @@ public class AuthAndUserTests
     [InlineData(UserRole.Supervisor, Permissions.PurchaseCreate, true)]
     [InlineData(UserRole.Supervisor, Permissions.ApprovalsDecide, false)]
     [InlineData(UserRole.Supervisor, Permissions.UsersManage, false)]
+    // A site Supervisor works the site; the company dashboard and the reports are the office's view.
+    [InlineData(UserRole.Supervisor, Permissions.DashboardView, false)]
+    [InlineData(UserRole.Supervisor, Permissions.ReportsView, false)]
     [InlineData(UserRole.Accountant, Permissions.ExpenseCreate, true)]
     [InlineData(UserRole.Accountant, Permissions.ApprovalsDecide, false)]
     [InlineData(UserRole.Accountant, Permissions.InventoryAdjust, false)]
+    [InlineData(UserRole.Accountant, Permissions.DashboardView, true)]
+    [InlineData(UserRole.Accountant, Permissions.ReportsView, true)]
+    [InlineData(UserRole.SubOwner, Permissions.DashboardView, true)]
+    [InlineData(UserRole.Owner, Permissions.DashboardView, true)]
     [InlineData(UserRole.Owner, Permissions.ApprovalsDecide, true)]
     [InlineData(UserRole.Owner, Permissions.UsersManage, true)]
     public void Role_permission_map_is_locked_down(UserRole role, string permission, bool expected)

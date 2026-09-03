@@ -13,6 +13,7 @@ namespace Swarnakshi.Api.Controllers;
 [Route("api/dashboard")]
 [Authorize]
 [TenantOnly]
+[RequiresPermission(Permissions.DashboardView)]
 public class DashboardController(IDashboardService dashboard) : ControllerBase
 {
     [HttpGet]

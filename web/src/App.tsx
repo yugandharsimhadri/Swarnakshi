@@ -24,6 +24,8 @@ import Employees from "@/pages/Employees";
 
 export default function App() {
   const { user, platformUser, loading, bootstrap } = useAuth();
+  const canDashboard = useAuth((s) => s.can("dashboard.view"));
+  const canReports = useAuth((s) => s.can("reports.view"));
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
 
@@ -45,7 +47,8 @@ export default function App() {
       ) : (
         <Routes>
           <Route element={<AppShell />}>
-            <Route index element={<Dashboard />} />
+            {/* A site Supervisor has no company dashboard — their landing screen is the work. */}
+            <Route index element={canDashboard ? <Dashboard /> : <Navigate to="/projects" replace />} />
             <Route path="sites" element={<Sites />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetail />} />
@@ -70,8 +73,8 @@ export default function App() {
             <Route path="approvals" element={<Approvals />} />
             <Route path="contractors" element={<Contractors />} />
             <Route path="customers" element={<Customers />} />
-            <Route path="reports" element={<ReportsHub />} />
-            <Route path="reports/:slug" element={<ReportView />} />
+            <Route path="reports" element={canReports ? <ReportsHub /> : <Navigate to="/" replace />} />
+            <Route path="reports/:slug" element={canReports ? <ReportView /> : <Navigate to="/" replace />} />
             <Route path="users" element={<Users />} />
             <Route path="employees" element={<Employees />} />
             <Route path="more" element={<More />} />

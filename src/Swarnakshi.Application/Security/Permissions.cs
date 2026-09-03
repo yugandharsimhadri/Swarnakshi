@@ -26,26 +26,32 @@ public static class Permissions
     public const string SettingsManage = "settings.manage";
     public const string ReportsView = "reports.view";
 
+    /// <summary>The company overview screen with its financial KPIs. Not for a site Supervisor —
+    /// their day is projects and stock, not the company's money.</summary>
+    public const string DashboardView = "dashboard.view";
+
     public static readonly IReadOnlyList<string> All =
     [
         MastersManage, SitesManage, ProjectsManage, InventoryView, InventoryAdjust,
         MaterialRequestCreate, PurchaseCreate, ExpenseCreate, LabourCreate, ContractManage,
         ContractorPaymentCreate, CustomerPaymentCreate, ApprovalsDecide, UsersManage,
-        SettingsManage, ReportsView
+        SettingsManage, ReportsView, DashboardView
     ];
 
     public static IReadOnlyCollection<string> ForRole(UserRole role) => role switch
     {
         UserRole.Owner => All,
-        UserRole.SubOwner => [InventoryView, ReportsView], // extend per-user via UserPermission
+        UserRole.SubOwner => [InventoryView, ReportsView, DashboardView], // extend per-user via UserPermission
+        // A Supervisor runs a site: raise requests, record purchases, keep projects moving. The
+        // company dashboard and the reports are the office's view, not theirs.
         UserRole.Supervisor =>
         [
-            InventoryView, MaterialRequestCreate, PurchaseCreate, ProjectsManage, ReportsView
+            InventoryView, MaterialRequestCreate, PurchaseCreate, ProjectsManage
         ],
         UserRole.Accountant =>
         [
             ExpenseCreate, LabourCreate, ContractManage, ContractorPaymentCreate,
-            CustomerPaymentCreate, InventoryView, ReportsView
+            CustomerPaymentCreate, InventoryView, ReportsView, DashboardView
         ],
         _ => Array.Empty<string>()
     };

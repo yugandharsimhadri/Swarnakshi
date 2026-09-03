@@ -1,11 +1,21 @@
+import type { ComponentType, SVGProps } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 import { IconApprovals, IconHome, IconInventory, IconMore, IconProjects } from "@/components/icons";
 
-// The four things a site person opens every day, plus More. Everything that is set-up or review
-// work — sites, masters, people, reports — sits behind More, where it is looked at once a month.
-const tabs = [
-  { to: "/", label: "Home", Icon: IconHome, end: true },
+// The things a site person opens every day, plus More. Everything that is set-up or review work —
+// sites, masters, people, reports — sits behind More, where it is looked at once a month. Home is
+// the company dashboard; a Supervisor does not have it, so their bar starts at Projects.
+type Tab = {
+  to: string;
+  label: string;
+  Icon: ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
+  end?: boolean;
+  needs?: string;
+};
+
+const ALL_TABS: Tab[] = [
+  { to: "/", label: "Home", Icon: IconHome, end: true, needs: "dashboard.view" },
   { to: "/projects", label: "Projects", Icon: IconProjects },
   { to: "/inventory", label: "Inventory", Icon: IconInventory },
   { to: "/approvals", label: "Approvals", Icon: IconApprovals },
@@ -14,6 +24,8 @@ const tabs = [
 
 export default function AppShell() {
   const company = useAuth((s) => s.company);
+  const can = useAuth((s) => s.can);
+  const tabs = ALL_TABS.filter((t) => !t.needs || can(t.needs));
 
   return (
     // Phone-width column by default. On a desktop the column simply gets wider — the same screens,
@@ -25,7 +37,7 @@ export default function AppShell() {
       </main>
 
       <nav className="safe-b fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/95 backdrop-blur lg:max-w-5xl">
-        <div className="grid grid-cols-5">
+        <div className={tabs.length === 4 ? "grid grid-cols-4" : "grid grid-cols-5"}>
           {tabs.map(({ to, end, label, Icon }) => (
             <NavLink
               key={to}

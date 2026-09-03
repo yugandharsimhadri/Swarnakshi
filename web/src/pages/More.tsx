@@ -20,6 +20,7 @@ export default function More() {
   const company = useAuth((s) => s.company);
   const logout = useAuth((s) => s.logout);
   const canManageUsers = useAuth((s) => s.can("users.manage"));
+  const canReports = useAuth((s) => s.can("reports.view"));
   const { theme, toggle } = useTheme();
 
   const setup: [string, IconComponent, string, boolean][] = [
@@ -49,9 +50,11 @@ export default function More() {
         ))}
       </Section>
 
-      <Section title="Review">
-        <Row to="/reports" Icon={IconReports} label="Reports" />
-      </Section>
+      {canReports && (
+        <Section title="Review">
+          <Row to="/reports" Icon={IconReports} label="Reports" />
+        </Section>
+      )}
 
       <Card className="flex items-center justify-between">
         <span className="text-sm">Appearance</span>

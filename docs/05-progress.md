@@ -4,6 +4,32 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — A Supervisor no longer sees the company dashboard or the reports
+
+A site Supervisor runs a site — raise requests, record purchases, keep projects moving. The
+company overview (its cash position, receivables, contractor payable) and the reports are the
+office's view, not theirs.
+
+**New permission `dashboard.view`.** `DashboardController` now requires it. `Permissions.ForRole`:
+Owner (via `All`), Sub-Owner and Accountant have it; Supervisor does not. Supervisor also loses
+`reports.view` — `ReportsController` already gated on it, so that endpoint 403s for them too. A
+Supervisor's token now carries exactly `inventory.view`, `material_request.create`,
+`purchase.create`, `projects.manage`.
+
+**Frontend follows the token.** `App.tsx` renders the index route as the dashboard only when
+`dashboard.view` is held, otherwise `<Navigate to="/projects">`; the `/reports` routes redirect the
+same way. `AppShell` drops the "Home" tab when there is no dashboard — a Supervisor's bar is four
+tabs (Projects · Inventory · Approvals · More), grid switched to `grid-cols-4`. `More` hides its
+"Review" section without `reports.view`.
+
+Verified live: a Supervisor gets 403 from `/api/dashboard` and `/api/reports/*`, 200 from
+`/api/projects`; in the UI they land on Projects with a four-tab bar and no Reports anywhere.
+
+The role→permission `[Theory]` in `AuthAndUserTests` gained cases for both keys across all four
+roles. 240 tests pass.
+
+---
+
 ## 2026-09-03 — Sign in with a mobile number
 
 The login box now takes a bare 10-digit mobile number as well as `username@companycode`. On a
