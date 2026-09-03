@@ -4,6 +4,24 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — A General category, so nothing has to be filed in the wrong trade
+
+Nine categories are the nine trades a site is organised into. A generator spare, a wheelbarrow, a
+roll of packing tape belong to none of them — and with nowhere honest to put them, they get filed
+under whichever trade looks nearest and are effectively lost.
+
+**General** is now the tenth category, deliberately last: General Material, Tool, Machinery Spare,
+Fuel & Lubricant, Packing Material, Cleaning Material, Stationery, Other. "General Material" moved
+out of Site & Safety into it — re-parented in place, same row Id, so every material, balance and
+transaction pointing at it still resolves.
+
+The move rides the existing flatten map, which now also carries `Site & Safety/General Material` →
+`General/General Material` for a tenant that was already flattened once. Startup runs it per tenant.
+
+245 tests pass.
+
+---
+
 ## 2026-09-03 — Two dropdowns to pick a material, search kept as the alternative
 
 The picker led with a search box. Typing is fast for someone who knows the catalogue and useless

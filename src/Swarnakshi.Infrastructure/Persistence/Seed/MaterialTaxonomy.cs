@@ -3,10 +3,10 @@ using Swarnakshi.Domain.Enums;
 namespace Swarnakshi.Infrastructure.Persistence.Seed;
 
 /// <summary>
-/// The material taxonomy: nine categories, their material types, and the specification fields each
+/// The material taxonomy: ten categories, their material types, and the specification fields each
 /// type declares.
 ///
-/// <para>Nine, not fifty. An earlier draft mirrored a reference spreadsheet with fifty categories —
+/// <para>Ten, not fifty. An earlier draft mirrored a reference spreadsheet with fifty categories —
 /// "CPVC Plumbing", "UPVC Plumbing", "Plumbing Valves", "Plumbing Fixtures" each their own heading.
 /// Correct as a filing system, unusable as a menu: a storekeeper picking cement had fifty headings
 /// to read before reaching the one obvious answer. The categories are now the trades a site is
@@ -77,7 +77,7 @@ public static class MaterialTaxonomy
 
     // ---- the tree --------------------------------------------------------
 
-    /// <summary>Nine categories; the strings under each are material types.</summary>
+    /// <summary>Ten categories; the strings under each are material types.</summary>
     public static readonly (string Category, string[] Types)[] Tree =
     [
         ("Civil & Structure",
@@ -164,7 +164,15 @@ public static class MaterialTaxonomy
 
         ("Site & Safety",
         [
-            "Helmet", "Gloves", "Safety Net", "Mask", "Site Consumable", "General Material",
+            "Helmet", "Gloves", "Safety Net", "Mask", "Site Consumable",
+        ]),
+
+        // Last on purpose: the bucket you reach for when none of the nine above fit. Without it
+        // somebody files a generator spare under "Hardware & Fasteners" and it is lost.
+        ("General",
+        [
+            "General Material", "Tool", "Machinery Spare", "Fuel & Lubricant",
+            "Packing Material", "Cleaning Material", "Stationery", "Other",
         ]),
     ];
 
@@ -239,7 +247,9 @@ public static class MaterialTaxonomy
             ("Ceiling Materials", ["Gypsum Board", "Ceiling Sections", "Ceiling Accessories"], "Roofing & Ceiling", null),
 
             ("Safety & Site Consumables", ["Helmet", "Gloves", "Safety Net", "Mask", "Site Consumables"], "Site & Safety", null),
-            ("Miscellaneous Construction Materials", ["General"], "Site & Safety", null),
+            ("Miscellaneous Construction Materials", ["General"], "General", null),
+            // Already flattened once, into Site & Safety. Moves again, in place, keeping its Id.
+            ("Site & Safety", ["General Material"], "General", null),
         ];
 
         // Old subcategory names that do not survive a prefix rule — spelled out.

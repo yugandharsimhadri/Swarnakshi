@@ -5,7 +5,7 @@ using Swarnakshi.Domain.Entities;
 namespace Swarnakshi.Infrastructure.Persistence.Seed;
 
 /// <summary>
-/// Brings the material taxonomy to the approved 50-category structure and keeps it there.
+/// Brings the material taxonomy to the approved structure and keeps it there.
 /// Idempotent — safe on every startup, on a fresh database or on one seeded by the old 19-category tree.
 ///
 /// Preservation contract: Materials are never deleted and never lose their Id or Code. Only
@@ -125,7 +125,7 @@ public static class MaterialMasterSeeder
     }
 
     /// <summary>
-    /// Re-parents and renames subcategory rows from the old fifty-category shape into the nine the
+    /// Re-parents and renames subcategory rows from the old fifty-category shape into the ten the
     /// app now shows. The row keeps its Id, so every Material, InventoryBalance,
     /// InventoryTransaction, PurchaseItem and MaterialRequestItem pointing at it still resolves —
     /// only its parent and its label change. Categories left with nothing under them are
@@ -153,7 +153,7 @@ public static class MaterialMasterSeeder
             return found;
         }
 
-        // The nine have to exist (and have Ids) before anything is pointed at them.
+        // The ten have to exist (and have Ids) before anything is pointed at them.
         foreach (var (catName, _) in MaterialTaxonomy.Tree) CategoryNamed(catName);
         await db.SaveChangesAsync(ct);
 

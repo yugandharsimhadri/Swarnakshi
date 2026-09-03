@@ -40,7 +40,7 @@ public class MultiTenancyTests
         using var acme = db.BeginTenantScope(res.CompanyId);
         (await db.Users.CountAsync()).Should().Be(1);
         (await db.Materials.CountAsync()).Should().BeGreaterThan(30, "a new tenant gets its own catalogue");
-        (await db.MaterialCategories.CountAsync()).Should().Be(9);
+        (await db.MaterialCategories.CountAsync()).Should().Be(10);
         (await db.MaterialSubcategories.CountAsync()).Should().BeGreaterThan(180, "the detail moved down a level");
         (await db.ExpenseHeads.CountAsync()).Should().BeGreaterThan(20);
         (await db.Units.CountAsync()).Should().BeGreaterThan(15);

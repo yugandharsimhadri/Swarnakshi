@@ -110,7 +110,7 @@ public class SiteReportingTests
         var masters = scope.ServiceProvider.GetRequiredService<IMasterService>();
 
         (await masters.UnitsAsync()).Should().NotBeEmpty();
-        (await masters.MaterialCategoriesAsync()).Should().HaveCount(9, "nine categories a builder recognises");
+        (await masters.MaterialCategoriesAsync()).Should().HaveCount(10, "nine trades plus a General catch-all");
         (await masters.ExpenseHeadsAsync()).Should().NotBeEmpty();
         (await masters.LabourCategoriesAsync()).Should().NotBeEmpty();
         (await masters.PaymentMethodsAsync()).Should().NotBeEmpty();

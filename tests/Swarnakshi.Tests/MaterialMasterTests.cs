@@ -313,7 +313,7 @@ public class MaterialMasterTests
     // ---- taxonomy & specification definitions ---------------------------
 
     [Fact]
-    public async Task Seeds_nine_categories_a_builder_would_recognise()
+    public async Task Seeds_ten_categories_a_builder_would_recognise()
     {
         await using var host = await TestHost.CreateAsync();
         using var scope = host.Scope();
@@ -322,12 +322,17 @@ public class MaterialMasterTests
         var names = await db.MaterialCategories.Where(c => c.IsActive).Select(c => c.Name).ToListAsync();
 
         // Few enough to read in one glance — that is the whole reason the fifty were collapsed.
-        names.Should().HaveCount(9);
+        names.Should().HaveCount(10);
         names.Should().BeEquivalentTo(
         [
             "Civil & Structure", "Plumbing", "Electrical", "Flooring & Stone", "Doors & Windows",
-            "Painting", "Hardware & Fasteners", "Roofing & Ceiling", "Site & Safety",
+            "Painting", "Hardware & Fasteners", "Roofing & Ceiling", "Site & Safety", "General",
         ]);
+
+        // The catch-all: anything that does not belong to a trade still has somewhere to go.
+        var general = await db.MaterialSubcategories.Include(t => t.Category)
+            .Where(t => t.IsActive && t.Category.Name == "General").Select(t => t.Name).ToListAsync();
+        general.Should().Contain("General Material").And.Contain("Other");
 
         // What used to be a category is now a material type, and it still names itself.
         var types = await db.MaterialSubcategories.Include(t => t.Category)
