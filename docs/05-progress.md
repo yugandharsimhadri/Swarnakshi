@@ -4,6 +4,26 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-03 — A villa's material list says which trade each line belongs to
+
+The Material tab listed a name and a date. "Vitrified Tiles 600x600" tells you what arrived;
+it does not tell you the villa has spent ₹1.25L on flooring.
+
+`InventoryTxnDto` now carries `CategoryName` and `MaterialTypeName` alongside the material name —
+a name on its own is ambiguous in a list, and after the taxonomy flattening a type like "Elbow" or
+"Fittings" says very little until you know it is plumbing. Every row shows the material name with a
+category chip, and the second line gives the type, the date, the movement and the transaction
+number.
+
+Above the list, the total is now broken down by category. That is the question an owner actually
+asks of a material list — where the money went — and a chronological ledger never answers it.
+Villa 101 reads: Civil & Structure ₹4.92L, Flooring & Stone ₹1.25L, Electrical ₹31,294, Plumbing
+₹23,789, Painting ₹23,541.
+
+245 tests pass.
+
+---
+
 ## 2026-09-03 — Nine categories, and a material picker you type into
 
 Choosing a material meant scrolling a `<select>` of every material in the company, under a

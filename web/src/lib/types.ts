@@ -276,6 +276,8 @@ export interface InventoryTxn {
   date: string;
   type: number;
   materialName: string;
+  categoryName: string;
+  materialTypeName: string;
   unitCode: string;
   quantity: number;
   rate: number;

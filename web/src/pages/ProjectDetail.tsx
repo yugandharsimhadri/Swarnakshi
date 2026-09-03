@@ -359,7 +359,18 @@ function MaterialTab({ projectId }: { projectId: string }) {
     [projectId],
   );
 
-  const totalValue = (data?.items ?? []).reduce((sum, t) => sum + Math.abs(t.quantity) * t.rate, 0);
+  const rows = data?.items ?? [];
+  const totalValue = rows.reduce((sum, t) => sum + Math.abs(t.quantity) * t.rate, 0);
+
+  // What the villa has swallowed, by trade. The categories are few enough now that this is a
+  // readable breakdown rather than a second list — and it is the question an owner actually asks
+  // of a material list ("where did the money go"), which a chronological ledger never answers.
+  const byCategory = Object.entries(
+    rows.reduce<Record<string, number>>((acc, t) => {
+      acc[t.categoryName] = (acc[t.categoryName] ?? 0) + Math.abs(t.quantity) * t.rate;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="space-y-2">
@@ -385,21 +396,34 @@ function MaterialTab({ projectId }: { projectId: string }) {
       </div>
 
       {totalValue > 0 && (
-        <Card className="flex justify-between text-sm">
-          <span className="text-text-dim">Material charged to this villa</span>
-          <span className="font-semibold tabular-nums">{money(totalValue)}</span>
+        <Card>
+          <div className="flex justify-between text-sm">
+            <span className="text-text-dim">Material charged to this villa</span>
+            <span className="font-semibold tabular-nums">{money(totalValue)}</span>
+          </div>
+          <div className="mt-2 space-y-0.5 border-t border-border pt-2">
+            {byCategory.map(([category, value]) => (
+              <div key={category} className="flex justify-between text-xs">
+                <span className="truncate text-text-dim">{category}</span>
+                <span className="shrink-0 tabular-nums">{money(value)}</span>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
         (data?.items.length ?? 0) === 0
           ? <EmptyState title="No material yet" hint="Take it from the store, or record a purchase for this villa." />
-          : data!.items.map((t) => (
-            <Card key={t.id} className="flex items-center justify-between">
+          : rows.map((t) => (
+            <Card key={t.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">{t.materialName}</div>
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold">{t.materialName}</span>
+                  <Chip>{t.categoryName}</Chip>
+                </div>
                 <div className="truncate text-xs text-text-dim">
-                  {dateStr(t.date)} · {InvTxnTypeName[t.type]} · {t.txnNumber}
+                  {t.materialTypeName} · {dateStr(t.date)} · {InvTxnTypeName[t.type]} · {t.txnNumber}
                 </div>
               </div>
               <div className="shrink-0 text-right text-sm tabular-nums">

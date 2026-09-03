@@ -14,8 +14,14 @@ public record InventoryBalanceDto(Guid MaterialId, string MaterialCode, string M
     string CategoryName, string UnitCode, decimal Quantity, decimal AverageRate, decimal Value,
     decimal MinStockLevel, decimal ReorderLevel, decimal? LastPurchaseRate, bool LowStock);
 
+/// <summary>
+/// One movement on the stock ledger. <paramref name="CategoryName"/> and
+/// <paramref name="MaterialTypeName"/> travel with it because a name on its own is ambiguous in a
+/// list — "Elbow" and "Fittings" say very little until you know they are plumbing.
+/// </summary>
 public record InventoryTxnDto(Guid Id, string TxnNumber, DateOnly Date, InventoryTransactionType Type,
-    string MaterialName, string UnitCode, decimal Quantity, decimal Rate, decimal Amount,
+    string MaterialName, string CategoryName, string MaterialTypeName, string UnitCode,
+    decimal Quantity, decimal Rate, decimal Amount,
     Guid? ProjectId, string? ProjectName, string? SourceType, string? SourceRef, string? Remarks);
 
 public record MaterialInventoryDetail(Guid SiteId, Guid MaterialId, string MaterialName, string UnitCode,
@@ -301,7 +307,8 @@ public class InventoryService(
         => await db.InventoryTransactions.AsNoTracking().Where(t => t.Id == id).Select(TxnProjection).FirstAsync(ct);
 
     private static readonly Expression<Func<InventoryTransaction, InventoryTxnDto>> TxnProjection =
-        t => new InventoryTxnDto(t.Id, t.TxnNumber, t.Date, t.Type, t.Material.Name, t.Unit.Code,
+        t => new InventoryTxnDto(t.Id, t.TxnNumber, t.Date, t.Type, t.Material.Name,
+            t.Material.Subcategory.Category.Name, t.Material.Subcategory.Name, t.Unit.Code,
             t.Quantity, t.Rate, t.Amount, t.ProjectId, t.Project != null ? t.Project.Name : null,
             t.SourceType, t.SourceRef, t.Remarks);
 }
