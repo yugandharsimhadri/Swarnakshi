@@ -4,6 +4,53 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — Audit: measured the thing, then fixed what the measurement showed
+
+Latency first looked like a flat 15 ms everywhere. It was the measuring tool: Node's fetch opens a
+fresh connection per call, and `/health` — no auth, no database — measured 15 ms too. With
+keep-alive the real floor is 0.3 ms and nothing exceeded 7 ms on the seeded book.
+
+Ten villas prove nothing about scale, so the tests ran again against a restored clone with the two
+growing tables multiplied to 38k and 36k rows — 128x. Statement counts stayed flat, so there is no
+N+1 anywhere. What did show up was **ProjectExpenses being table-scanned 649 times in one short
+run**: it is the table every cost figure sums, and nothing indexed the way those queries ask.
+
+Two indexes, both taken from SQL Server's own missing-index DMV rather than from guesswork:
+
+    ProjectExpenses       (CompanyId, Status, ProjectId) INCLUDE (ExpenseType, Amount, Date)
+    InventoryTransactions (CompanyId, SiteId, Type, Date)
+
+At 128x volume: project summary 70 ms to 6.4 ms, company summary 94 to 13, profitability 35 to 10,
+projects list 31 to 9. ProjectId is in the key rather than the INCLUDE because within one tenant
+every row shares CompanyId, so the selectivity has to come from somewhere else.
+
+**The reports had no limit at all** — not one `Take` in the service. The consumption register
+answered with 1.16 MB at 36k rows, and a few years of trading is tens of megabytes built in memory
+on the server and parsed in memory in the browser. Row-level reports now cap at 5,000 rows and say
+so in the table, because a report that silently returns the first N and looks complete is worse
+than one that is slow.
+
+**Security.** Sign-in was anonymous, unthrottled and about to face the internet: ten attempts a
+minute per address now, partitioned by the caller's real IP, which only works because the
+forwarded-headers middleware runs first. Verified both directions — brute force stops after exactly
+ten, and 80 ordinary signed-in requests pass untouched. Added nosniff, DENY framing and a referrer
+policy; no CSP, because the right one differs between the two deployment shapes and a wrong one
+fails silently.
+
+**The frontend had no error boundary**, so any render error blanked the app. On a phone, on a site,
+that reads as the app being gone and the day's entries with it. There is one now, outside the
+router, saying plainly that saved work is safe.
+
+Two of my own defects surfaced on the way. `Backup-Database.ps1` used WITH COMPRESSION, which
+Express refuses outright — the production backup would have failed on every run. And the test
+databases were accumulating, eighteen of them, because an age-based sweep never catches same-day
+leftovers; the sweep now reads the process id out of the database name and drops the ones whose run
+is over.
+
+249 tests pass.
+
+---
+
 ## 2026-09-04 — Two artefacts: a UI for Cloudflare Pages, an API for IIS
 
 The single-service shape stays and still works. Alongside it, `Publish.ps1` now emits the UI and

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swarnakshi.Api.Common;
 using Swarnakshi.Application.Auth;
 using Swarnakshi.Application.Platform;
@@ -10,6 +11,8 @@ namespace Swarnakshi.Api.Controllers;
 [ApiController]
 [Route("api/register")]
 [AllowAnonymous]
+// Anonymous and it writes: without a limit, anyone who finds the URL can create tenants in bulk.
+[EnableRateLimiting("auth")]
 public class RegistrationController(ICompanyRegistrationService registration) : ControllerBase
 {
     [HttpPost]

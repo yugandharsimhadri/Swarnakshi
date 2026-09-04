@@ -181,6 +181,14 @@ public class InventoryTransactionConfig : IEntityTypeConfiguration<InventoryTran
         e.HasIndex(x => new { x.CompanyId, x.TxnNumber }).IsUnique();
         e.HasIndex(x => new { x.SiteId, x.MaterialId, x.Date });
         e.HasIndex(x => x.ProjectId);
+
+        // The stock ledger as a person reads it: one site, newest first. The index above leads with
+        // MaterialId, which answers "what happened to cement" and not "what happened at this site",
+        // so that screen and the consumption register were scanning the table instead. Type is in
+        // the key because the consumption register wants only the issues.
+        e.HasIndex(x => new { x.CompanyId, x.SiteId, x.Type, x.Date })
+            .HasDatabaseName("IX_InventoryTransactions_CompanyId_SiteId_Type_Date");
+
         e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
@@ -216,6 +224,24 @@ public class TxnNumberConfigs :
     {
         e.HasIndex(x => new { x.CompanyId, x.TxnNumber }).IsUnique();
         e.HasIndex(x => new { x.ProjectId, x.Date });
+
+        // The hot path of the whole product. Every cost figure the app shows — the dashboard, the
+        // company summary, each villa's total, profitability, budget burn — is a sum over posted
+        // rows of one tenant, grouped by project or by type. Without this the server table-scans
+        // ProjectExpenses for each of them: measured at 128x the seed data it scanned 649 times in
+        // one short run, and SQL Server's own missing-index DMV put the improvement at 96-99%.
+        //
+        // The INCLUDE is what makes it a covering index: the aggregate is answered from the index
+        // alone, with no lookup back into the table for the amount or the grouping key.
+        //
+        // ProjectId is in the key rather than the INCLUDE because the two shapes of question want
+        // different things. "What has this villa cost?" seeks straight to one project; "what has
+        // the company spent?" scans the index, which is a fraction of the table's width. Leading
+        // with CompanyId is for the tenant filter, though within one tenant's database every row
+        // shares it, so the selectivity that matters comes from Status and ProjectId.
+        e.HasIndex(x => new { x.CompanyId, x.Status, x.ProjectId })
+            .IncludeProperties(x => new { x.ExpenseType, x.Amount, x.Date })
+            .HasDatabaseName("IX_ProjectExpenses_CompanyId_Status_Covering");
         e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Head).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Subhead).WithMany().HasForeignKey(x => x.ExpenseSubheadId).OnDelete(DeleteBehavior.Restrict);

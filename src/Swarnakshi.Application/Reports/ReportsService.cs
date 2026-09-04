@@ -4,7 +4,13 @@ using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Application.Reports;
 
-public record ReportTable(string Title, IReadOnlyList<string> Columns, IReadOnlyList<IReadOnlyList<object?>> Rows);
+/// <param name="Note">
+/// Set when the table is not the whole answer — currently only when a row-level report hit its
+/// cap. A report that quietly returns the first N rows and looks complete is worse than one that
+/// is slow, so anything that trims says so here and the UI shows it.
+/// </param>
+public record ReportTable(string Title, IReadOnlyList<string> Columns,
+    IReadOnlyList<IReadOnlyList<object?>> Rows, string? Note = null);
 
 public interface IReportsService
 {
@@ -26,21 +32,46 @@ public interface IReportsService
 
 public class ReportsService(IAppDbContext db) : IReportsService
 {
+    /// <summary>
+    /// The most rows a row-level report will return.
+    ///
+    /// <para>These reports had no limit at all. Summaries are bounded by the number of villas or
+    /// sites and stay small, but the registers — purchases, consumption, stock — return a row per
+    /// transaction for all time. Measured against 36,000 inventory rows the consumption register
+    /// alone answered with 1.16 MB; a few years of real trading is tens of megabytes, built
+    /// entirely in memory on the server and then parsed entirely in memory in the browser.</para>
+    ///
+    /// <para>Five thousand rows is more than anyone reads on screen and small enough to stay
+    /// quick. A caller who genuinely wants everything narrows the date range, which is the
+    /// honest way to ask for a large answer.</para>
+    /// </summary>
+    private const int MaxRows = 5_000;
+
+    /// <summary>Takes one more row than the cap, so "was there more?" needs no second query.</summary>
+    private static (List<T> Rows, bool Trimmed) Cap<T>(List<T> rows)
+        => rows.Count > MaxRows ? (rows.Take(MaxRows).ToList(), true) : (rows, false);
+
+    private static string? CapNote(bool trimmed, string what)
+        => trimmed
+            ? $"Showing the most recent {MaxRows:N0} {what}. Narrow the date range to see the rest."
+            : null;
+
     public async Task<ReportTable> InventoryStockAsync(Guid? siteId, CancellationToken ct = default)
     {
         var q = db.InventoryBalances.AsNoTracking();
         if (siteId is not null) q = q.Where(b => b.SiteId == siteId);
-        var data = await q.OrderBy(b => b.Site.Name).ThenBy(b => b.Material.Name)
+        var (data, trimmed) = Cap(await q.OrderBy(b => b.Site.Name).ThenBy(b => b.Material.Name)
             .Select(b => new
             {
                 Site = b.Site.Name, b.Material.Code, Material = b.Material.Name, Unit = b.Material.Unit.Code,
                 b.Quantity, b.AverageRate, b.Value, b.Material.MinStockLevel,
                 Low = b.Material.MinStockLevel > 0 && b.Quantity <= b.Material.MinStockLevel
-            }).ToListAsync(ct);
+            }).Take(MaxRows + 1).ToListAsync(ct));
         var rows = data.Select(x => (IReadOnlyList<object?>)new object?[]
             { x.Site, x.Code, x.Material, x.Unit, x.Quantity, x.AverageRate, x.Value, x.MinStockLevel, x.Low ? "LOW" : "" }).ToList();
         return new("Inventory Stock",
-            ["Site", "Code", "Material", "Unit", "Qty", "Avg Rate", "Value", "Min Level", "Alert"], rows);
+            ["Site", "Code", "Material", "Unit", "Qty", "Avg Rate", "Value", "Min Level", "Alert"], rows,
+            CapNote(trimmed, "stock lines"));
     }
 
     public async Task<ReportTable> PurchaseRegisterAsync(DateOnly? from, DateOnly? to, Guid? siteId, CancellationToken ct = default)
@@ -49,16 +80,17 @@ public class ReportsService(IAppDbContext db) : IReportsService
         if (from is not null) q = q.Where(p => p.Date >= from);
         if (to is not null) q = q.Where(p => p.Date <= to);
         if (siteId is not null) q = q.Where(p => p.SiteId == siteId);
-        var data = await q.OrderByDescending(p => p.Date)
+        var (data, trimmed) = Cap(await q.OrderByDescending(p => p.Date)
             .Select(p => new
             {
                 p.Date, p.TxnNumber, Supplier = p.Supplier.Name, Site = p.Site.Name, Invoice = p.InvoiceNumber ?? "",
                 p.SubTotal, p.TaxAmount, p.TotalAmount, p.PaidAmount, p.BalanceAmount
-            }).ToListAsync(ct);
+            }).Take(MaxRows + 1).ToListAsync(ct));
         var rows = data.Select(x => (IReadOnlyList<object?>)new object?[]
             { x.Date, x.TxnNumber, x.Supplier, x.Site, x.Invoice, x.SubTotal, x.TaxAmount, x.TotalAmount, x.PaidAmount, x.BalanceAmount }).ToList();
         return new("Purchase Register",
-            ["Date", "Txn", "Supplier", "Site", "Invoice", "Sub Total", "Tax", "Total", "Paid", "Balance"], rows);
+            ["Date", "Txn", "Supplier", "Site", "Invoice", "Sub Total", "Tax", "Total", "Paid", "Balance"], rows,
+            CapNote(trimmed, "purchases"));
     }
 
     public async Task<ReportTable> ConsumptionRegisterAsync(DateOnly? from, DateOnly? to, Guid? projectId, CancellationToken ct = default)
@@ -68,16 +100,17 @@ public class ReportsService(IAppDbContext db) : IReportsService
         if (from is not null) q = q.Where(t => t.Date >= from);
         if (to is not null) q = q.Where(t => t.Date <= to);
         if (projectId is not null) q = q.Where(t => t.ProjectId == projectId);
-        var data = await q.OrderByDescending(t => t.Date)
+        var (data, trimmed) = Cap(await q.OrderByDescending(t => t.Date)
             .Select(t => new
             {
                 t.Date, t.TxnNumber, Project = t.Project != null ? t.Project.Name : "", Material = t.Material.Name,
                 t.Quantity, t.Rate, t.Amount, Request = t.SourceRef ?? ""
-            }).ToListAsync(ct);
+            }).Take(MaxRows + 1).ToListAsync(ct));
         var rows = data.Select(x => (IReadOnlyList<object?>)new object?[]
             { x.Date, x.TxnNumber, x.Project, x.Material, -x.Quantity, x.Rate, -x.Amount, x.Request }).ToList();
         return new("Consumption Register",
-            ["Date", "Txn", "Project", "Material", "Qty", "Rate", "Value", "Request"], rows);
+            ["Date", "Txn", "Project", "Material", "Qty", "Rate", "Value", "Request"], rows,
+            CapNote(trimmed, "issues"));
     }
 
     public async Task<ReportTable> LowStockAsync(CancellationToken ct = default)

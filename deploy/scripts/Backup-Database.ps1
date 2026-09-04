@@ -53,11 +53,18 @@ if ($svc) {
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $file  = Join-Path $BackupPath "$Database-$stamp-$Label.bak"
 
-# CHECKSUM + VERIFYONLY below: a backup nobody has verified is a guess. COMPRESSION is available
-# on Express since 2022; if the server is older this line is the one to drop.
+# Express does not support backup compression - BACKUP fails outright with "WITH COMPRESSION is not
+# supported on Express Edition", it does not warn and carry on. Ask the server what it is rather
+# than assuming, so this works on Express and still compresses where compression is available.
+$edition = (& sqlcmd -S $Server -E -C -h-1 -W -Q "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('EngineEdition') AS int);" 2>&1 |
+            Where-Object { $_ -match '^\s*\d+\s*$' } | Select-Object -First 1)
+$compress = if ("$edition".Trim() -eq '4') { '' } else { ', COMPRESSION' }   # 4 = Express
+if (-not $compress) { Write-Host "Express Edition: writing an uncompressed backup." }
+
+# CHECKSUM and the VERIFYONLY that follows: a backup nobody has verified is a guess.
 $sql = @"
 BACKUP DATABASE [$Database] TO DISK = N'$file'
-WITH INIT, COMPRESSION, CHECKSUM, STATS = 25,
+WITH INIT$compress, CHECKSUM, STATS = 25,
      NAME = N'$Database full backup ($Label)';
 RESTORE VERIFYONLY FROM DISK = N'$file' WITH CHECKSUM;
 "@

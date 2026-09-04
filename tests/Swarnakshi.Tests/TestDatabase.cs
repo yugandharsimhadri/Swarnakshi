@@ -93,28 +93,62 @@ public static class TestDatabase
         await using var connection = new SqlConnection(For("master"));
         await connection.OpenAsync();
 
-        await using (var sweep = connection.CreateCommand())
-        {
-            // Anything older than six hours cannot belong to a run still going. Same-named leftovers
-            // go regardless — a recycled process id would otherwise inherit a stale schema.
-            sweep.CommandText = """
-                DECLARE @sql nvarchar(max) = N'';
-                SELECT @sql = @sql + N'ALTER DATABASE ' + QUOTENAME(name)
-                                   + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE '
-                                   + QUOTENAME(name) + N';'
-                FROM sys.databases
-                WHERE name LIKE 'SwarnakshiTest[_]%'
-                  AND (create_date < DATEADD(hour, -6, GETDATE()) OR name = @current);
-                IF @sql <> N'' EXEC sp_executesql @sql;
-                """;
-            sweep.Parameters.AddWithValue("@current", Name);
-            try { await sweep.ExecuteNonQueryAsync(); }
-            catch { /* a database another run is using; it will clean up after itself */ }
-        }
+        await SweepAsync(connection);
 
         await using var create = connection.CreateCommand();
         create.CommandText = $"CREATE DATABASE [{Name}];";
         await create.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
+    /// Drops test databases whose run is over.
+    ///
+    /// <para>The name carries the process id that made it, so "is that run still going?" has an
+    /// exact answer: look for the process. That beats guessing from age — an age rule either
+    /// leaves same-day leftovers lying around, which is what happened (eighteen of them after a
+    /// day's work), or risks dropping a database out from under a run that is simply slow.</para>
+    ///
+    /// <para>A test runner does not always let the process exit cleanly, so teardown cannot be the
+    /// only cleanup. This is the one that actually holds.</para>
+    /// </summary>
+    private static async Task SweepAsync(SqlConnection connection)
+    {
+        var stale = new List<string>();
+        await using (var list = connection.CreateCommand())
+        {
+            list.CommandText = "SELECT name FROM sys.databases WHERE name LIKE 'SwarnakshiTest[_]%';";
+            await using var reader = await list.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var name = reader.GetString(0);
+                if (name == Name || IsFromADeadRun(name)) stale.Add(name);
+            }
+        }
+
+        foreach (var name in stale)
+        {
+            try
+            {
+                await using var drop = connection.CreateCommand();
+                drop.CommandText = $"""
+                    ALTER DATABASE [{name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                    DROP DATABASE [{name}];
+                    """;
+                await drop.ExecuteNonQueryAsync();
+            }
+            catch { /* in use after all, or already gone; the next run tries again */ }
+        }
+    }
+
+    /// <summary>SwarnakshiTest_&lt;pid&gt;_&lt;time&gt;[_&lt;guid&gt;] — true when that pid is gone.</summary>
+    private static bool IsFromADeadRun(string databaseName)
+    {
+        var parts = databaseName.Split('_');
+        if (parts.Length < 3 || !int.TryParse(parts[1], out var pid)) return false;
+        if (pid == Environment.ProcessId) return false;
+        try { using var _ = System.Diagnostics.Process.GetProcessById(pid); return false; }
+        catch (ArgumentException) { return true; }      // no such process: the run is over
+        catch { return false; }                          // cannot tell; leave it alone
     }
 
     public static async Task DropAsync()

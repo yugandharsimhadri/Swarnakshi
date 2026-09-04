@@ -1,6 +1,8 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Swarnakshi.Api.Common;
 using Swarnakshi.Api.Persistence;
@@ -81,10 +83,47 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.KnownProxies.Clear();
 });
 
+// Sign-in is the one anonymous endpoint that gives something away when guessed, and it is now
+// reachable from the internet. Ten attempts a minute per address is generous for a person typing a
+// password they half-remember and useless to anyone working through a word list.
+//
+// Partitioning by IP only works because UseForwardedHeaders runs first and puts the caller's real
+// address on the connection; without it every request through the tunnel shares one partition and
+// the first person to fumble a password locks out the whole company.
+// "auth" is the name the [EnableRateLimiting] attributes on the sign-in, refresh and registration
+// endpoints refer to. Only those carry it: a limit this tight on ordinary traffic would throttle a
+// person simply using the app.
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = int.TryParse(builder.Configuration["Security:AuthAttemptsPerMinute"], out var n) ? n : 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,      // reject rather than delay: a queued sign-in just looks broken
+        }));
+});
+
 var app = builder.Build();
 
 // First in the pipeline: everything after it should see the scheme and host the caller actually used.
 app.UseForwardedHeaders();
+
+// Cheap headers that close off whole classes of browser attack. Deliberately not a Content-Security
+// -Policy: the UI is served from here in one deployment shape and from Cloudflare in the other, so
+// the correct policy differs, and a wrong CSP breaks the app silently. Set that at the edge.
+app.Use(async (context, next) =>
+{
+    var h = context.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";          // stop MIME sniffing turning data into script
+    h["X-Frame-Options"] = "DENY";                    // no framing, so no clickjacking
+    h["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
+app.UseRateLimiter();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
