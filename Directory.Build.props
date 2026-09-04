@@ -5,7 +5,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Must stay false: Microsoft.Data.SqlClient refuses to open a connection in globalization
+         invariant mode ("Globalization Invariant Mode is not supported"), because it needs ICU to
+         compare and collate under the server's collation. It was true while the app ran on SQLite,
+         which does not care. On Windows the ICU data ships with the OS, so this costs nothing;
+         a Linux container needs the ICU packages installed. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <!-- Audit only packages we reference directly. The transitive NU1903 warnings come from
          SQLitePCLRaw / System.Security.Cryptography.Xml pulled by EF Core 10 GA (Xml is design-time
          only, PrivateAssets); nothing newer exists to move to. Revisit when EF Core ships an update. -->

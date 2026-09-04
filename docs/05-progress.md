@@ -4,6 +4,52 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — SQL Server Express, and a deployment that has actually been rehearsed
+
+The app ran on SQLite because nothing had been deployed yet. It now runs on **SQL Server Express**,
+database **SCOPS**, and there is a deployment plan whose every step has been executed rather than
+described.
+
+**The conversion.** The ten SQLite migrations were replaced by one SQL Server `InitialCreate` —
+nothing was deployed, so there was no history to preserve. `DateTimeOffset` is a real
+`datetimeoffset(7)` now instead of the UTC ticks SQLite needs. Three things broke on the way and
+are worth remembering:
+
+- `InvariantGlobalization` was `true`. SqlClient refuses to open a connection without ICU, with a
+  message that names globalization and not the database. It must stay `false`.
+- `EnableRetryOnFailure` looks like an obvious win and is a trap here: EF forbids
+  `BeginTransactionAsync` under a retrying execution strategy, and the six places that post
+  inventory and financial side effects all use one. Retries are off, with a comment saying what
+  would have to change first.
+- The content root followed the process's working directory, so a service starting in
+  `C:WindowsSystem32` would have found neither `appsettings.Production.json` nor `wwwroot`.
+  It is pinned to the binary folder.
+
+**One process.** The published API serves the built React app from its own `wwwroot`, so the UI and
+the API share an origin: no reverse proxy, no CORS in production, one service to install and watch.
+A request under `/api` that matches no controller returns 404 JSON rather than falling through to
+the SPA shell and answering an API client with a page of HTML.
+
+**Secrets left the repository.** `appsettings.json` carries no connection string and no signing key,
+and the app refuses to start outside Development without them rather than falling back to something
+well-known. The developer's copy is in user-secrets; the server's is in a git-ignored
+`appsettings.Production.json` that the deploy script writes and locks to SYSTEM and Administrators.
+
+**The scripts** in `deploy/` do the whole job: create the database and its least-privilege login,
+build a versioned package, back up, deploy, verify `/health`, and roll back on failure. Migrations
+run as an explicit `--migrate` step that exits non-zero, so a bad schema change fails the deployment
+while the service is still stopped instead of taking the site down under load.
+
+**Rehearsed, not assumed.** SCOPS was created, migrated and seeded; the demo book was rebuilt
+through the API — 10 villas, 62 approvals, 81 inventory transactions, 114 project expense rows — so
+every transactional posting path has now run on SQL Server. The published package was then started
+standalone and checked: `/health`, the SPA shell, a deep link, a 404 under `/api`, and a real login
+returning real burn percentages.
+
+245 tests pass. `docs/06-deployment.md` is the runbook.
+
+---
+
 ## 2026-09-03 — A General category, so nothing has to be filed in the wrong trade
 
 Nine categories are the nine trades a site is organised into. A generator spare, a wheelbarrow, a

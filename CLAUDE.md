@@ -1,6 +1,7 @@
 # CLAUDE.md — working notes for AI assistants
 
-Read `docs/05-progress.md` first, then `docs/01-architecture.md` and `docs/09-saas-tenancy.md`.
+Read `docs/05-progress.md` first, then `docs/01-architecture.md`, `docs/09-saas-tenancy.md` and
+`docs/06-deployment.md`.
 
 ## Rules
 - **Multi-tenant.** Every tenant row has `CompanyId`; a global query filter scopes reads and
@@ -16,7 +17,11 @@ Read `docs/05-progress.md` first, then `docs/01-architecture.md` and `docs/09-sa
 - Inventory is **site-level**. Projects consume from the shared pool. No per-project inventory.
 - Inventory & financial side effects run only on approval→post, inside one transaction.
 - Don't double count: purchase → inventory value; only consumption → project cost.
-- Keep SQLite-agnostic: no provider-specific SQL/types. Provider chosen from `Database:Provider`.
+- Runs on **SQL Server Express** (`SCOPS`). The test suite still builds the schema on SQLite in
+  memory, so keep every model and query provider-agnostic: no provider-specific SQL or types, no
+  filtered unique indexes. Provider comes from `Database:Provider`.
+- No secrets in the repo. Dev connection string in `dotnet user-secrets`; the server's lives in
+  `appsettings.Production.json`, which is git-ignored.
 - Money = `decimal(18,2)`. Timestamps = `DateTimeOffset`.
 - Mobile-first UI. Minimal dependencies — justify every package.
 
@@ -27,8 +32,11 @@ dotnet test                                   # unit + integration (fast) — UA
 dotnet test tests/Swarnakshi.UatTests -p:Uat=true   # browser UAT, headed (starts its own servers, minutes)
 SWARNAKSHI_UAT_RUN_MODE=demo dotnet test tests/Swarnakshi.UatTests -p:Uat=true   # paced + captioned
 dotnet run --project src/Swarnakshi.Api
+dotnet run --project src/Swarnakshi.Api -- --migrate   # apply schema and exit (the deploy step)
 dotnet ef migrations add <Name> --project src/Swarnakshi.Infrastructure --startup-project src/Swarnakshi.Api
 cd web && npm run dev
+deploy/scripts/Publish.ps1                     # build a deployable package into deploy/out
+deploy/scripts/Deploy.ps1                     # install or upgrade on a server (elevated)
 ```
 
 UAT runs on its own ports (6070/6071) against a throwaway database — it never touches a running dev

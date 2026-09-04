@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Application.Platform;
 using Swarnakshi.Domain.Entities;
@@ -193,19 +195,25 @@ public static class PlatformSeeder
     private static async Task AdoptOrphanedRowsAsync(AppDbContext db, Guid companyId, CancellationToken ct)
     {
         var empty = Guid.Empty;
-        foreach (var table in TenantTables(db))
+        // Quote through the provider rather than by hand: SQL Server writes [Sites], SQLite "Sites",
+        // and the schema-qualified form differs again. The helper is the provider's own.
+        var sql = db.GetService<ISqlGenerationHelper>();
+
+        foreach (var (schema, table) in TenantTables(db))
         {
+            var name = sql.DelimitIdentifier(table, schema);
+            var column = sql.DelimitIdentifier(nameof(Domain.Common.ITenantOwned.CompanyId));
             await db.Database.ExecuteSqlRawAsync(
-                $"UPDATE \"{table}\" SET \"CompanyId\" = {{0}} WHERE \"CompanyId\" = {{1}}",
+                $"UPDATE {name} SET {column} = {{0}} WHERE {column} = {{1}}",
                 [companyId, empty], ct);
         }
     }
 
-    private static IEnumerable<string> TenantTables(AppDbContext db) =>
+    private static IEnumerable<(string? Schema, string Table)> TenantTables(AppDbContext db) =>
         db.Model.GetEntityTypes()
             .Where(t => typeof(Domain.Common.ITenantOwned).IsAssignableFrom(t.ClrType))
-            .Select(t => t.GetTableName())
-            .Where(n => !string.IsNullOrEmpty(n))
-            .Distinct()!
-            .Cast<string>();
+            .Select(t => (t.GetSchema(), Table: t.GetTableName()))
+            .Where(x => !string.IsNullOrEmpty(x.Table))
+            .Distinct()
+            .Select(x => (x.Item1, x.Table!));
 }

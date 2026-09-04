@@ -503,3 +503,15 @@ uat.log
 
 # Vite/TS incremental build cache
 web/tsconfig.tsbuildinfo
+
+# Deployment settings carry the database password and the JWT signing key. The committed
+# template is deploy/appsettings.Production.template.json; the real file is generated on the
+# server by deploy/scripts/New-ProductionSettings.ps1 and never leaves it.
+appsettings.Production.json
+appsettings.*.Local.json
+/deploy/out/
+/deploy/backups/
+
+# Build output: Publish.ps1 compiles the React app into the API's wwwroot so the published
+# service can serve it. It is generated, never edited, and must not be committed.
+src/Swarnakshi.Api/wwwroot/
