@@ -105,16 +105,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     {
         b.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-        // SQLite cannot ORDER BY / compare DateTimeOffset natively — store it as UTC ticks (sortable, exact).
-        // SQL Server handles DateTimeOffset directly, so this conversion is applied for SQLite only.
-        var isSqlite = Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) ?? false;
-        var dtoConverter = new ValueConverter<DateTimeOffset, long>(
-            v => v.UtcDateTime.Ticks,
-            v => new DateTimeOffset(v, TimeSpan.Zero));
-        var nullableDtoConverter = new ValueConverter<DateTimeOffset?, long?>(
-            v => v.HasValue ? v.Value.UtcDateTime.Ticks : null,
-            v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : null);
-
         var applyFilter = typeof(AppDbContext)
             .GetMethod(nameof(ApplyTenantFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -129,11 +119,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
                 }
                 if (prop.ClrType == typeof(string) && prop.GetMaxLength() is null)
                     prop.SetMaxLength(512);
-
-                if (isSqlite && prop.ClrType == typeof(DateTimeOffset))
-                    prop.SetValueConverter(dtoConverter);
-                if (isSqlite && prop.ClrType == typeof(DateTimeOffset?))
-                    prop.SetValueConverter(nullableDtoConverter);
             }
 
             // Optimistic concurrency on every transactional (auditable) entity.

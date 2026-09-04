@@ -56,7 +56,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task An_upgraded_database_leaves_its_users_able_to_sign_in()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var user = await MakeLookUpgradedAsync(host);
 
         await ReseedAsync(host);
@@ -72,7 +72,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task The_adopted_owner_can_administer_the_company_it_was_adopted_into()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var user = await MakeLookUpgradedAsync(host);
 
         await ReseedAsync(host);
@@ -88,7 +88,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task Seeding_an_already_upgraded_database_again_changes_nothing()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         await MakeLookUpgradedAsync(host);
 
         await ReseedAsync(host);
@@ -107,7 +107,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task Two_users_whose_emails_share_a_local_part_still_get_distinct_logins()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         await MakeLookUpgradedAsync(host);
 
         using (var scope = host.Scope())
@@ -143,7 +143,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task A_user_with_no_email_at_all_still_gets_a_usable_login()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
 
         using (var scope = host.Scope())
         {
@@ -175,7 +175,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task The_row_id_placeholder_the_migration_writes_is_replaced_by_a_real_login()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
 
         Guid userId;
         using (var scope = host.Scope())
@@ -202,7 +202,7 @@ public class UpgradeFromSingleTenantTests
     [Fact]
     public async Task Every_adopted_user_ends_up_with_a_login_that_is_valid_and_unique()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         await MakeLookUpgradedAsync(host);
 
         using (var scope = host.Scope())

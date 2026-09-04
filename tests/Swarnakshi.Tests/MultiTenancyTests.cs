@@ -26,7 +26,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task Registering_creates_a_company_its_admin_and_a_full_master_catalogue()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var registration = sp.GetRequiredService<ICompanyRegistrationService>();
@@ -49,7 +49,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task Company_code_must_be_unique_but_the_name_need_not_be()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var registration = scope.ServiceProvider.GetRequiredService<ICompanyRegistrationService>();
 
@@ -70,7 +70,7 @@ public class MultiTenancyTests
     [InlineData("has@at", "'@' would break the login format")]
     public async Task Invalid_company_codes_are_refused(string code, string why)
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var registration = scope.ServiceProvider.GetRequiredService<ICompanyRegistrationService>();
 
@@ -82,7 +82,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task A_code_typed_in_capitals_is_accepted_and_normalised()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var registration = scope.ServiceProvider.GetRequiredService<ICompanyRegistrationService>();
 
@@ -96,7 +96,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task The_two_passwords_must_match()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var registration = scope.ServiceProvider.GetRequiredService<ICompanyRegistrationService>();
 
@@ -111,7 +111,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task One_company_cannot_see_another_companys_sites_or_projects()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var sites = sp.GetRequiredService<ISiteService>();
@@ -137,7 +137,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task A_direct_id_lookup_across_tenants_returns_not_found_rather_than_the_row()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var sites = sp.GetRequiredService<ISiteService>();
@@ -158,7 +158,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task The_same_username_and_the_same_codes_may_exist_in_two_companies()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var sites = sp.GetRequiredService<ISiteService>();
@@ -179,7 +179,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task Transaction_numbers_restart_per_company()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var sequences = sp.GetRequiredService<Swarnakshi.Application.Abstractions.ITransactionSequenceService>();
@@ -203,7 +203,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task A_write_with_no_tenant_in_scope_fails_loudly_instead_of_writing_an_orphan()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -222,7 +222,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task Sign_in_needs_the_company_code_and_the_wrong_one_is_refused()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var auth = sp.GetRequiredService<IAuthService>();
@@ -247,7 +247,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task An_expired_licence_refuses_sign_in_and_a_renewal_restores_it()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var auth = sp.GetRequiredService<IAuthService>();
@@ -269,7 +269,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task Renewing_a_lapsed_licence_counts_from_today_not_from_the_lapsed_date()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var registration = sp.GetRequiredService<ICompanyRegistrationService>();
@@ -288,7 +288,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task A_suspended_company_cannot_sign_in()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var auth = sp.GetRequiredService<IAuthService>();
@@ -307,7 +307,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task EnterpriseAdmin_signs_in_with_a_bare_username_and_holds_no_company_permissions()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
@@ -322,7 +322,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task EnterpriseAdmin_resets_a_company_admin_password_and_kills_the_old_sessions()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var auth = sp.GetRequiredService<IAuthService>();
@@ -350,7 +350,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task A_mismatched_reset_password_is_refused()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var registration = sp.GetRequiredService<ICompanyRegistrationService>();
@@ -368,7 +368,7 @@ public class MultiTenancyTests
     [Fact]
     public async Task The_console_lists_every_company_with_its_licence_state()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         using var scope = host.Scope();
         var sp = scope.ServiceProvider;
         var registration = sp.GetRequiredService<ICompanyRegistrationService>();

@@ -25,7 +25,7 @@
 param(
     [Parameter(Mandatory = $true)] [string] $ConnectionString,
     [string] $AppRoot   = 'C:\Swarnakshi',
-    [string] $ListenUrl = 'http://0.0.0.0:8080',
+    [string] $ListenUrl = 'http://localhost:6061',
     [string] $PlatformAdminPassword,          # omit to keep the application's built-in default
     [string[]] $CorsOrigins = @(),
     [switch] $KeepJwtKey,
@@ -68,7 +68,7 @@ if (-not $jwtKey) {
 
 $settings = [ordered]@{
     ConnectionStrings = [ordered]@{ Default = $ConnectionString }
-    Database          = [ordered]@{ Provider = 'SqlServer'; CommandTimeoutSeconds = 60 }
+    Database          = [ordered]@{ CommandTimeoutSeconds = 60 }
     Jwt               = [ordered]@{
         Issuer = 'Swarnakshi'; Audience = 'Swarnakshi'; Key = $jwtKey
         AccessTokenMinutes = 60; RefreshTokenDays = 7

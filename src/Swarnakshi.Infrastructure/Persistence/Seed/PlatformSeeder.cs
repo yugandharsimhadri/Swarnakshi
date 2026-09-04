@@ -195,8 +195,8 @@ public static class PlatformSeeder
     private static async Task AdoptOrphanedRowsAsync(AppDbContext db, Guid companyId, CancellationToken ct)
     {
         var empty = Guid.Empty;
-        // Quote through the provider rather than by hand: SQL Server writes [Sites], SQLite "Sites",
-        // and the schema-qualified form differs again. The helper is the provider's own.
+        // Quote through the provider rather than by hand: the schema-qualified form and the
+        // delimiters are the provider's business, not this seeder's.
         var sql = db.GetService<ISqlGenerationHelper>();
 
         foreach (var (schema, table) in TenantTables(db))

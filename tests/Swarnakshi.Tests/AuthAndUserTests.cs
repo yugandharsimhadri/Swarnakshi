@@ -16,7 +16,9 @@ namespace Swarnakshi.Tests;
 /// </summary>
 public class AuthAndUserTests
 {
-    private const string OwnerLogin = "owner@swarnakshi";   // username@companycode
+    // Built from the host rather than written out: a host sharing the assembly database gets a
+    // company code of its own, so the half after the '@' is only known at run time.
+    // username@companycode is still the shape.
     private const string OwnerPassword = "Owner@123";
 
     // ---- login -----------------------------------------------------------
@@ -28,12 +30,12 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var res = await auth.LoginAsync(new LoginRequest(OwnerLogin, OwnerPassword));
+        var res = await auth.LoginAsync(new LoginRequest(host.Login("owner"), OwnerPassword));
 
         res.AccessToken.Should().NotBeNullOrWhiteSpace();
         res.RefreshToken.Should().NotBeNullOrWhiteSpace();
         res.AccessTokenExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow);
-        res.User!.Login.Should().Be(OwnerLogin);
+        res.User!.Login.Should().Be(host.Login("owner"));
         res.User!.Role.Should().Be(UserRole.Owner);
         res.User!.Permissions.Should().Contain(Permissions.MastersManage);
     }
@@ -45,7 +47,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var act = () => auth.LoginAsync(new LoginRequest(OwnerLogin, "wrong-password"));
+        var act = () => auth.LoginAsync(new LoginRequest(host.Login("owner"), "wrong-password"));
 
         // Same message for both cases so the endpoint cannot be used to enumerate accounts.
         (await act.Should().ThrowAsync<AppException>().WithMessage("Invalid username or password."))
@@ -59,7 +61,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var act = () => auth.LoginAsync(new LoginRequest("nobody@swarnakshi", OwnerPassword));
+        var act = () => auth.LoginAsync(new LoginRequest(host.Login("nobody"), OwnerPassword));
 
         await act.Should().ThrowAsync<AppException>().WithMessage("Invalid username or password.");
     }
@@ -77,7 +79,7 @@ public class AuthAndUserTests
             new CreateUserRequest("Site Supervisor", "sup", "supervisor-pw", UserRole.Supervisor, null));
         await users.UpdateAsync(supervisor.Id, new UpdateUserRequest("Site Supervisor", UserRole.Supervisor, false));
 
-        var act = () => auth.LoginAsync(new LoginRequest("sup@swarnakshi", "supervisor-pw"));
+        var act = () => auth.LoginAsync(new LoginRequest(host.Login("sup"), "supervisor-pw"));
 
         await act.Should().ThrowAsync<AppException>().WithMessage("Invalid username or password.");
     }
@@ -105,7 +107,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var first = await auth.LoginAsync(new LoginRequest(OwnerLogin, OwnerPassword));
+        var first = await auth.LoginAsync(new LoginRequest(host.Login("owner"), OwnerPassword));
         var second = await auth.RefreshAsync(new RefreshRequest(first.RefreshToken));
 
         second.RefreshToken.Should().NotBe(first.RefreshToken, "refresh tokens must rotate");
@@ -133,7 +135,7 @@ public class AuthAndUserTests
         using var scope = host.Scope();
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var session = await auth.LoginAsync(new LoginRequest(OwnerLogin, OwnerPassword));
+        var session = await auth.LoginAsync(new LoginRequest(host.Login("owner"), OwnerPassword));
         await host.LogoutAsAsync(auth, session.User!.Id);
 
         var act = () => auth.RefreshAsync(new RefreshRequest(session.RefreshToken));
@@ -157,7 +159,7 @@ public class AuthAndUserTests
         created.Role.Should().Be(UserRole.Accountant);
         created.IsActive.Should().BeTrue();
 
-        var login = await auth.LoginAsync(new LoginRequest("anil@swarnakshi", "accounts-pw"));
+        var login = await auth.LoginAsync(new LoginRequest(host.Login("anil"), "accounts-pw"));
         login.User!.Role.Should().Be(UserRole.Accountant);
         login.User!.Permissions.Should().NotContain(Permissions.MastersManage);
     }
@@ -260,9 +262,9 @@ public class AuthAndUserTests
             new CreateUserRequest("Reset Me", "reset", "original-pw", UserRole.Supervisor, null));
         await users.SetPasswordAsync(u.Id, new SetPasswordRequest("brand-new-pw"));
 
-        (await auth.LoginAsync(new LoginRequest("reset@swarnakshi", "brand-new-pw"))).User!.Id.Should().Be(u.Id);
+        (await auth.LoginAsync(new LoginRequest(host.Login("reset"), "brand-new-pw"))).User!.Id.Should().Be(u.Id);
 
-        var oldPassword = () => auth.LoginAsync(new LoginRequest("reset@swarnakshi", "original-pw"));
+        var oldPassword = () => auth.LoginAsync(new LoginRequest(host.Login("reset"), "original-pw"));
         await oldPassword.Should().ThrowAsync<AppException>();
     }
 
@@ -321,7 +323,7 @@ public class AuthAndUserTests
         var owner = await db.Users.AsNoTracking().FirstAsync(u => u.Username == "owner");
         var me = await host.MeAsAsync(auth, owner.Id);
 
-        me.Login.Should().Be(OwnerLogin);
+        me.Login.Should().Be(host.Login("owner"));
         me.Permissions.Should().BeEquivalentTo(Permissions.All);
     }
 

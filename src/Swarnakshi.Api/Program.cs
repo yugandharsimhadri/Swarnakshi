@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Swarnakshi.Api.Common;
 using Swarnakshi.Api.Persistence;
@@ -13,7 +14,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     // Pin the content root to the folder the binaries are in, rather than letting it follow the
-    // process's working directory. A Windows Service starts in C:WindowsSystem32, and an
+    // process's working directory. A Windows Service starts in C:\Windows\System32, and an
     // operator may launch the exe from anywhere; either way the host would otherwise look for
     // appsettings.Production.json and wwwroot in the wrong place and quietly find neither.
     ContentRootPath = AppContext.BaseDirectory
@@ -67,7 +68,23 @@ builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
     .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:6050"])
     .AllowAnyHeader().AllowAnyMethod()));
 
+// Behind a reverse proxy or a Cloudflare tunnel, the request that reaches Kestrel is plain HTTP
+// from localhost — the TLS ended at the edge. Without this the app believes it is serving
+// http://localhost, and anything it derives from the request (a scheme in a link, a redirect, the
+// host it logs) is wrong. The proxy is on this machine and reached only over the loopback, so no
+// list of known proxies is needed; clearing the defaults is what allows that.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+                       | ForwardedHeaders.XForwardedHost;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+// First in the pipeline: everything after it should see the scheme and host the caller actually used.
+app.UseForwardedHeaders();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -77,9 +94,11 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference(); // interactive docs at /scalar/v1
 }
 
-// The published site serves the built React app out of wwwroot, so the UI and the API share one
-// origin and the client's relative /api calls just work — no reverse proxy, no CORS in production,
-// one process to install and watch. In development wwwroot does not exist and Vite proxies instead.
+// The published site serves the built React app out of wwwroot, so a browser on the site's own
+// hostname makes only same-origin calls and never needs CORS. A second hostname pointed at the
+// same process — an api. name for integrations, say — is served by this too. Cors:Origins is for
+// the remaining case: some OTHER site calling this API from a browser.
+// In development wwwroot does not exist and Vite proxies instead.
 if (app.Environment.WebRootPath is { Length: > 0 } webRoot && Directory.Exists(webRoot))
 {
     app.UseDefaultFiles();

@@ -42,6 +42,7 @@ public abstract class AuditableEntity : BaseEntity
     public TransactionStatus Status { get; set; } = TransactionStatus.Draft;
     public string? Remarks { get; set; }
 
-    /// <summary>Optimistic-concurrency token. Regenerated on every save; cross-provider (SQLite has no rowversion).</summary>
+    /// <summary>Optimistic-concurrency token. Regenerated on every save, in the application rather
+    /// than by the database, so the rule is the same wherever the row is written.</summary>
     public Guid ConcurrencyToken { get; set; } = Guid.NewGuid();
 }

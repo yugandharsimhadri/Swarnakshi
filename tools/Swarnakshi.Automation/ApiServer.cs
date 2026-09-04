@@ -115,7 +115,6 @@ public sealed class ApiServer : IAsyncDisposable
                 ["ASPNETCORE_ENVIRONMENT"] = "Development",
                 // Double underscore is the .NET convention for nesting: ConnectionStrings:Default.
                 ["ConnectionStrings__Default"] = ConnectionFor(databaseName),
-                ["Database__Provider"] = "SqlServer",
                 ["Seed__Demo"] = "true",
                 // The client is served from its own origin, so it must be allowed through CORS.
                 ["Cors__Origins__0"] = options.BaseUrl.TrimEnd('/'),

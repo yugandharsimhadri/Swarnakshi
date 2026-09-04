@@ -38,7 +38,7 @@ public class MobileLoginTests
     [InlineData("(98765) 43210")]
     public async Task Any_way_of_writing_the_number_signs_the_same_person_in(string typed)
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var (auth, reg, _) = await ArrangeAsync(host);
         await reg.RegisterAsync(Registration("acme", "ravi", "9876543210"));
 
@@ -52,7 +52,7 @@ public class MobileLoginTests
     [Fact]
     public async Task Username_at_companycode_still_works_unchanged()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var (auth, reg, _) = await ArrangeAsync(host);
         await reg.RegisterAsync(Registration("acme", "ravi", "9876543210"));
 
@@ -64,7 +64,7 @@ public class MobileLoginTests
     [Fact]
     public async Task An_unknown_number_fails_the_same_as_a_bad_password()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var (auth, reg, _) = await ArrangeAsync(host);
         await reg.RegisterAsync(Registration("acme", "ravi", "9876543210"));
 
@@ -80,7 +80,7 @@ public class MobileLoginTests
     [Fact]
     public async Task The_same_number_in_two_companies_asks_for_the_username()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var (auth, reg, _) = await ArrangeAsync(host);
         await reg.RegisterAsync(Registration("acme", "ravi", "9876543210"));
         await reg.RegisterAsync(Registration("zenith", "priya", "9876543210"));
@@ -99,7 +99,7 @@ public class MobileLoginTests
     [Fact]
     public async Task A_bare_word_is_still_read_as_a_platform_username_not_a_number()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var (auth, _, _) = await ArrangeAsync(host);
 
         var res = await auth.LoginAsync(new LoginRequest("EnterpriseAdmin", "SivAyAAn@HMS"));
@@ -110,7 +110,7 @@ public class MobileLoginTests
     [Fact]
     public async Task Registration_without_a_contact_number_leaves_mobile_login_off()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var (auth, reg, db) = await ArrangeAsync(host);
         var company = await reg.RegisterAsync(Registration("acme", "ravi", null));
 
@@ -121,7 +121,7 @@ public class MobileLoginTests
     [Fact]
     public async Task A_teammate_added_with_a_mobile_can_sign_in_by_it()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var sp = host.Scope().ServiceProvider;
 
         // TestHost is already inside the seeded "swarnakshi" tenant, acting as its owner.
@@ -138,7 +138,7 @@ public class MobileLoginTests
     [Fact]
     public async Task Two_users_in_one_company_cannot_share_a_number()
     {
-        await using var host = await TestHost.CreateAsync();
+        await using var host = await TestHost.CreateIsolatedAsync();
         var users = host.Scope().ServiceProvider.GetRequiredService<Application.Users.IUserService>();
 
         await users.CreateAsync(new Application.Users.CreateUserRequest(

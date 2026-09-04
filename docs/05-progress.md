@@ -4,6 +4,38 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — SQL Server only, and published through a Cloudflare tunnel
+
+**SQLite is gone.** It survived as the test suite’s in-memory database and as a provider branch in
+the app; both are removed. `AddPersistence` builds a SqlServer context and nothing else, the
+`DateTimeOffset`-as-ticks converters that only SQLite needed are deleted, the design-time factory no
+longer has a fallback, and the package references are dropped from three projects.
+
+The suite pays for that. `dotnet test` now needs SQL Server Express: it creates one
+`SwarnakshiTest_<pid>_<time>` database, builds the schema once, and gives each of the 210 test hosts
+a **tenant** in it rather than a database of its own — which is the isolation the product already
+relies on, now exercised a couple of hundred times a run. Forty tests failed on the first attempt,
+every one of them a fixture assumption rather than a product bug: they register companies and count
+them, adopt rows left by the pre-tenancy upgrade, or sign in as `owner@swarnakshi`. Those are about
+the database, not about a tenant in it, so they call `CreateIsolatedAsync()` and get one to
+themselves; the rest build their login from `host.CompanyCode`. 45 seconds became 2m10s. Worth it:
+what the suite proves now is that the rules hold on the engine the product is deployed on.
+
+**Published through Cloudflare Tunnel.** The service binds `http://localhost:6061` — loopback, not
+`0.0.0.0`, because `cloudflared` runs on the same machine and connects outward, so there is no
+inbound rule to open and nothing on the network can reach the port. Two hostnames point at the one
+process: `cops.sivayaantechnologies.com` for people and `copsapi.sivayaantechnologies.com` for
+integrations. The UI calls `/api` relative to whatever host served it, so `cops.` is same-origin and
+CORS never applies; `Cors:Origins` carries the UI hostname for the other case.
+
+The app now honours `X-Forwarded-Proto`/`-Host`/`-For`. Without that it believes it is serving
+`http://localhost`, because the TLS ended at Cloudflare and what reaches Kestrel is plain HTTP from
+the loopback — so anything derived from the request would name the wrong scheme and host.
+
+249 tests pass.
+
+---
+
 ## 2026-09-04 — Material is filed under its own category, not Miscellaneous
 
 A delivery note names a material, never a work stage, so every direct-to-villa purchase fell

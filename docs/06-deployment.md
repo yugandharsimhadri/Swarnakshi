@@ -1,18 +1,26 @@
 # 06 — Build & Deployment
 
 Swarnakshi runs as **one Windows service** talking to **one SQL Server Express database**. The
-service is the API and it also serves the built React UI out of its own `wwwroot`, so the UI and the
-API share an origin. There is no reverse proxy, no second web server, and no CORS in production —
-one thing to install, one thing to start, one thing to watch.
+service is the API and it also serves the built React UI out of its own `wwwroot`, so a browser on
+the site's hostname makes only same-origin calls. Cloudflare Tunnel publishes it: `cloudflared` runs
+beside the service and connects outward, so the machine needs no inbound firewall rule, no public IP
+and no certificate of its own.
 
 | | |
 |---|---|
 | Database | SQL Server Express, instance `.\SQLEXPRESS`, database **SCOPS** |
 | Database login | `SivayaanHMS` (SQL authentication) |
 | Service | `Swarnakshi`, automatic start, runs as LocalSystem |
-| Listens on | `http://0.0.0.0:8080` (change with `-Port`) |
+| Listens on | `http://localhost:6061` — loopback only; the tunnel reaches it from this machine |
+| Public UI | `https://cops.sivayaantechnologies.com` |
+| Public API | `https://copsapi.sivayaantechnologies.com` |
 | Installed at | `C:\Swarnakshi\app`, data under `C:\Swarnakshi\data`, backups in `C:\Swarnakshi\backups` |
-| Health check | `http://localhost:8080/health` → `{"status":"ok"}` |
+| Health check | `http://localhost:6061/health` → `{"status":"ok"}` |
+
+Both public hostnames point at the same local service. `cops.` is what people open; `copsapi.` is
+the same API under a name integrations can use. The UI calls `/api` relative to whatever host it was
+loaded from, so on `cops.` nothing is cross-origin and CORS never comes into it. `Cors:Origins`
+exists for the other case — a browser on some *other* site calling `copsapi.`.
 
 ---
 
@@ -159,7 +167,8 @@ Three things must change from the template:
 |---|---|
 | `ConnectionStrings:Default` | Your server, database, login and password |
 | `Jwt:Key` | A random string of at least 32 characters. Generate one, then leave it alone — it signs every token, so changing it later signs everyone out. |
-| `Urls` | The address and port to listen on, e.g. `http://0.0.0.0:8080` |
+| `Urls` | `http://localhost:6061`. Loopback, not `0.0.0.0`: the tunnel runs on this machine, so nothing else should be able to reach the port. |
+| `Cors:Origins` | `["https://cops.sivayaantechnologies.com"]` |
 
 To generate a signing key:
 
@@ -194,15 +203,73 @@ No passwords on the command line — it reads them from the settings file. It ch
 is actually reachable with those credentials before touching anything, installs the `Swarnakshi`
 service, applies the schema, starts it, and waits for `/health`.
 
-### 1.6 Open the port
+### 1.6 Publish it through Cloudflare Tunnel
+
+Nothing inbound is opened. `cloudflared` makes an outbound connection to Cloudflare and traffic
+comes back down it, so there is no firewall rule to add and no port exposed to the network.
+
+Install it, and sign in to the Cloudflare account that holds the zone:
 
 ```bash
-New-NetFirewallRule -DisplayName "Swarnakshi 8080" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow
+winget install --id Cloudflare.cloudflared
 ```
+
+```bash
+cloudflared tunnel login
+```
+
+Create the tunnel once. It writes a credentials file under `%USERPROFILE%\.cloudflared\`:
+
+```bash
+cloudflared tunnel create swarnakshi
+```
+
+Point both hostnames at it. This creates the DNS records in Cloudflare for you:
+
+```bash
+cloudflared tunnel route dns swarnakshi cops.sivayaantechnologies.com
+```
+
+```bash
+cloudflared tunnel route dns swarnakshi copsapi.sivayaantechnologies.com
+```
+
+Write `%USERPROFILE%\.cloudflared\config.yml`. Both hostnames go to the same local service — the
+one process serves the UI and the API:
+
+```yaml
+tunnel: swarnakshi
+credentials-file: C:\Users\<you>\.cloudflared\<tunnel-id>.json
+
+ingress:
+  - hostname: cops.sivayaantechnologies.com
+    service: http://localhost:6061
+  - hostname: copsapi.sivayaantechnologies.com
+    service: http://localhost:6061
+  # Cloudflare requires a catch-all; anything not matched above is refused.
+  - service: http_status:404
+```
+
+Check it in the foreground first, then install it as a service so it starts at boot:
+
+```bash
+cloudflared tunnel run swarnakshi
+```
+
+```bash
+cloudflared service install
+```
+
+Two services now start automatically: `Swarnakshi` (the app) and `cloudflared` (the tunnel). The app
+does not depend on the tunnel — it serves `localhost:6061` regardless — so a tunnel restart never
+touches the database or the running work.
+
+The app trusts `X-Forwarded-Proto` and `X-Forwarded-Host`, which is how it knows a request that
+arrived at Kestrel as plain HTTP from localhost was really `https://cops.…` at the edge.
 
 ### 1.7 First login, and the one thing to do immediately
 
-Browse to `http://<server>:8080/`.
+Browse to `https://cops.sivayaantechnologies.com/`.
 
 | Account | Login | Purpose |
 |---|---|---|
@@ -335,7 +402,7 @@ over it for every key.
 | `Database:Provider` | `SqlServer` |
 | `Database:CommandTimeoutSeconds` | 60 |
 | `Jwt:Key` | ≥32 characters. The app refuses to start outside Development without it. **Set once, then leave it.** |
-| `Urls` | Address and port, e.g. `http://0.0.0.0:8080` |
+| `Urls` | Address and port, e.g. `http://localhost:6061` |
 | `PlatformAdmin:Username` / `:Password` | EnterpriseAdmin seed credentials, used only when that row is first created. Omit the section to keep the built-in default. |
 | `Cors:Origins` | Empty. The UI is same-origin; add an entry only if another site must call this API. |
 | `Seed:Demo` | `false`. Demo data is Development-only and is ignored in Production regardless. |
@@ -394,20 +461,23 @@ sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\01-create-database.sql -v AppPassword
 Set `Seed:Demo` to `true` in `appsettings.Development.json` to have that database filled with demo
 data on startup. It is Development-only and cannot fire in Production.
 
-### The test suite still uses SQLite
+### The test suite runs on SQL Server too
 
-`dotnet test` builds the whole schema in memory against SQLite in about a second, which is what keeps
-245 tests at well under a minute. So the provider switch stays, and **nothing in the model or in any
-query may depend on one provider's behaviour** — no provider-specific SQL or types, no filtered
-unique indexes. Two places knowingly branch on the provider and are the only two allowed to:
+There is no second database provider any more. `dotnet test` needs SQL Server Express on
+`.\SQLEXPRESS` (override with `SWARNAKSHI_TEST_SQL_SERVER`), where it creates one
+`SwarnakshiTest_<pid>_<time>` database, builds the schema in it once, and drops it at the end.
 
-- `AppDbContext.OnModelCreating` stores `DateTimeOffset` as UTC ticks on SQLite, which cannot order
-  or compare the type natively. SQL Server gets a real `datetimeoffset(7)`.
-- `PlatformSeeder.AdoptOrphanedRowsAsync` quotes identifiers through the provider's own
-  `ISqlGenerationHelper` rather than by hand.
+Each of the two hundred-odd test hosts then takes a **tenant** in that shared database rather than a
+database of its own — which is the isolation the product itself relies on, so running them together
+exercises it a couple of hundred times a run. Tests that are about the database rather than about a
+tenant in it — registering companies and counting them, adopting rows left by the pre-tenancy
+upgrade, signing in across two companies — call `TestHost.CreateIsolatedAsync()` and get a database
+to themselves.
 
-Because the tests do not exercise SQL Server, the real gate before a release is `Publish.ps1`
-followed by a deploy to a scratch database — not the unit tests alone.
+It costs time: the suite went from about 45 seconds on in-memory SQLite to a little over two
+minutes. Worth it, because what it proves now is that the rules hold on the engine the product is
+deployed on. A run interrupted before it can tidy up leaves a database behind; the next run sweeps
+up anything older than six hours, so it is self-healing rather than something to remember.
 
 ---
 
@@ -416,7 +486,7 @@ followed by a deploy to a scratch database — not the unit tests alone.
 ```bash
 Get-Service Swarnakshi                 # is it up
 Restart-Service Swarnakshi
-Invoke-RestMethod http://localhost:8080/health
+Invoke-RestMethod http://localhost:6061/health
 Get-EventLog -LogName Application -Source Swarnakshi -Newest 20
 ```
 

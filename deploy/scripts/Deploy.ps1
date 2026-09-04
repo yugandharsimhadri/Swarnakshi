@@ -44,7 +44,8 @@ param(
     # Only used with -InitSettings, when the settings file is being created for the first time.
     [switch] $InitSettings,
     [string] $ConnectionString,
-    [int]    $Port = 8080,
+    [int]    $Port = 6061,
+    [string[]] $CorsOrigins = @(),
 
     [switch] $SkipBackup,
     [switch] $SkipDbCheck,
@@ -100,8 +101,11 @@ Either:
     if (-not $ConnectionString) {
         throw "-InitSettings needs -ConnectionString '<your connection string>'."
     }
+    # localhost, not 0.0.0.0: cloudflared runs on this machine and connects out, so nothing has to
+    # reach the port from the network. Edit Urls in the settings file if it ever should.
     & (Join-Path $PSScriptRoot 'New-ProductionSettings.ps1') `
-        -ConnectionString $ConnectionString -AppRoot $AppRoot -ListenUrl "http://0.0.0.0:$Port" | Out-Host
+        -ConnectionString $ConnectionString -AppRoot $AppRoot -ListenUrl "http://localhost:$Port" `
+        -CorsOrigins $CorsOrigins | Out-Host
 }
 
 # From here the settings file is authoritative. Nothing below writes to it.
@@ -135,7 +139,7 @@ $dbUser   = Get-ConnPart $conn @('User ID', 'UserId', 'Uid')
 $dbPass   = Get-ConnPart $conn @('Password', 'Pwd')
 $trusted  = (Get-ConnPart $conn @('Trusted_Connection', 'Integrated Security')) -match '(?i)true|sspi|yes'
 
-$listenUrl = if ($cfg.Urls) { $cfg.Urls } else { "http://0.0.0.0:$Port" }
+$listenUrl = if ($cfg.Urls) { $cfg.Urls } else { "http://localhost:$Port" }
 if ($listenUrl -match ':(\d+)\s*$') { $Port = [int]$Matches[1] }
 $health = "http://localhost:$Port/health"
 

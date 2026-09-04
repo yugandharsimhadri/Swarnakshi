@@ -19,7 +19,7 @@
 param(
     [string] $AppRoot     = 'C:\Swarnakshi',
     [string] $ServiceName = 'Swarnakshi',
-    [int]    $Port        = 8080
+    [int]    $Port        = 6061
 )
 
 $ErrorActionPreference = 'Stop'

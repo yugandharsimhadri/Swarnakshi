@@ -17,9 +17,8 @@ Read `docs/05-progress.md` first, then `docs/01-architecture.md`, `docs/09-saas-
 - Inventory is **site-level**. Projects consume from the shared pool. No per-project inventory.
 - Inventory & financial side effects run only on approval→post, inside one transaction.
 - Don't double count: purchase → inventory value; only consumption → project cost.
-- Runs on **SQL Server Express** (`SCOPS`). The test suite still builds the schema on SQLite in
-  memory, so keep every model and query provider-agnostic: no provider-specific SQL or types, no
-  filtered unique indexes. Provider comes from `Database:Provider`.
+- **SQL Server only** (`SCOPS` on `.SQLEXPRESS`). There is no second provider. `dotnet test` needs
+  it too: it creates one throwaway database per run and gives each test host a tenant in it.
 - No secrets in the repo. Dev connection string in `dotnet user-secrets`; the server's lives in
   `appsettings.Production.json`, which is git-ignored.
 - Money = `decimal(18,2)`. Timestamps = `DateTimeOffset`.
