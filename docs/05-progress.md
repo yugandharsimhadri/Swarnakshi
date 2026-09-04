@@ -4,6 +4,38 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — Backend: the layering held, three things inside it did not
+
+The layer graph is clean and was never in doubt — Domain depends on nothing, Application only on
+Domain, Infrastructure and Api on what they should. Controllers are pure delegation. So this was
+about what sits *inside* the layers.
+
+**CSV rendering lived in a controller.** Thirty-odd lines of escaping and culture handling in
+`ReportsController`, which is supposed to choose a representation and nothing else. It is
+`Application/Reports/ReportCsv` now: no ASP.NET types, so the escaping rules can be tested
+directly rather than through a request. The controller picks between JSON and a file.
+
+That extraction exposed a bug I had introduced earlier the same day. The row cap on reports
+announces itself in `ReportTable.Note` — and the CSV export dropped it. The CSV is precisely the
+copy someone opens in Excel and reconciles against, so a file holding the first 5,000 rows while
+looking complete is the exact failure the cap exists to prevent. The note is written into the file
+now, with a test that says why.
+
+**`DashboardController.cs` held two controllers**, one of them `ReportsController`. Now one file
+each, named for what is in them.
+
+**`Configurations.cs` was 24 classes covering 32 entities in one file**, against the convention in
+CLAUDE.md. Taken literally that convention means 32 files, and that would be worse:
+`MasterCodeConfig` and `TxnNumberConfigs` each configure several entities on purpose, because those
+entities share one rule, and splitting them copies the rule into places that can disagree. Split by
+bounded context instead — tenancy, sites and projects, master data, inventory, transactions,
+approvals, employees — the same contexts the Application layer already uses, so a configuration
+sits where someone working on that part would look.
+
+254 tests pass, five of them new and about the CSV.
+
+---
+
 ## 2026-09-04 — Frontend: one file per feature, and the rules moved back to the server
 
 `ProjectDetail.tsx` was 798 lines — 13% of the whole client — holding **fourteen components across
