@@ -510,6 +510,7 @@ web/tsconfig.tsbuildinfo
 appsettings.Production.json
 appsettings.*.Local.json
 /deploy/out/
+/deploy/dist/
 /deploy/backups/
 
 # Build output: Publish.ps1 compiles the React app into the API's wwwroot so the published
