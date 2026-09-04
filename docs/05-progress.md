@@ -4,6 +4,34 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — Frontend: one file per feature, and the rules moved back to the server
+
+`ProjectDetail.tsx` was 798 lines — 13% of the whole client — holding **fourteen components across
+five unrelated features**: the overview, material, expenses, contractors and customer tabs, each
+with its own data fetching, plus the five sheets they open. A change to how a receipt is recorded
+sat beside the code for issuing cement, and every edit risked the wrong screen.
+
+It is now a shell of 247 lines — header, figures, alerts, tab strip, edit sheet — and one module per
+tab beside it, each owning its own fetching and its own sheets. The largest is 197 lines.
+
+The extraction was done by giving every new file the original's whole import list and then letting
+`noUnusedLocals` say what each did not need, rather than by reading and guessing. `Row`, which two
+tabs used, became `LabelRow` in the UI kit, since a generic label-and-figure line is not a tab's
+business.
+
+**Two rules moved out of the view.** `estimatedCost * completionPercent / 100` — what the estimate
+says should have been spent by now — appeared twice in the UI, and the server was already computing
+exactly that expression to derive `burnPercent`; it simply never returned it. It is
+`ExpectedCostToDate` on the summary now, so the definition lives in one place and the screen reads
+it. And `Reports.tsx` had its own `Intl.NumberFormat` instead of the shared `num()`.
+
+Verified against Villa 104: the server returns 2,640,000 for a ₹44L estimate at 60%, which is what
+the UI used to compute, and all five tabs render.
+
+249 tests pass.
+
+---
+
 ## 2026-09-04 — Audit: measured the thing, then fixed what the measurement showed
 
 Latency first looked like a flat 15 ms everywhere. It was the measuring tool: Node's fetch opens a

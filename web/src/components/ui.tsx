@@ -296,3 +296,13 @@ export function DetailRow({ label, value }: { label: string; value: ReactNode })
     </div>
   );
 }
+
+/** A label on the left, a figure on the right. Wherever a short key/value list is shown. */
+export function LabelRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between py-0.5 text-sm">
+      <span className="text-text-dim">{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}

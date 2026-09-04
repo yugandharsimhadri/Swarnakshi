@@ -7,7 +7,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Sites from "@/pages/Sites";
 import Projects from "@/pages/Projects";
-import ProjectDetail from "@/pages/ProjectDetail";
+import ProjectDetail from "@/pages/project/ProjectDetail";
 import Materials from "@/pages/Materials";
 import More from "@/pages/More";
 import { InventoryList, MaterialInventory } from "@/pages/Inventory";

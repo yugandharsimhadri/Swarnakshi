@@ -51,7 +51,7 @@ public record ProjectFinancialSummary(
     decimal BudgetVariance, decimal? Margin,
     int CompletionPercent, decimal? EarnedRevenue, decimal? EarnedMargin,
     decimal CommittedContractorCost, decimal CommittedTotalCost,
-    decimal? BurnPercent, bool DuesOnHandover);
+    decimal ExpectedCostToDate, decimal? BurnPercent, bool DuesOnHandover);
 
 /// <summary>Code is optional — leave it null and one is minted. See <see cref="ICodeGenerator"/>.</summary>
 public record SaveProjectRequest(string? Code, string Name, string? VillaNumber, Guid SiteId,
@@ -243,6 +243,9 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         var total = material + labour + contractor + other;
         var sale = p.ContractSaleValue;
         var earned = sale.HasValue ? Math.Round(sale.Value * p.CompletionPercent / 100m, 2) : (decimal?)null;
+        // Returned as well as used: the screen shows "spent X against Y expected", and Y is this.
+        // The UI used to recompute it from EstimatedCost and CompletionPercent, which meant the
+        // rule for what "expected by now" means lived in two places and could drift.
         var expectedByNow = Math.Round(p.EstimatedCost * p.CompletionPercent / 100m, 2);
         // Nothing built yet means nothing to compare against — an unstarted villa is not "over budget".
         var burn = expectedByNow > 0 ? Math.Round(total / expectedByNow * 100m, 0) : (decimal?)null;
@@ -253,7 +256,7 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
             received, outstanding,
             p.EstimatedCost - total, sale.HasValue ? sale - total : null,
             p.CompletionPercent, earned, earned.HasValue ? earned.Value - total : null,
-            committed, total + committed, burn,
+            committed, total + committed, expectedByNow, burn,
             p.Status == ProjectStatus.Completed && outstanding > 0);
     }
 

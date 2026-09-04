@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { tokens } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
+import { num } from "@/lib/format";
 import { Card, ErrorText, PageHeader, Spinner } from "@/components/ui";
 import { IconChevron } from "@/components/icons";
 import type { ReportTable } from "@/lib/types";
@@ -60,7 +61,7 @@ export function ReportsHub() {
 
 const isNum = (v: unknown): v is number => typeof v === "number";
 const fmt = (v: string | number | null) =>
-  v === null ? "—" : isNum(v) ? new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(v) : v;
+  v === null ? "—" : isNum(v) ? num(v) : v;
 
 /**
  * A report is read to find the one row that needs doing something about. "OVER BUDGET" set in the

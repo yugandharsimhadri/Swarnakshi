@@ -143,7 +143,11 @@ export interface ProjectSummary {
   committedContractorCost: number;
   /** totalCost + committedContractorCost — what finishing this will have cost. */
   committedTotalCost: number;
-  /** Spend as a percentage of what the estimate says should have been spent by now. */
+  /** What the estimate says should have been spent by this stage. Computed on the server: the
+   *  UI used to derive it from estimatedCost and completionPercent, which put the rule for what
+   *  "expected by now" means in two places. */
+  expectedCostToDate: number;
+  /** Spend as a percentage of expectedCostToDate. */
   burnPercent?: number | null;
   duesOnHandover: boolean;
 }
