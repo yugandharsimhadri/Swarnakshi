@@ -93,7 +93,7 @@ public class MaterialRequestIssuer(
 
             await costWriter.WriteMaterialCostAsync(req.ProjectId, Math.Round(toIssue * rate, 2), issuedOn,
                 item.ExpenseHeadId, item.ExpenseSubheadId, "InventoryTransaction", txn.Id,
-                $"Consumption: {req.TxnNumber}", ct);
+                $"Consumption: {req.TxnNumber}", item.MaterialId, ct);
         }
 
         if (!anyIssued) throw new AppException("Nothing left to issue on this request.", 409);

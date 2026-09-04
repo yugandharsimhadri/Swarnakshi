@@ -112,9 +112,11 @@ public class PurchasePoster(
             InventoryTransactionType.ProjectConsumption, purchase.Date, ApprovalEntityTypes.Purchase, purchase.Id,
             purchase.TxnNumber, projectId, unitRate, actorId, ct);
 
+        // No head on the line is the normal case here: a delivery note names a material, not a work
+        // stage. The material's category classifies it.
         await costWriter.WriteMaterialCostAsync(projectId, Math.Round(item.Quantity * rate, 2), purchase.Date,
             item.ExpenseHeadId, null, "InventoryTransaction", txn.Id,
-            $"Direct delivery: {purchase.TxnNumber}", ct);
+            $"Direct delivery: {purchase.TxnNumber}", item.MaterialId, ct);
     }
 }
 

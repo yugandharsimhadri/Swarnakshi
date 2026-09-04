@@ -281,8 +281,10 @@ public class InventoryService(
         t.Remarks = req.Remarks;
 
         // reverse the project material cost
+        // Same head the issue was booked under, so a return nets the category back off rather than
+        // leaving a credit stranded in Miscellaneous.
         await costWriter.WriteMaterialCostAsync(req.ProjectId, -Math.Round(req.Quantity * rate, 2), req.Date,
-            null, null, "InventoryTransaction", t.Id, $"Return: {t.TxnNumber}", ct);
+            null, null, "InventoryTransaction", t.Id, $"Return: {t.TxnNumber}", req.MaterialId, ct);
 
         await db.SaveChangesAsync(ct);
         await dbtxn.CommitAsync(ct);

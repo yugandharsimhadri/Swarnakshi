@@ -4,6 +4,31 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — Material is filed under its own category, not Miscellaneous
+
+A delivery note names a material, never a work stage, so every direct-to-villa purchase fell
+through to the Miscellaneous head. The totals were right and the split was useless: a villa's
+cost-by-head showed cement sitting beside sundry contractor money.
+
+The material already carries a classification, so use it. `ProjectCostWriter.WriteMaterialCostAsync`
+now takes the material and, when the caller names no head, files the cost under the head named for
+that material's category — cement under Civil & Structure, a pipe under Plumbing. A villa's
+breakdown reads as the trade split a builder thinks in.
+
+Heads are found by name and created only when missing, so the seeded stages that already share a
+name with a category — Plumbing, Electrical, Painting — are reused rather than duplicated. An
+explicit head still wins: a material request that names RCC keeps RCC.
+
+Applies to all three writers — direct delivery, issue against a request, and return to store, so a
+return nets the category back off instead of stranding a credit in Miscellaneous.
+
+Verified against the live book: a two-line purchase for Villa 203 landed ₹7,200 under Plumbing and
+₹6,000 under Painting, and all ten reconciliation identities still hold.
+
+249 tests pass.
+
+---
+
 ## 2026-09-04 — A ten-villa book that reconciles, and what driving it turned up
 
 Built a full book of work through the API — 2 sites, 10 villas at 100/60/10 percent and one still
