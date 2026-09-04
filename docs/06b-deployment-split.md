@@ -151,6 +151,35 @@ moment to discover it. (The settings-file grant comes after step 4 has created t
 
 ---
 
+## Installing somewhere other than C:
+
+Every path in the scripts is a parameter, not a literal, so another drive is a matter of passing
+it:
+
+```bash
+powershell -File .\scripts\Deploy.ps1 -AppRoot E:\Swarnakshi
+```
+
+Everything under it follows — the app, data, previous and backups folders — and the log directory
+is derived from where the binaries are, so it lands in `E:\Swarnakshi\logs` with nothing
+configured. Two values in the settings file are absolute and must be edited to match:
+`Storage:LocalRoot`, and `Logging:Directory` if you set it explicitly rather than leaving it to
+the default.
+
+Verified by running the packaged API from `E:\Swarnakshi\app`: health, sign-in, the UI and the
+log path were all correct with no change beyond the settings file.
+
+Two things to watch on a non-system drive.
+
+**The SQL Server service must be able to see and write to the backup path.** It runs as its own
+account in another session, so a drive that is mapped or created with SUBST for your session is
+invisible to it — the backup fails with "cannot open backup device", operating system error 3.
+Use a real local path. `Backup-Database.ps1` grants the service account Modify on the folder, and
+now tells you which of the two problems it hit rather than only that the backup failed.
+
+**NTFS rights on a second drive are rarely what C: has.** Grant the app pool identity read and
+execute on the app folder, and Modify on `data\` and `logs\`, as in step 3.3.
+
 ## Step 4 — The settings file
 
 **This is the only configuration, and the only file you edit.** Copy the template:

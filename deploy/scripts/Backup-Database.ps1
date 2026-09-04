@@ -70,8 +70,24 @@ RESTORE VERIFYONLY FROM DISK = N'$file' WITH CHECKSUM;
 "@
 
 Write-Host "Backing up $Database to $file"
-sqlcmd -S $Server -E -C -b -Q $sql
-if ($LASTEXITCODE -ne 0) { throw "Backup failed. The deployment must not continue." }
+$previous = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try { $output = & sqlcmd -S $Server -E -C -b -Q $sql 2>&1 } finally { $ErrorActionPreference = $previous }
+$output | Out-Host
+
+if ($LASTEXITCODE -ne 0) {
+    # BACKUP writes as the SQL Server service, not as whoever ran this, and the two see the world
+    # differently. Worth spelling out, because the raw message says "cannot open backup device" and
+    # leaves the reader to work out whose problem it is.
+    $detail = ($output | Out-String)
+    $hint =
+        if ($detail -match 'operating system error 5')      { "The SQL Server service account cannot write to $BackupPath. Grant it Modify there." }
+        elseif ($detail -match 'operating system error 3|error 2\(')  { "The SQL Server service cannot see $BackupPath. A mapped or SUBST drive is invisible to a service - use a real local path, or a UNC path the service account can reach." }
+        elseif ($detail -match 'COMPRESSION is not supported') { "This edition does not support backup compression; the script should have detected that. Report it." }
+        else { "Run the BACKUP statement by hand in SSMS to see the full error." }
+
+    throw "Backup failed, so the deployment must not continue. $hint"
+}
 
 $mb = '{0:N1} MB' -f ((Get-Item $file).Length / 1MB)
 Write-Host "Backup verified: $file ($mb)" -ForegroundColor Green
