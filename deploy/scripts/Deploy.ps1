@@ -4,42 +4,50 @@
     every incremental one after it.
 
 .DESCRIPTION
-    Run from inside a package produced by Publish.ps1, as Administrator:
+    All settings - server name, database, login, password, port, signing key - live in ONE file:
 
-        cd C:\Swarnakshi\packages\2026.09.04-bf42c09
-        .\scripts\Deploy.ps1 -DbPassword '<database password>'      # first time
-        .\scripts\Deploy.ps1                                        # every time after
+        C:\Swarnakshi\app\appsettings.Production.json
 
-    What it does, in order:
+    Edit that file to change any of them, then restart the service. This script reads it, never
+    overwrites it, and preserves it across every upgrade, so your edits survive deployments.
 
-        1. Checks the prerequisites, so it fails on the first line rather than half way through.
-        2. Backs up SCOPS, so a rollback has something to restore.
-        3. Keeps the previous release folder, so a rollback has something to swap back to.
-        4. Stops the service.
-        5. Copies the new binaries in, preserving appsettings.Production.json and uploaded files.
-        6. Applies migrations as an explicit step (--migrate). A failure here stops the deployment
-           while the service is still down, so nothing ever serves a schema it does not understand.
-        7. Starts the service and waits for /health to answer.
-        8. If anything after step 4 fails, puts the previous release back and starts it.
+    FIRST DEPLOYMENT
+        1. Create the database and its login yourself, and grant the login rights on it.
+        2. Copy appsettings.Production.template.json (beside this package, in the root) to
+           C:\Swarnakshi\app\appsettings.Production.json and edit the connection string,
+           the Jwt:Key and the port.
+        3. Run, from an elevated PowerShell:
 
-    The database password is only needed on the first run, when the settings file is created.
-    After that the existing settings file is left exactly as it is.
+               .\scripts\Deploy.ps1
+
+    EVERY DEPLOYMENT AFTER THAT
+        Copy the new package over and run the same command. Nothing else.
+
+               .\scripts\Deploy.ps1
+
+    -InitSettings writes the settings file for you from the template instead of you copying it,
+    generating a signing key. Use it once, on the first deployment, if you would rather not hand-edit.
 
 .EXAMPLE
-    .\scripts\Deploy.ps1 -DbPassword '<database password>'
+    .\scripts\Deploy.ps1
 .EXAMPLE
-    .\scripts\Deploy.ps1 -Port 8080
+    # first run, letting the script create the settings file
+    .\scripts\Deploy.ps1 -InitSettings -ConnectionString 'Server=.\SQLEXPRESS;Database=SCOPS;User ID=SivayaanHMS;Password=...;TrustServerCertificate=True'
+.EXAMPLE
+    .\scripts\Deploy.ps1 -SkipBackup
 #>
 [CmdletBinding()]
 param(
     [string] $AppRoot     = 'C:\Swarnakshi',
     [string] $ServiceName = 'Swarnakshi',
-    [int]    $Port        = 8080,
-    [string] $Server      = '.\SQLEXPRESS',
-    [string] $Database    = 'SCOPS',
-    [string] $DbPassword,                       # first deployment only
-    [string] $PlatformAdminPassword,            # optional; omit to keep the built-in default
+
+    # Only used with -InitSettings, when the settings file is being created for the first time.
+    [switch] $InitSettings,
+    [string] $ConnectionString,
+    [int]    $Port = 8080,
+
     [switch] $SkipBackup,
+    [switch] $SkipDbCheck,
     [int]    $HealthTimeoutSeconds = 90
 )
 
@@ -50,7 +58,6 @@ $prevDir  = Join-Path $AppRoot 'previous'
 $dataDir  = Join-Path $AppRoot 'data'
 $settings = Join-Path $appDir 'appsettings.Production.json'
 $exe      = Join-Path $appDir 'Swarnakshi.Api.exe'
-$health   = "http://localhost:$Port/health"
 
 function Step($n, $text) { Write-Host "`n[$n] $text" -ForegroundColor Cyan }
 
@@ -69,36 +76,133 @@ if (-not (Test-Path (Join-Path $package 'app\wwwroot\index.html'))) {
     throw "The package has no built UI in app\wwwroot. Re-run Publish.ps1."
 }
 
-$sqlSvc = Get-Service 'MSSQL$SQLEXPRESS' -ErrorAction SilentlyContinue
-if (-not $sqlSvc) { throw "SQL Server Express is not installed on this machine." }
-if ($sqlSvc.Status -ne 'Running') { throw "SQL Server Express is installed but not running." }
+# ---------------------------------------------------------------- 2. the settings file
+Step 2 'Reading the settings file'
 
-$firstRun = -not (Test-Path $settings)
-if ($firstRun -and -not $DbPassword) {
-    throw ("First deployment: pass -DbPassword so the settings file can be created. " +
-           "Create the database first with sql\01-create-database.sql.")
+if (-not (Test-Path $settings)) {
+    if (-not $InitSettings) {
+        throw @"
+No settings file at
+    $settings
+
+Create it before deploying - it holds the connection string, and this script will not invent one.
+Either:
+
+  a) copy the template and edit it:
+         New-Item -ItemType Directory -Force -Path '$appDir'
+         Copy-Item '$package\appsettings.Production.template.json' '$settings'
+         notepad '$settings'
+
+  b) or let this script write it:
+         .\scripts\Deploy.ps1 -InitSettings -ConnectionString '<your connection string>'
+"@
+    }
+    if (-not $ConnectionString) {
+        throw "-InitSettings needs -ConnectionString '<your connection string>'."
+    }
+    & (Join-Path $PSScriptRoot 'New-ProductionSettings.ps1') `
+        -ConnectionString $ConnectionString -AppRoot $AppRoot -ListenUrl "http://0.0.0.0:$Port" | Out-Host
+}
+
+# From here the settings file is authoritative. Nothing below writes to it.
+try {
+    $cfg = Get-Content $settings -Raw | ConvertFrom-Json
+} catch {
+    throw "$settings is not valid JSON: $($_.Exception.Message)"
+}
+
+$conn = $cfg.ConnectionStrings.Default
+if ([string]::IsNullOrWhiteSpace($conn) -or $conn -match 'CHANGE_ME') {
+    throw "Set ConnectionStrings:Default in $settings before deploying."
+}
+if ([string]::IsNullOrWhiteSpace($cfg.Jwt.Key) -or $cfg.Jwt.Key -match 'CHANGE_ME') {
+    throw "Set Jwt:Key in $settings (at least 32 characters). The app refuses to start without it."
+}
+if ($cfg.Jwt.Key.Length -lt 32) {
+    throw "Jwt:Key in $settings is only $($cfg.Jwt.Key.Length) characters. It must be at least 32."
+}
+
+# Pull the pieces back out of the connection string for the checks below and for the log line.
+function Get-ConnPart([string]$c, [string[]]$keys) {
+    foreach ($k in $keys) {
+        if ($c -match ("(?i)(^|;)\s*" + [regex]::Escape($k) + "\s*=\s*([^;]*)")) { return $Matches[2].Trim() }
+    }
+    $null
+}
+$dbServer = Get-ConnPart $conn @('Server', 'Data Source', 'Addr', 'Address')
+$dbName   = Get-ConnPart $conn @('Database', 'Initial Catalog')
+$dbUser   = Get-ConnPart $conn @('User ID', 'UserId', 'Uid')
+$dbPass   = Get-ConnPart $conn @('Password', 'Pwd')
+$trusted  = (Get-ConnPart $conn @('Trusted_Connection', 'Integrated Security')) -match '(?i)true|sspi|yes'
+
+$listenUrl = if ($cfg.Urls) { $cfg.Urls } else { "http://0.0.0.0:$Port" }
+if ($listenUrl -match ':(\d+)\s*$') { $Port = [int]$Matches[1] }
+$health = "http://localhost:$Port/health"
+
+Write-Host "    Database : $dbName on $dbServer as $(if ($trusted) { 'the service account' } else { $dbUser })"
+Write-Host "    Listening: $listenUrl"
+
+# ---------------------------------------------------------------- 3. is the database reachable
+if ($SkipDbCheck) {
+    Step 3 'Skipping the database check (-SkipDbCheck)'
+} else {
+    Step 3 "Checking [$dbName] on [$dbServer]"
+    # Prove the credentials in the settings file actually work, rather than assuming a service
+    # named MSSQL$SQLEXPRESS exists locally - the instance may be named differently or live on
+    # another host, and a running service says nothing about whether the login can get in.
+    $args = @('-S', $dbServer, '-d', $dbName, '-C', '-b', '-h-1', '-W', '-l', '10',
+              '-Q', "SET NOCOUNT ON; SELECT 'reachable';")
+    if ($trusted) { $args = @('-E') + $args } else { $args = @('-U', $dbUser, '-P', $dbPass) + $args }
+
+    $probe = & sqlcmd @args 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw @"
+Cannot reach [$dbName] on [$dbServer] with the credentials in the settings file.
+
+    $probe
+
+Fix the connection string in
+    $settings
+or create the database and grant the login. It needs db_datareader, db_datawriter, EXECUTE, and
+enough DDL rights for EF Core migrations - CREATE TABLE and ALTER on schema dbo. Then re-run.
+(-SkipDbCheck bypasses this check, but step 6 will fail anyway if the login cannot connect.)
+"@
+    }
+    Write-Host "    Reachable." -ForegroundColor Green
 }
 
 $build = 'unknown'
 if (Test-Path (Join-Path $package 'build.json')) {
     $build = (Get-Content (Join-Path $package 'build.json') -Raw | ConvertFrom-Json).Version
 }
-$mode = if ($firstRun) { 'first deployment' } else { 'upgrade' }
-Write-Host "    Deploying $build to $appDir  ($mode)"
+$installed = Test-Path $exe
+Write-Host "`n    Deploying $build to $appDir  ($(if ($installed) { 'upgrade' } else { 'first deployment' }))"
 
-# ---------------------------------------------------------------- 2. backup
-if (-not $SkipBackup -and -not $firstRun) {
-    Step 2 'Backing up the database'
-    & (Join-Path $PSScriptRoot 'Backup-Database.ps1') -Server $Server -Database $Database `
-        -BackupPath (Join-Path $AppRoot 'backups') -Label "pre-$build" | Out-Host
+# ---------------------------------------------------------------- 4. backup
+if (-not $SkipBackup -and $installed) {
+    Step 4 'Backing up the database'
+    try {
+        & (Join-Path $PSScriptRoot 'Backup-Database.ps1') -Server $dbServer -Database $dbName `
+            -BackupPath (Join-Path $AppRoot 'backups') -Label "pre-$build" | Out-Host
+    } catch {
+        # BACKUP DATABASE needs db_backupoperator or sysadmin, and the account running a deployment
+        # does not always have it. Stopping here is deliberate: upgrading the schema with no restore
+        # point behind it should be a decision, not an accident.
+        throw ("The backup failed: $($_.Exception.Message)`n" +
+               "Grant the deploying account db_backupoperator on [$dbName], take a backup yourself " +
+               "first, or re-run with -SkipBackup to proceed deliberately without one.")
+    }
+} elseif (-not $installed) {
+    Step 4 'Skipping the backup (first deployment - there is nothing to lose yet)'
 } else {
-    Step 2 'Skipping the backup (first deployment, or -SkipBackup)'
+    Step 4 'Skipping the backup (-SkipBackup)'
+    Write-Warning 'Deploying without a restore point. If the migration goes wrong there is nothing to go back to.'
 }
 
 $rollbackNeeded = $false
 try {
-    # ------------------------------------------------------------ 3. stop
-    Step 3 'Stopping the service'
+    # ------------------------------------------------------------ 5. stop
+    Step 5 'Stopping the service'
     $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
     if ($svc -and $svc.Status -ne 'Stopped') {
         Stop-Service $ServiceName -Force
@@ -107,49 +211,37 @@ try {
         Start-Sleep -Seconds 2
     }
 
-    # ------------------------------------------------------------ 4. keep the old release
-    Step 4 'Keeping the current release for rollback'
-    if (Test-Path $appDir) {
+    # ------------------------------------------------------------ 6. keep the old release
+    Step 6 'Keeping the current release for rollback'
+    if ($installed) {
         if (Test-Path $prevDir) { Remove-Item $prevDir -Recurse -Force }
         Copy-Item $appDir $prevDir -Recurse
         $rollbackNeeded = $true
         Write-Host "    Previous release copied to $prevDir"
     }
 
-    # ------------------------------------------------------------ 5. the new binaries
-    Step 5 'Copying the new release'
+    # ------------------------------------------------------------ 7. the new binaries
+    Step 7 'Copying the new release'
     New-Item -ItemType Directory -Force -Path $appDir, $dataDir, (Join-Path $dataDir 'uploads') | Out-Null
 
-    # Preserve the settings file across the copy: it holds the secrets and is not in the package.
-    $keptSettings = $null
-    if (Test-Path $settings) { $keptSettings = Get-Content $settings -Raw }
+    # The settings file is yours, not the package's. Hold it aside and put it back untouched.
+    $keptSettings = Get-Content $settings -Raw
 
-    # wwwroot is emptied rather than merged, because a stale hashed asset left behind would be
-    # served to a browser that has just been handed a new index.html.
+    # wwwroot is emptied rather than merged: a stale hashed asset left behind would be served to a
+    # browser that has just been handed a new index.html.
     Get-ChildItem $appDir -Exclude 'appsettings.Production.json' | Remove-Item -Recurse -Force
     Copy-Item (Join-Path $package 'app\*') $appDir -Recurse -Force
+    $keptSettings | Out-File $settings -Encoding utf8 -NoNewline
 
-    if ($keptSettings) { $keptSettings | Out-File $settings -Encoding utf8 -NoNewline }
-
-    if ($firstRun) {
-        Step '5b' 'Writing appsettings.Production.json'
-        $settingsArgs = @{
-            DbPassword = $DbPassword; Server = $Server; Database = $Database
-            AppRoot = $AppRoot; ListenUrl = "http://0.0.0.0:$Port"
-        }
-        if ($PlatformAdminPassword) { $settingsArgs.PlatformAdminPassword = $PlatformAdminPassword }
-        & (Join-Path $PSScriptRoot 'New-ProductionSettings.ps1') @settingsArgs | Out-Host
-    }
-
-    # ------------------------------------------------------------ 6. schema
-    Step 6 'Applying database migrations'
+    # ------------------------------------------------------------ 8. schema
+    Step 8 'Applying database migrations'
     $env:ASPNETCORE_ENVIRONMENT = 'Production'
     & $exe --migrate
     if ($LASTEXITCODE -ne 0) { throw "Migration failed (exit $LASTEXITCODE). The schema was not changed." }
     Write-Host "    Schema is up to date." -ForegroundColor Green
 
-    # ------------------------------------------------------------ 7. run it
-    Step 7 'Starting the service'
+    # ------------------------------------------------------------ 9. run it
+    Step 9 'Starting the service'
     if (-not (Get-Service $ServiceName -ErrorAction SilentlyContinue)) {
         New-Service -Name $ServiceName -BinaryPathName "`"$exe`"" -DisplayName 'Swarnakshi' `
             -Description 'Swarnakshi construction management - API and web UI.' `
@@ -159,12 +251,10 @@ try {
         & sc.exe failureflag $ServiceName 1 | Out-Null
         Write-Host "    Service '$ServiceName' created (starts automatically at boot)."
     }
-    # The service runs as LocalSystem, which is one of the two principals
-    # New-ProductionSettings.ps1 leaves able to read the settings file.
     Start-Service $ServiceName
 
-    # ------------------------------------------------------------ 8. prove it is up
-    Step 8 "Waiting for $health"
+    # ------------------------------------------------------------ 10. prove it is up
+    Step 10 "Waiting for $health"
     $deadline = (Get-Date).AddSeconds($HealthTimeoutSeconds)
     $ok = $false
     while ((Get-Date) -lt $deadline) {
@@ -175,10 +265,11 @@ try {
     if (-not $ok) { throw "The service did not become healthy within $HealthTimeoutSeconds seconds." }
 
     Write-Host "`nDeployed $build successfully." -ForegroundColor Green
-    Write-Host "  Service : $ServiceName ($((Get-Service $ServiceName).Status))"
-    Write-Host "  URL     : http://$($env:COMPUTERNAME):$Port/"
-    Write-Host "  Health  : $health"
-    Write-Host "  Rollback: .\scripts\Rollback.ps1"
+    Write-Host "  Service  : $ServiceName ($((Get-Service $ServiceName).Status))"
+    Write-Host "  URL      : http://$($env:COMPUTERNAME):$Port/"
+    Write-Host "  Health   : $health"
+    Write-Host "  Settings : $settings   (edit, then Restart-Service $ServiceName)"
+    Write-Host "  Rollback : .\scripts\Rollback.ps1"
 }
 catch {
     Write-Host "`nDEPLOYMENT FAILED: $($_.Exception.Message)" -ForegroundColor Red
@@ -191,7 +282,7 @@ catch {
         Start-Service $ServiceName -ErrorAction SilentlyContinue
         Write-Host "Previous release restored and started." -ForegroundColor Yellow
         Write-Host "The database was NOT rolled back. If the migration applied before the failure," -ForegroundColor Yellow
-        Write-Host "restore the backup from step 2 - see docs/06-deployment.md, 'Rolling back'." -ForegroundColor Yellow
+        Write-Host "restore the backup from step 4 - see docs/06-deployment.md, 'Rolling back'." -ForegroundColor Yellow
     }
     exit 1
 }

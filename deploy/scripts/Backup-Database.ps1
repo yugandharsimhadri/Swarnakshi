@@ -30,7 +30,17 @@ if (-not (Test-Path $BackupPath)) { New-Item -ItemType Directory -Force -Path $B
 # The backup is written by the SQL Server service, not by this script's user, so the service
 # account needs to be able to write here. Without this the BACKUP fails with "Operating system
 # error 5 (Access is denied)" and the cause is not obvious from the message.
-$svc = (Get-CimInstance Win32_Service -Filter "Name='MSSQL`$SQLEXPRESS'" -ErrorAction SilentlyContinue).StartName
+#
+# Which service that is depends on the instance: MSSQLSERVER for a default instance, MSSQL$NAME
+# for a named one. Derived from -Server rather than assumed, and skipped entirely when SQL is on
+# another host - there the backup path is a path on *that* machine and this cannot help.
+$instance = if ($Server -match '\\(.+)$') { "MSSQL`$$($Matches[1])" } else { 'MSSQLSERVER' }
+$isLocal  = $Server -match '^(\.|\(local\)|localhost|127\.0\.0\.1)(\\|$)' -or
+            $Server -match "^$([regex]::Escape($env:COMPUTERNAME))(\\|$)"
+$svc = $null
+if ($isLocal) {
+    $svc = (Get-CimInstance Win32_Service -Filter "Name='$instance'" -ErrorAction SilentlyContinue).StartName
+}
 if ($svc) {
     try {
         $acl = Get-Acl $BackupPath

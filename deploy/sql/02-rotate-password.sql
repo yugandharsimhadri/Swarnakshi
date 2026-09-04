@@ -3,12 +3,17 @@
 
         sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\02-rotate-password.sql -v NewPassword="<new>"
 
-    Then regenerate the settings file with the same password and restart the service:
+    Then put the same password into the connection string in
 
-        deploy\scripts\New-ProductionSettings.ps1 -DbPassword "<new>" -KeepJwtKey
+        C:\Swarnakshi\app\appsettings.Production.json
+
+    and restart the service:
+
         Restart-Service Swarnakshi
 
-    Keep the JWT key: changing it signs everyone out. Changing the database password does not.
+    Edit that file directly -- it is the one place the server's settings live, and a deployment
+    never overwrites it. Leave Jwt:Key alone while you are in there: changing it signs every user
+    out, and changing a database password does not have to.
 */
 
 :on error exit

@@ -1,32 +1,32 @@
 <#
 .SYNOPSIS
-    Writes appsettings.Production.json for a Swarnakshi server.
+    Writes C:\Swarnakshi\app\appsettings.Production.json for a Swarnakshi server.
 
 .DESCRIPTION
-    This is the only file on the server that holds secrets, and it is never in source control.
-    Run it once during the first deployment. On later deployments it is only needed if a secret
-    changes -- Deploy.ps1 leaves an existing settings file alone.
+    A convenience for the first deployment. You do not have to use it - copying
+    appsettings.Production.template.json to that path and editing it by hand does the same job,
+    and after the first run editing the file directly is the normal way to change anything.
 
-    The JWT signing key is generated here, not chosen. It must stay the same across deployments:
-    every issued access and refresh token is signed with it, so replacing it signs every user out.
-    -KeepJwtKey reads the key back out of the existing file so a password rotation does not.
+    What it adds over hand-editing is the signing key: it generates a real random one, and
+    -KeepJwtKey preserves the existing key when you are only changing the connection string.
+    That matters, because every access and refresh token is signed with it - replacing the key
+    signs every user out.
+
+    Deploy.ps1 never calls this except with -InitSettings, and never overwrites the file otherwise.
 
 .EXAMPLE
-    .\New-ProductionSettings.ps1 -DbPassword '<database password>' -PlatformAdminPassword '<platform admin password>'
+    .\New-ProductionSettings.ps1 -ConnectionString 'Server=.\SQLEXPRESS;Database=SCOPS;User ID=SivayaanHMS;Password=...;TrustServerCertificate=True'
 
 .EXAMPLE
-    # Rotating only the database password, keeping everyone signed in:
-    .\New-ProductionSettings.ps1 -DbPassword 'new-one' -KeepJwtKey
+    # Changing the password or the server, keeping everyone signed in:
+    .\New-ProductionSettings.ps1 -ConnectionString '<the new one>' -KeepJwtKey
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)] [string] $DbPassword,
-    [string] $PlatformAdminPassword,          # omit to keep the seeder's built-in default
-    [string] $Server   = '.\SQLEXPRESS',
-    [string] $Database = 'SCOPS',
-    [string] $DbUser   = 'SivayaanHMS',
-    [string] $AppRoot  = 'C:\Swarnakshi',
+    [Parameter(Mandatory = $true)] [string] $ConnectionString,
+    [string] $AppRoot   = 'C:\Swarnakshi',
     [string] $ListenUrl = 'http://0.0.0.0:8080',
+    [string] $PlatformAdminPassword,          # omit to keep the application's built-in default
     [string[]] $CorsOrigins = @(),
     [switch] $KeepJwtKey,
     [switch] $Force
@@ -36,14 +36,14 @@ $ErrorActionPreference = 'Stop'
 $target = Join-Path $AppRoot 'app\appsettings.Production.json'
 
 if ((Test-Path $target) -and -not $Force -and -not $KeepJwtKey) {
-    throw "$target already exists. Re-run with -KeepJwtKey (rotating a password) or -Force (replacing it outright)."
+    throw "$target already exists. Edit it directly, or re-run with -KeepJwtKey (changing the connection string) or -Force (replacing the file outright)."
 }
 
 # The signing key: reuse the live one unless there is none, because replacing it signs everyone out.
 $jwtKey = $null
 if ($KeepJwtKey -and (Test-Path $target)) {
     # Read it, and stop if we cannot. Falling through to "generate a new one" would sign every user
-    # out as a side effect of a password rotation, which is exactly what -KeepJwtKey exists to avoid.
+    # out as a side effect of a password change, which is exactly what -KeepJwtKey exists to avoid.
     try {
         $jwtKey = (Get-Content $target -Raw -ErrorAction Stop | ConvertFrom-Json).Jwt.Key
     } catch {
@@ -67,21 +67,19 @@ if (-not $jwtKey) {
 }
 
 $settings = [ordered]@{
-    ConnectionStrings = [ordered]@{
-        Default = "Server=$Server;Database=$Database;User ID=$DbUser;Password=$DbPassword;TrustServerCertificate=True;MultipleActiveResultSets=False;Application Name=SivayaanHMS"
-    }
-    Database    = [ordered]@{ Provider = 'SqlServer'; CommandTimeoutSeconds = 60 }
-    Jwt         = [ordered]@{
+    ConnectionStrings = [ordered]@{ Default = $ConnectionString }
+    Database          = [ordered]@{ Provider = 'SqlServer'; CommandTimeoutSeconds = 60 }
+    Jwt               = [ordered]@{
         Issuer = 'Swarnakshi'; Audience = 'Swarnakshi'; Key = $jwtKey
         AccessTokenMinutes = 60; RefreshTokenDays = 7
     }
-    Urls        = $ListenUrl
-    # Empty on purpose: the UI is served by this same process, so a browser never makes a
-    # cross-origin call. Add an origin here only if some other site must call this API.
-    Cors        = [ordered]@{ Origins = $CorsOrigins }
-    Seed        = [ordered]@{ Demo = $false }
-    Storage     = [ordered]@{ LocalRoot = (Join-Path $AppRoot 'data\uploads') }
-    Logging     = [ordered]@{ LogLevel = [ordered]@{
+    Urls              = $ListenUrl
+    # Empty on purpose: this service serves the UI itself, so a browser never makes a cross-origin
+    # call. Add an origin here only if some other site must call this API.
+    Cors              = [ordered]@{ Origins = $CorsOrigins }
+    Seed              = [ordered]@{ Demo = $false }
+    Storage           = [ordered]@{ LocalRoot = (Join-Path $AppRoot 'data\uploads') }
+    Logging           = [ordered]@{ LogLevel = [ordered]@{
         Default = 'Information'; 'Microsoft.AspNetCore' = 'Warning'; 'Microsoft.EntityFrameworkCore' = 'Warning' } }
 }
 
@@ -98,7 +96,7 @@ $settings | ConvertTo-Json -Depth 8 | Out-File -FilePath $target -Encoding utf8
 
 # The file holds the database password, so it is readable by three principals and no one else:
 # SYSTEM, because the service runs as LocalSystem; Administrators, to operate the box; and whoever
-# ran this script, so a later -KeepJwtKey rotation can read the signing key back instead of failing.
+# ran this script, so a later -KeepJwtKey change can read the signing key back instead of failing.
 $acl = Get-Acl $target
 $acl.SetAccessRuleProtection($true, $false)   # stop inheriting the folder's broader rights
 $principals = @(

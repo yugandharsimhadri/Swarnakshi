@@ -90,9 +90,12 @@ try {
     # and the interactive API docs if the environment variable were ever missing.
     Remove-Item (Join-Path $appOut 'appsettings.Development.json') -ErrorAction SilentlyContinue
 
-    # ---- 5. the scripts and SQL the server needs, alongside the binaries ----
+    # ---- 5. the scripts, SQL and settings template the server needs, beside the binaries ----
     Copy-Item (Join-Path $PSScriptRoot '..\sql')     (Join-Path $OutputRoot 'sql')     -Recurse
     Copy-Item (Join-Path $PSScriptRoot '..\scripts') (Join-Path $OutputRoot 'scripts') -Recurse
+    # Deploy.ps1 points the operator at this when there is no settings file yet, so it has to
+    # travel in the package rather than only existing back in the repository.
+    Copy-Item (Join-Path $PSScriptRoot '..\appsettings.Production.template.json') $OutputRoot
 
     [ordered]@{
         Version = $version; Commit = $commit; Branch = $branch

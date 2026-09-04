@@ -35,27 +35,41 @@ that is usually the right trade.
 
 ### 1.2 Create the database
 
-From a checkout, as a Windows administrator (this connects with your own Windows login, which is a
-sysadmin on a default Express install):
+The application needs a database and a SQL login that can reach it. Create them however you
+normally do — by hand in SSMS, or with the script:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\01-create-database.sql -v AppPassword="<database password>"
+sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\01-create-database.sql -v AppPassword="<password>"
 ```
 
-The script is idempotent — running it twice changes nothing. It creates:
+If you create it by hand, these are the settings that matter and the rights the login needs.
 
-- the **SCOPS** database, with `READ_COMMITTED_SNAPSHOT` on so a long posting transaction does not
-  block every dashboard query behind it, `AUTO_CLOSE` off (Express defaults it on, which costs a
-  slow first request after every idle period), and SIMPLE recovery;
-- the **`SivayaanHMS`** login, if it does not already exist. It never resets an existing password —
-  use `02-rotate-password.sql` for that;
-- the matching database user, granted `db_datareader`, `db_datawriter`, `EXECUTE`, and the DDL
-  rights EF Core migrations need. Deliberately **not** `db_owner`: the account can shape the schema
-  it owns and cannot drop the database or manage other logins.
+**On the database**
+
+| Setting | Why |
+|---|---|
+| `READ_COMMITTED_SNAPSHOT ON` | Posting an approval holds a transaction. Without this, every dashboard query queues behind it. |
+| `AUTO_CLOSE OFF` | Express defaults it on, which costs a slow first request after every idle period. |
+| `AUTO_SHRINK OFF` | Shrinking fragments the indexes it just rebuilt. |
+| Recovery `SIMPLE` | Right unless you schedule log backups. See section 4. |
+
+**On the login**
+
+| Grant | Why |
+|---|---|
+| `db_datareader`, `db_datawriter` | Ordinary reads and writes |
+| `GRANT EXECUTE` | Stored procedure execution |
+| `CREATE TABLE`, `ALTER ON SCHEMA::dbo`, `REFERENCES ON SCHEMA::dbo` | EF Core migrations create and alter tables and indexes, and write to `__EFMigrationsHistory` |
+
+`db_owner` covers all of that and is fine if that is simpler for you. The script grants the
+narrower set deliberately: enough to run and migrate the app, not enough to drop the database.
+
+Nothing else needs creating — the application builds all 42 tables itself on the first deployment.
 
 ### 1.3 Build the package
 
-On a build machine, or the server, from a clean checkout of the commit you intend to ship:
+On a build machine, from a clean checkout of the commit you intend to ship. This needs the .NET SDK
+and Node, which is why it is not usually done on the server:
 
 ```bash
 powershell -File deploy\scripts\Publish.ps1
@@ -63,30 +77,79 @@ powershell -File deploy\scripts\Publish.ps1
 
 It refuses to build from a dirty working tree (`-AllowDirty` for a throwaway test build), runs
 `dotnet test` as the gate, builds the UI with `npm ci` into the API's `wwwroot`, publishes the API,
-and writes `deploy\out\` with `app\`, `sql\`, `scripts\` and a `build.json` naming the commit.
+and writes `deploy\out\` containing `app\`, `sql\`, `scripts\`, the settings template, and a
+`build.json` naming the commit.
+
+`-SelfContained` bundles the .NET runtime into the package. Larger, but then the server needs
+nothing installed but Windows.
 
 Copy that folder to the server, for example to `C:\Swarnakshi\packages\<version>`.
 
-### 1.4 Deploy
+### 1.4 Write the settings file
+
+**This is the only configuration on the server, and the only file you ever edit.** Copy the
+template and fill it in:
+
+```bash
+New-Item -ItemType Directory -Force -Path C:\Swarnakshi\app
+```
+
+```bash
+Copy-Item .\appsettings.Production.template.json C:\Swarnakshi\app\appsettings.Production.json
+```
+
+```bash
+notepad C:\Swarnakshi\app\appsettings.Production.json
+```
+
+Three things must change from the template:
+
+| Key | What to put |
+|---|---|
+| `ConnectionStrings:Default` | Your server, database, login and password |
+| `Jwt:Key` | A random string of at least 32 characters. Generate one, then leave it alone — it signs every token, so changing it later signs everyone out. |
+| `Urls` | The address and port to listen on, e.g. `http://0.0.0.0:8080` |
+
+To generate a signing key:
+
+```bash
+powershell -c "$b=New-Object byte[] 48;(New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($b);[Convert]::ToBase64String($b)"
+```
+
+The connection string is an ordinary SQL Server one, so the machine name, instance, database, login
+and password are all yours to change here — now or at any point later:
+
+```
+Server=.\SQLEXPRESS;Database=SCOPS;User ID=SivayaanHMS;Password=...;TrustServerCertificate=True
+Server=SQLBOX01\SQLEXPRESS;Database=SCOPS;User ID=app;Password=...;TrustServerCertificate=True
+Server=10.0.0.5,1433;Database=SCOPS;Trusted_Connection=True;TrustServerCertificate=True
+```
+
+With `Trusted_Connection=True` the service authenticates as its own account. It runs as LocalSystem,
+so the login to grant in SQL Server is then `DOMAIN\MACHINENAME$`.
+
+If you would rather not hand-edit, `Deploy.ps1 -InitSettings -ConnectionString '<yours>'` writes the
+file for you and generates the signing key.
+
+### 1.5 Deploy
 
 From inside the copied package, in an **elevated** PowerShell:
 
 ```bash
-powershell -File .\scripts\Deploy.ps1 -DbPassword "<database password>"
+powershell -File .\scripts\Deploy.ps1
 ```
 
-This first run creates `C:\Swarnakshi\app\appsettings.Production.json` — the only file on the server
-that holds secrets — installs the `Swarnakshi` service, applies the schema, starts it, and waits for
-`/health`. The database password is needed only on this first run; later deployments leave the
-settings file alone.
+No passwords on the command line — it reads them from the settings file. It checks that the database
+is actually reachable with those credentials before touching anything, installs the `Swarnakshi`
+service, applies the schema, starts it, and waits for `/health`.
 
-### 1.5 Open the port
+### 1.6 Open the port
 
 ```bash
 New-NetFirewallRule -DisplayName "Swarnakshi 8080" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow
 ```
 
-### 1.6 First login, and the one thing to do immediately
+### 1.7 First login, and the one thing to do immediately
 
 Browse to `http://<server>:8080/`.
 
@@ -95,37 +158,47 @@ Browse to `http://<server>:8080/`.
 | Founding tenant owner | `owner@swarnakshi` | The company's first Owner |
 | Platform operator | `EnterpriseAdmin` | Licence renewal and password resets only. Never sees company data. |
 
-Both are seeded with the passwords in the settings file. **Change them at first login.** The seeder
-sets a password only when it creates a row, so a changed password is never quietly reset by a
-restart or a redeployment.
+Both are seeded with the application's built-in default passwords unless you set a `PlatformAdmin`
+section in the settings file. **Change them at first login.** The seeder sets a password only when it
+creates the row, so a changed password is never quietly reset by a restart or a redeployment.
 
 ---
 
 ## 2. Every deployment after the first
 
 ```bash
-powershell -File deploy\scripts\Publish.ps1        # on the build machine
-# copy deploy\out to the server
-powershell -File .\scripts\Deploy.ps1              # elevated, on the server
+powershell -File deploy\scripts\Publish.ps1
 ```
 
-No password argument, no database script, no service installation — `Deploy.ps1` detects that the
-settings file exists and treats the run as an upgrade. In order it:
+Copy `deploy\out` to the server, then, elevated, from inside it:
 
-1. **backs up SCOPS** and verifies the backup, labelled with the version being replaced;
-2. **copies the current release to `C:\Swarnakshi\previous`**, so a rollback has a target;
-3. stops the service;
-4. swaps in the new binaries, keeping `appsettings.Production.json` and everything under
+```bash
+powershell -File .\scripts\Deploy.ps1
+```
+
+No arguments, no database script, no settings to re-enter. `Deploy.ps1` reads the settings file
+already on the server, preserves it, and treats the run as an upgrade. In order it:
+
+1. reads and validates the settings file, and **proves the database is reachable** with those
+   credentials — so a wrong password fails on line one, not half way through;
+2. **backs up the database** and verifies the backup, labelled with the version being replaced;
+3. **copies the current release to `C:\Swarnakshi\previous`**, so a rollback has a target;
+4. stops the service;
+5. swaps in the new binaries, keeping `appsettings.Production.json` and everything under
    `C:\Swarnakshi\data`. `wwwroot` is emptied rather than merged — a stale hashed asset left behind
    would be served to a browser that has just been handed a new `index.html`;
-5. **applies migrations as an explicit step** (`Swarnakshi.Api.exe --migrate`), which exits non-zero
+6. **applies migrations as an explicit step** (`Swarnakshi.Api.exe --migrate`), which exits non-zero
    on failure. This is why the schema change is not left to happen on first request: a bad migration
    fails the deployment while the service is still stopped, instead of taking the site down under
    traffic;
-6. starts the service and polls `/health` until it answers;
-7. and if anything from step 3 onward fails, puts the previous release back and starts it.
+7. starts the service and polls `/health` until it answers;
+8. and if anything from step 4 onward fails, puts the previous release back and starts it.
 
-Expected downtime is the length of steps 3–6, normally under a minute.
+Expected downtime is the length of steps 4–7, normally under a minute.
+
+If the deploying account cannot run `BACKUP DATABASE`, step 2 stops the deployment rather than
+skipping quietly. Grant it `db_backupoperator`, take a backup yourself, or pass `-SkipBackup` to
+proceed without one deliberately.
 
 ### Making a schema change
 
@@ -192,37 +265,58 @@ deployment and nothing else.
 
 ## 5. Configuration
 
-`appsettings.json` ships in the package and holds no secrets. Everything sensitive lives in
-`C:\Swarnakshi\app\appsettings.Production.json`, which `New-ProductionSettings.ps1` writes, locks to
-SYSTEM and Administrators, and which is **git-ignored**. `deploy/appsettings.Production.template.json`
-shows the shape.
+**One file, and you edit it directly:**
+
+```
+C:\Swarnakshi\app\appsettings.Production.json
+```
+
+`Deploy.ps1` reads it, validates it, and preserves it across every upgrade — it is never overwritten,
+so an edit made today survives the deployment made next month. It is **git-ignored**; the committed
+`deploy/appsettings.Production.template.json` is the annotated copy to start from.
+
+`appsettings.json` also ships in the package but holds no secrets, and the settings file above wins
+over it for every key.
 
 | Key | Notes |
 |---|---|
-| `ConnectionStrings:Default` | SQL Server connection string |
+| `ConnectionStrings:Default` | Server, database, login, password. Change the machine name, instance, or password here. |
 | `Database:Provider` | `SqlServer` |
 | `Database:CommandTimeoutSeconds` | 60 |
-| `PlatformAdmin:Username` / `:Password` | EnterpriseAdmin seed credentials, used only when the row is created |
-| `Jwt:Key` | ≥32 characters. The app refuses to start outside Development without it. |
-| `Urls` | `http://0.0.0.0:8080` |
+| `Jwt:Key` | ≥32 characters. The app refuses to start outside Development without it. **Set once, then leave it.** |
+| `Urls` | Address and port, e.g. `http://0.0.0.0:8080` |
+| `PlatformAdmin:Username` / `:Password` | EnterpriseAdmin seed credentials, used only when that row is first created. Omit the section to keep the built-in default. |
 | `Cors:Origins` | Empty. The UI is same-origin; add an entry only if another site must call this API. |
 | `Seed:Demo` | `false`. Demo data is Development-only and is ignored in Production regardless. |
 | `Storage:LocalRoot` | Attachment directory, `C:\Swarnakshi\data\uploads` |
 
-Any of these can be overridden by an environment variable using `__` for `:` —
-`ConnectionStrings__Default`, `Jwt__Key`.
-
-### Rotating secrets
+**After any change to this file:**
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\02-rotate-password.sql -v NewPassword="<new>"
-powershell -File .\scripts\New-ProductionSettings.ps1 -DbPassword "<new>" -KeepJwtKey
 Restart-Service Swarnakshi
 ```
 
-`-KeepJwtKey` matters. The JWT signing key is generated once and must stay put: every issued access
-and refresh token is signed with it, so replacing it signs every user out. Rotating the database
-password does not have to.
+Any key can also be overridden by an environment variable, using `__` for `:` —
+`ConnectionStrings__Default`, `Jwt__Key`. The file is simpler; the variables are there for the
+occasions when you need to override without editing.
+
+### Changing the database password, or moving to another SQL Server
+
+Rotate the password in SQL Server:
+
+```bash
+sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\02-rotate-password.sql -v NewPassword="<new>"
+```
+
+Then edit `ConnectionStrings:Default` in the settings file to match — the password, the `Server=`,
+or both if the database has moved — and restart:
+
+```bash
+Restart-Service Swarnakshi
+```
+
+**Do not touch `Jwt:Key` while you are in there.** Every issued access and refresh token is signed
+with it, so replacing it signs every user out; changing a database password does not have to.
 
 ---
 
