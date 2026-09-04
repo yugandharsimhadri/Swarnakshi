@@ -72,6 +72,50 @@ If you create it by hand, these are the settings that matter and the rights the 
 narrower set deliberately: enough to run and migrate the app, not enough to drop the database.
 
 Nothing else needs creating — the application builds all 42 tables itself on the first deployment.
+If you would rather build them yourself, see the next section.
+
+### 1.2a Applying the schema by hand
+
+Optional. `Deploy.ps1` applies the schema itself, and if you have already applied it, it finds the
+work done and reports that the schema is up to date. Do it by hand where only a DBA may change the
+schema — and then the application login never needs `CREATE TABLE` or `ALTER` at all, so you can
+drop those three grants from the script above.
+
+The scripts live in **`deploy\sql\`**, and travel in every package `Publish.ps1` builds:
+
+| Script | What it does | Run as |
+|---|---|---|
+| `01-create-database.sql` | Creates the database, the login and the user, and grants their rights | sysadmin, once per server |
+| `03-schema.sql` | Creates all 43 tables, 184 indexes and 64 foreign keys | sysadmin or db_owner, on the database from step 1 |
+| `02-rotate-password.sql` | Changes the application login's password | sysadmin, whenever you rotate it |
+
+```bash
+sqlcmd -S .\SQLEXPRESS -E -C -b -d SCOPS -i deploy\sql\03-schema.sql
+```
+
+`-b` matters: without it `sqlcmd` returns success even when a batch failed, and a half-applied
+schema looks like a clean run.
+
+Two things about `03-schema.sql` worth knowing before you run it.
+
+**It is idempotent.** Every migration is wrapped in a check against `__EFMigrationsHistory`, so
+running it twice does nothing the second time, and running it against a partly-migrated database
+applies only what is missing. That is also what makes it the right script for later releases: apply
+the same file again and it adds only the new migrations.
+
+**It creates the schema, not the data.** The platform operator, the founding company, the expense
+heads, units and the material taxonomy are seeded by application code the first time the service
+starts — there is no SQL for them. So the order is: create the database, apply the schema, then let
+`Deploy.ps1` start the service, which seeds the master data and finds the schema already in place.
+
+It is a generated file. After adding a migration, regenerate it rather than editing it:
+
+```bash
+powershell -File deploy\scripts\New-SchemaScript.ps1
+```
+
+`Publish.ps1` runs that itself, so a package can never ship binaries expecting one schema beside a
+script that builds another.
 
 ### 1.3 Build the package
 

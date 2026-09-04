@@ -91,6 +91,12 @@ try {
     Remove-Item (Join-Path $appOut 'appsettings.Development.json') -ErrorAction SilentlyContinue
 
     # ---- 5. the scripts, SQL and settings template the server needs, beside the binaries ----
+    # Regenerate the schema script from the migrations that just compiled, so a package can never
+    # ship binaries expecting one schema next to a script that builds another.
+    Write-Host "`n== regenerating the schema script ==" -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot 'New-SchemaScript.ps1') | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "Could not regenerate deploy\sql\03-schema.sql." }
+
     Copy-Item (Join-Path $PSScriptRoot '..\sql')     (Join-Path $OutputRoot 'sql')     -Recurse
     Copy-Item (Join-Path $PSScriptRoot '..\scripts') (Join-Path $OutputRoot 'scripts') -Recurse
     # Deploy.ps1 points the operator at this when there is no settings file yet, so it has to
