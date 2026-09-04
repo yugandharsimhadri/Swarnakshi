@@ -107,33 +107,34 @@ public class ApprovalService(
         var uid = currentUser.UserId!.Value;
         var prev = req.CurrentStatus;
 
-        await using var txn = await db.Database.BeginTransactionAsync(ct);
-
-        if (decision.Approve)
+        // Approving is where a document turns into stock movements, ledger rows and project cost
+        // all at once. If any part of that fails the request must stay pending, not sit there
+        // marked Posted with half its consequences written.
+        await db.ExecuteInTransactionAsync(async () =>
         {
-            await handler.OnApprovedAsync(req.EntityId, decision, uid, ct);
-            req.CurrentStatus = TransactionStatus.Posted;
-        }
-        else
-        {
-            await handler.OnRejectedAsync(req.EntityId, decision, uid, ct);
-            req.CurrentStatus = TransactionStatus.Rejected;
-        }
+            if (decision.Approve)
+            {
+                await handler.OnApprovedAsync(req.EntityId, decision, uid, ct);
+                req.CurrentStatus = TransactionStatus.Posted;
+            }
+            else
+            {
+                await handler.OnRejectedAsync(req.EntityId, decision, uid, ct);
+                req.CurrentStatus = TransactionStatus.Rejected;
+            }
 
-        req.DecidedByUserId = uid;
-        req.DecidedAt = clock.Now;
-        req.Remarks = decision.Remarks;
+            req.DecidedByUserId = uid;
+            req.DecidedAt = clock.Now;
+            req.Remarks = decision.Remarks;
 
-        db.ApprovalHistories.Add(new ApprovalHistory
-        {
-            ApprovalRequestId = req.Id,
-            Action = decision.Approve ? ApprovalAction.Approved : ApprovalAction.Rejected,
-            PreviousStatus = prev, NewStatus = req.CurrentStatus,
-            UserId = uid, At = clock.Now, Remarks = decision.Remarks
-        });
-
-        await db.SaveChangesAsync(ct);
-        await txn.CommitAsync(ct);
+            db.ApprovalHistories.Add(new ApprovalHistory
+            {
+                ApprovalRequestId = req.Id,
+                Action = decision.Approve ? ApprovalAction.Approved : ApprovalAction.Rejected,
+                PreviousStatus = prev, NewStatus = req.CurrentStatus,
+                UserId = uid, At = clock.Now, Remarks = decision.Remarks
+            });
+        }, ct);
 
         return ToItem(req);
     }

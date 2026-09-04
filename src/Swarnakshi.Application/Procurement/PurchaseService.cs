@@ -260,9 +260,8 @@ public class PurchaseService(
         }
         else
         {
-            await using var txn = await db.Database.BeginTransactionAsync(ct);
-            await poster.PostAsync(header.Id, currentUser.UserId!.Value, ct);
-            await txn.CommitAsync(ct);
+            await db.ExecuteInTransactionAsync(
+                () => poster.PostAsync(header.Id, currentUser.UserId!.Value, ct), ct);
         }
         return await GetAsync(id, ct);
     }

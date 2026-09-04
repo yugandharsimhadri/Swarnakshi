@@ -181,9 +181,13 @@ public class MaterialRequestService(
     public async Task<MaterialRequestDto> IssueAsync(Guid id, IssueRequest req, CancellationToken ct = default)
     {
         var overrides = req.Items?.ToDictionary(x => x.ItemId, x => x.Quantity);
-        await using var txn = await db.Database.BeginTransactionAsync(ct);
-        await issuer.IssueAsync(id, currentUser.UserId!.Value, overrides, req.Date, ct);
-        await txn.CommitAsync(ct);
+
+        // One issue moves several materials. If the third line has no stock left, the first two
+        // must not have moved either: the store would be short of material no villa was charged
+        // for, and nobody could explain the difference a month later.
+        await db.ExecuteInTransactionAsync(
+            () => issuer.IssueAsync(id, currentUser.UserId!.Value, overrides, req.Date, ct), ct);
+
         return await GetAsync(id, ct);
     }
 

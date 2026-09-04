@@ -79,6 +79,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
 
     public IDisposable BeginTenantScope(Guid companyId) => new TenantScope(this, companyId);
 
+    public async Task ExecuteInTransactionAsync(Func<Task> work, CancellationToken ct = default)
+        => await ExecuteInTransactionAsync<object?>(async () => { await work(); return null; }, ct);
+
+    public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
+    {
+        // Already inside one — a handler called from the approval queue, say. Joining the caller's
+        // transaction is the point: the outer commit decides, and a nested commit here would let
+        // half the work survive a later failure.
+        if (Database.CurrentTransaction is not null) return await work();
+
+        await using var transaction = await Database.BeginTransactionAsync(ct);
+        try
+        {
+            var result = await work();
+            await SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return result;
+        }
+        catch
+        {
+            // Dispose would roll the database back on its own. This is the other half: the tracker
+            // still holds every modification the database has just thrown away, and a context that
+            // disagrees with its own database is a worse problem than the failure that got us here.
+            await transaction.RollbackAsync(CancellationToken.None);
+            ChangeTracker.Clear();
+            throw;
+        }
+    }
+
     private sealed class TenantScope : IDisposable
     {
         private readonly AppDbContext _db;

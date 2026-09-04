@@ -64,6 +64,26 @@ public interface IAppDbContext
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Runs <paramref name="work"/> inside one database transaction: it commits as a whole or
+    /// leaves nothing behind.
+    ///
+    /// <para>This exists because "all or nothing" needs two things and only one of them is
+    /// obvious. Disposing an uncommitted transaction rolls the database back, which every caller
+    /// already got right. What none of them did was clear the change tracker afterwards — so the
+    /// context went on holding the modifications the database had just discarded, and anything
+    /// that used it next was working from a state that no longer existed. Within a single web
+    /// request that was survivable, because the context dies with the request; it is not something
+    /// to leave lying in wait.</para>
+    ///
+    /// <para>Every posting that touches more than one table goes through here, so the rule is
+    /// stated once rather than repeated at six call sites that could each drift.</para>
+    /// </summary>
+    Task ExecuteInTransactionAsync(Func<Task> work, CancellationToken ct = default);
+
+    /// <summary>The same, for work that produces a result.</summary>
+    Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default);
+
+    /// <summary>
     /// Acts as <paramref name="companyId"/> until the returned scope is disposed: reads are filtered
     /// to it and inserts are stamped with it. Needed where there is no signed-in user yet —
     /// registration seeding — and by the platform console. Restores the previous tenant on dispose.

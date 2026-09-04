@@ -17,6 +17,10 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
+    <!-- The only logging dependency. A Windows service and an IIS worker both write console
+         output to nowhere, so without a file sink an exception in production leaves no trace at
+         all. Serilog.AspNetCore brings the rolling-file and console sinks in one reference. -->
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -132,7 +132,7 @@ New-Website -Name Swarnakshi -PhysicalPath C:\Swarnakshi\app -ApplicationPool Sw
 
 ### 3.3 File permissions
 
-The app pool identity writes uploaded attachments and reads the settings file:
+The app pool identity writes uploaded attachments **and the logs**, and reads the settings file:
 
 ```bash
 icacls C:\Swarnakshi\data /grant "IIS AppPool\Swarnakshi:(OI)(CI)M" /T
@@ -142,7 +142,12 @@ icacls C:\Swarnakshi\data /grant "IIS AppPool\Swarnakshi:(OI)(CI)M" /T
 icacls C:\Swarnakshi\app\appsettings.Production.json /grant "IIS AppPool\Swarnakshi:R"
 ```
 
-(The second one comes after step 4 has created the file.)
+```bash
+New-Item -ItemType Directory -Force -Path C:Swarnakshilogs; icacls C:Swarnakshilogs /grant "IIS AppPoolSwarnakshi:(OI)(CI)M"
+```
+
+Without that last one the app starts and then cannot write a single log line — which is the worst
+moment to discover it. (The settings-file grant comes after step 4 has created the file.)
 
 ---
 

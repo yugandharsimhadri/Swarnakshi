@@ -4,6 +4,42 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — All or nothing, and a log worth reading
+
+**Rollback.** Six postings each opened a transaction and committed at the end, which is the correct
+idiom and rolls the database back on failure. A test that fails one line of a multi-line issue —
+cement issues, then the steel line runs out — proved the database part works. It also found the
+half nobody had: **EF's change tracker was not rolled back**, so the context went on holding
+modifications the database had discarded, and a second attempt on that context believed the cement
+had already gone. A web request survives it, because the context dies with the request; it is not
+something to leave lying in wait.
+
+All six now go through `IAppDbContext.ExecuteInTransactionAsync`, which commits as a whole, rolls
+back on any exception, and clears the tracker after it. Nested calls join the caller's transaction
+rather than opening their own, so an approval handler cannot commit half of what the approval did.
+Two tests cover it: nothing at all is written when a line fails, and the request stays approved so
+it can be issued again once the stock arrives.
+
+**Logging.** There was no sink. A Windows service and an IIS worker both write console output to
+nowhere, so an exception in production left nothing behind at all — and only unhandled 500s were
+logged in the first place. Now a rolling daily file, fourteen kept, capped at 50 MB, in
+`C:Swarnakshilogs` — beside the app folder rather than inside it, because a deployment replaces
+that folder and the logs explaining the last one should outlive it.
+
+Every failure is logged, not only crashes: refusals and validation failures at Warning, unhandled
+exceptions at Error, each with the path, the user, the tenant and the client address. "Insufficient
+stock" is the product working, but a run of them at one site is worth seeing, and a log that
+records only crashes cannot show that.
+
+Each one carries a short **reference** that also goes back in the response, so someone reporting
+"it said error 4f3a9c" is answered by searching the file for that string rather than by guessing
+which of the afternoon's entries was theirs. Verified end to end: reference `9eab034e` appeared in
+the API response and in the log line beside the user and tenant that caused it.
+
+256 tests pass.
+
+---
+
 ## 2026-09-04 — Backend: the layering held, three things inside it did not
 
 The layer graph is clean and was never in doubt — Domain depends on nothing, Application only on

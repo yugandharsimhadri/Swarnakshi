@@ -222,13 +222,15 @@ public class InventoryService(
     {
         await openingValidator.ValidateAndThrowAsync(req, ct);
         var unitId = await MaterialUnitAsync(req.MaterialId, ct);
-        await using var txn = await db.Database.BeginTransactionAsync(ct);
-        var t = await ReceiveAsync(req.SiteId, req.MaterialId, unitId, req.Quantity, req.Rate,
-            InventoryTransactionType.OpeningStock, req.Date, "OpeningStock", Guid.Empty, null, null,
-            currentUser.UserId!.Value, ct);
-        t.Remarks = req.Remarks;
-        await db.SaveChangesAsync(ct);
-        await txn.CommitAsync(ct);
+        var t = await db.ExecuteInTransactionAsync(async () =>
+        {
+            var txn = await ReceiveAsync(req.SiteId, req.MaterialId, unitId, req.Quantity, req.Rate,
+                InventoryTransactionType.OpeningStock, req.Date, "OpeningStock", Guid.Empty, null, null,
+                currentUser.UserId!.Value, ct);
+            txn.Remarks = req.Remarks;
+            return txn;
+        }, ct);
+
         return await LoadTxnAsync(t.Id, ct);
     }
 
@@ -241,25 +243,26 @@ public class InventoryService(
             throw new ForbiddenException("Inventory adjustments require Owner approval — ask an Owner to post it.");
 
         var unitId = await MaterialUnitAsync(req.MaterialId, ct);
-        await using var dbtxn = await db.Database.BeginTransactionAsync(ct);
+        var t = await db.ExecuteInTransactionAsync(async () =>
+        {
+            InventoryTransaction txn;
+            if (req.QuantityDelta > 0)
+            {
+                var rate = req.Rate ?? await CurrentRateAsync(req.SiteId, req.MaterialId, ct);
+                txn = await ReceiveAsync(req.SiteId, req.MaterialId, unitId, req.QuantityDelta, rate,
+                    InventoryTransactionType.Adjustment, req.Date, "Adjustment", Guid.Empty, null, null,
+                    currentUser.UserId!.Value, ct);
+            }
+            else
+            {
+                (txn, _) = await IssueAsync(req.SiteId, req.MaterialId, unitId, -req.QuantityDelta,
+                    InventoryTransactionType.Adjustment, req.Date, "Adjustment", Guid.Empty, null, null,
+                    req.Rate, currentUser.UserId!.Value, ct);
+            }
+            txn.Remarks = req.Reason;
+            return txn;
+        }, ct);
 
-        InventoryTransaction t;
-        if (req.QuantityDelta > 0)
-        {
-            var rate = req.Rate ?? await CurrentRateAsync(req.SiteId, req.MaterialId, ct);
-            t = await ReceiveAsync(req.SiteId, req.MaterialId, unitId, req.QuantityDelta, rate,
-                InventoryTransactionType.Adjustment, req.Date, "Adjustment", Guid.Empty, null, null,
-                currentUser.UserId!.Value, ct);
-        }
-        else
-        {
-            (t, _) = await IssueAsync(req.SiteId, req.MaterialId, unitId, -req.QuantityDelta,
-                InventoryTransactionType.Adjustment, req.Date, "Adjustment", Guid.Empty, null, null,
-                req.Rate, currentUser.UserId!.Value, ct);
-        }
-        t.Remarks = req.Reason;
-        await db.SaveChangesAsync(ct);
-        await dbtxn.CommitAsync(ct);
         return await LoadTxnAsync(t.Id, ct);
     }
 
@@ -274,20 +277,23 @@ public class InventoryService(
         var unitId = await MaterialUnitAsync(req.MaterialId, ct);
         var rate = await CurrentRateAsync(req.SiteId, req.MaterialId, ct);
 
-        await using var dbtxn = await db.Database.BeginTransactionAsync(ct);
-        var t = await ReceiveAsync(req.SiteId, req.MaterialId, unitId, req.Quantity, rate,
-            InventoryTransactionType.ReturnFromProject, req.Date, "Return", Guid.Empty, null, req.ProjectId,
-            currentUser.UserId!.Value, ct);
-        t.Remarks = req.Remarks;
+        // The stock coming back and the cost coming off are one thing. Either both or neither,
+        // or the villa keeps a charge for material that is sitting in the store again.
+        var t = await db.ExecuteInTransactionAsync(async () =>
+        {
+            var txn = await ReceiveAsync(req.SiteId, req.MaterialId, unitId, req.Quantity, rate,
+                InventoryTransactionType.ReturnFromProject, req.Date, "Return", Guid.Empty, null, req.ProjectId,
+                currentUser.UserId!.Value, ct);
+            txn.Remarks = req.Remarks;
 
-        // reverse the project material cost
-        // Same head the issue was booked under, so a return nets the category back off rather than
-        // leaving a credit stranded in Miscellaneous.
-        await costWriter.WriteMaterialCostAsync(req.ProjectId, -Math.Round(req.Quantity * rate, 2), req.Date,
-            null, null, "InventoryTransaction", t.Id, $"Return: {t.TxnNumber}", req.MaterialId, ct);
+            // Same head the issue was booked under, so a return nets the category back off rather
+            // than leaving a credit stranded in Miscellaneous.
+            await costWriter.WriteMaterialCostAsync(req.ProjectId, -Math.Round(req.Quantity * rate, 2), req.Date,
+                null, null, "InventoryTransaction", txn.Id, $"Return: {txn.TxnNumber}", req.MaterialId, ct);
 
-        await db.SaveChangesAsync(ct);
-        await dbtxn.CommitAsync(ct);
+            return txn;
+        }, ct);
+
         return await LoadTxnAsync(t.Id, ct);
     }
 

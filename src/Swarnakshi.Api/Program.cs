@@ -2,6 +2,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Serilog;
+using Serilog.Events;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Swarnakshi.Api.Common;
@@ -26,6 +28,37 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 // no-op when the process is launched from a console or by `dotnet run`, so this one line covers
 // both the developer's machine and the server. See docs/06-deployment.md.
 builder.Host.UseWindowsService(o => o.ServiceName = "Swarnakshi");
+
+// Logging, before anything else can fail.
+//
+// A Windows service writes its console output to nowhere and an IIS worker much the same, so
+// without a file on disk an exception in production leaves nothing behind to read. Rolling daily,
+// kept for a fortnight, next to the data rather than inside the app folder — a deployment replaces
+// that folder, and the logs explaining why the last one went wrong should survive it.
+var logDirectory = builder.Configuration["Logging:Directory"]
+    ?? Path.Combine(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)) ?? ".",
+                    "logs");
+Directory.CreateDirectory(logDirectory);
+
+builder.Host.UseSerilog((context, services, cfg) => cfg
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .MinimumLevel.Information()
+    // EF logs every SQL statement at Information, which would bury the entries worth reading.
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .WriteTo.Console()
+    .WriteTo.File(
+        Path.Combine(logDirectory, "swarnakshi-.log"),
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 14,
+        // A runaway loop must not fill the disk and take the database down with it.
+        fileSizeLimitBytes: 50L * 1024 * 1024,
+        rollOnFileSizeLimit: true,
+        shared: true,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"));
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -124,6 +157,23 @@ app.Use(async (context, next) =>
 });
 
 app.UseRateLimiter();
+
+// One line per request, with the outcome and how long it took. The detail of a failure comes from
+// ExceptionMiddleware; this is what tells you a request happened at all.
+app.UseSerilogRequestLogging(o =>
+{
+    o.GetLevel = (http, elapsed, ex) =>
+        ex is not null || http.Response.StatusCode >= 500 ? LogEventLevel.Error
+        : http.Response.StatusCode >= 400 ? LogEventLevel.Warning
+        : http.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Verbose  // the tunnel polls this
+        : LogEventLevel.Information;
+
+    o.EnrichDiagnosticContext = (diagnostic, http) =>
+    {
+        diagnostic.Set("User", http.User.Identity?.Name ?? "anonymous");
+        diagnostic.Set("ClientIp", http.Connection.RemoteIpAddress?.ToString() ?? "-");
+    };
+});
 
 app.UseMiddleware<ExceptionMiddleware>();
 
