@@ -4,6 +4,31 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — A CORS error that was really a rate limit
+
+Reported from the live site: a CORS error while registering. It reproduced in one run, and the
+cause was mine.
+
+`UseRateLimiter` sat **before** `UseCors` in the pipeline. A rejected request therefore never
+reached the CORS middleware, so a 429 came back with no `Access-Control-Allow-Origin` — and a
+browser reads a response it is not allowed to read as a CORS failure, whatever the status says. The
+eleventh sign-up attempt in a minute told the operator their site was misconfigured instead of
+telling them to wait, which is exactly the wrong message while setting a server up: the natural
+response is to go and change the CORS configuration, which was correct all along.
+
+`UseCors` now runs first. Verified by replaying the same eleven attempts: the 429 carries the
+origin header, so the browser surfaces the real status.
+
+The second candidate is worth stating because it produces the same symptom from the first attempt
+rather than the eleventh: `New-ProductionSettings.ps1` defaults `Cors:Origins` to empty, which was
+right when the API served the UI itself and is wrong for the split deployment, where every call is
+cross-origin. It now warns when it writes an empty list, and the comment no longer claims empty is
+the correct default.
+
+256 tests pass.
+
+---
+
 ## 2026-09-04 — All or nothing, and a log worth reading
 
 **Rollback.** Six postings each opened a transaction and committed at the end, which is the correct

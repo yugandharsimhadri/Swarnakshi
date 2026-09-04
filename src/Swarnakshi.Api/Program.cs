@@ -161,6 +161,15 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// CORS BEFORE the rate limiter, and this order is load-bearing.
+//
+// A rejected request is still a response the browser has to be allowed to read. With the limiter
+// first, a 429 never reaches the CORS middleware, comes back without Access-Control-Allow-Origin,
+// and the browser reports it as a CORS failure — so the eleventh sign-up attempt in a minute tells
+// the user their site is misconfigured rather than that they should wait. Which is how this was
+// found: registering a few times while setting a server up is enough to hit it.
+app.UseCors(CorsPolicy);
+
 app.UseRateLimiter();
 
 // One line per request, with the outcome and how long it took. The detail of a failure comes from
@@ -199,7 +208,6 @@ if (app.Environment.WebRootPath is { Length: > 0 } webRoot && Directory.Exists(w
     app.UseStaticFiles();
 }
 
-app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

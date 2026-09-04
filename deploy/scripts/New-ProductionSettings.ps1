@@ -74,8 +74,10 @@ $settings = [ordered]@{
         AccessTokenMinutes = 60; RefreshTokenDays = 7
     }
     Urls              = $ListenUrl
-    # Empty on purpose: this service serves the UI itself, so a browser never makes a cross-origin
-    # call. Add an origin here only if some other site must call this API.
+    # Empty only when the UI is served by this same process. Hosting the UI apart - on Cloudflare
+    # Pages, say - makes every call cross-origin, and an empty list here means the browser blocks
+    # all of them. That failure reads as "CORS error" on the sign-up page and says nothing about
+    # this file, so the warning below is worth the noise.
     Cors              = [ordered]@{ Origins = $CorsOrigins }
     Seed              = [ordered]@{ Demo = $false }
     Storage           = [ordered]@{ LocalRoot = (Join-Path $AppRoot 'data\uploads') }
@@ -93,6 +95,12 @@ if ($PlatformAdminPassword) {
 
 New-Item -ItemType Directory -Force -Path (Split-Path $target) | Out-Null
 $settings | ConvertTo-Json -Depth 8 | Out-File -FilePath $target -Encoding utf8
+
+if (-not $CorsOrigins -or $CorsOrigins.Count -eq 0) {
+    Write-Warning ("Cors:Origins is empty. That is right only if this service also serves the UI. " +
+                   "If the UI is hosted separately - Cloudflare Pages, another site - add its origin " +
+                   "or every call from it is blocked by the browser and shows up as a CORS error.")
+}
 
 # The file holds the database password, so it is readable by three principals and no one else:
 # SYSTEM, because the service runs as LocalSystem; Administrators, to operate the box; and whoever
