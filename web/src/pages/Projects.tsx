@@ -71,7 +71,8 @@ export default function Projects() {
                       than work is going up. */}
                   {p.burnPercent != null && p.burnPercent > 100 && (
                     <div className={`mt-2 text-xs font-semibold ${p.burnPercent > 110 ? "text-danger" : "text-warn"}`}>
-                      {p.burnPercent}% of budget spent at {p.completionPercent}% built
+                      {/* A pace figure, not a share of the budget — see ProjectDetail. */}
+                      Spending {p.burnPercent}% of what {p.completionPercent}% built should have cost
                     </div>
                   )}
                 </Card>

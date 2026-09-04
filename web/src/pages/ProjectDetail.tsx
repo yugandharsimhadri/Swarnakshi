@@ -129,7 +129,10 @@ function Alerts({ s }: { s: ProjectSummary }) {
       {overBudget && (
         <Card className={s.burnPercent! > 110 ? "border-danger/40 bg-danger/5" : "border-warn/40 bg-warn/5"}>
           <div className={`text-sm font-semibold ${s.burnPercent! > 110 ? "text-danger" : "text-warn"}`}>
-            {s.burnPercent}% of budget spent at {s.completionPercent}% built
+            {/* Not "% of budget spent": the figure compares spend against the spend expected by
+                this stage, so a villa 10% built that has used 11% of its budget reads 110%. The
+                old wording said 110% of the whole budget was gone, which is ten times the truth. */}
+            Spending {s.burnPercent}% of what {s.completionPercent}% built should have cost
           </div>
           <div className="mt-0.5 text-xs text-text-dim">
             {moneyShort(s.totalCost)} spent against {moneyShort(s.estimatedCost * s.completionPercent / 100)} expected by this stage.

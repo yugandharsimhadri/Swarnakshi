@@ -12,6 +12,9 @@
          exact Chromium build to each version, so sharing the version shares the download instead of
          adding another multi-hundred-megabyte build to ~/AppData/Local/ms-playwright. -->
     <PackageReference Include="Microsoft.Playwright" Version="1.61.0" />
+    <!-- The run creates its own throwaway SQL Server database and drops it afterwards. Only the
+         DROP needs a connection of our own; the API opens its own for everything else. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.1" />
   </ItemGroup>
 
 </Project>

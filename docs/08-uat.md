@@ -23,6 +23,19 @@ walkthrough, so what is demonstrated and what is signed off are the same journey
 
 ---
 
+## Prerequisites
+
+| Needed | Why | If it is missing |
+|---|---|---|
+| SQL Server Express on `.\SQLEXPRESS` | Each run creates and drops its own `SwarnakshiUat_<stamp>` database there | Point `SWARNAKSHI_UAT_SQL_SERVER` at another instance |
+| Visual C++ Redistributable (x64) | Playwright's Chromium is linked against it | `spawn UNKNOWN`, and launching chrome.exe by hand says *"the side-by-side configuration is incorrect"*. Install the current [VC++ redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe). |
+
+The run used to use a throwaway SQLite file. It uses a real SQL Server database now, because the
+product runs on SQL Server and an acceptance suite that proves it works on a different engine has
+proved the wrong thing. EF creates the database on the first migrate; `ApiServer.DisposeAsync`
+drops it, taking it to SINGLE_USER first so a lingering pooled connection cannot block the DROP.
+A crashed run leaves one behind, named for the run that made it, and it is safe to delete.
+
 ## Running it
 
 ```bash

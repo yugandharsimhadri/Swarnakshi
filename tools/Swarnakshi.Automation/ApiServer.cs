@@ -6,18 +6,31 @@ namespace Swarnakshi.Automation;
 /// Brings up the Swarnakshi API for a UAT run, against a database created fresh for that run.
 ///
 /// The throwaway database is the important part: the suite signs in, creates materials, posts
-/// purchases and issues stock. Pointed at a developer's swarnakshi.db it would leave that data
-/// behind, and its assertions would be at the mercy of whatever was already there.
+/// purchases and issues stock. Pointed at the developer's SCOPS it would leave that data behind,
+/// and its assertions would be at the mercy of whatever was already there.
+///
+/// It is a real SQL Server database on the local instance, not a file — the product runs on SQL
+/// Server, and an acceptance suite that proves it works on a different engine has proved the wrong
+/// thing. EF creates the database on first migrate and this drops it at the end of the run.
 /// </summary>
 public sealed class ApiServer : IAsyncDisposable
 {
     private readonly Process? _ownedProcess;
-    private readonly string? _databasePath;
+    private readonly string? _databaseName;
 
-    private ApiServer(Process? ownedProcess, string? databasePath)
+    /// <summary>Where UAT databases are created. Overridable for a machine whose instance is named
+    /// something else, or for a build agent with SQL Server somewhere other than localhost.</summary>
+    private static string SqlInstance =>
+        Environment.GetEnvironmentVariable("SWARNAKSHI_UAT_SQL_SERVER") ?? @".\SQLEXPRESS";
+
+    private static string ConnectionFor(string database) =>
+        $"Server={SqlInstance};Database={database};Trusted_Connection=True;" +
+        "TrustServerCertificate=True;MultipleActiveResultSets=False;Application Name=Swarnakshi.Uat";
+
+    private ApiServer(Process? ownedProcess, string? databaseName)
     {
         _ownedProcess = ownedProcess;
-        _databasePath = databasePath;
+        _databaseName = databaseName;
     }
 
     /// <summary>
@@ -59,8 +72,9 @@ public sealed class ApiServer : IAsyncDisposable
         var port = new Uri(apiBase).Port;
         ManagedProcess.EnsurePortAvailable(port, "API");
 
-        Directory.CreateDirectory(RepoPaths.ArtifactsDir);
-        var databasePath = Path.Combine(RepoPaths.ArtifactsDir, $"uat-{Guid.NewGuid():N}.db");
+        // A name unique to this run, so two runs on one machine cannot collide and a leftover
+        // database from a crashed run is never picked up by the next one.
+        var databaseName = $"SwarnakshiUat_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}"[..40];
 
         log?.Invoke($"Starting the API on {apiBase} against a throwaway database");
 
@@ -100,7 +114,8 @@ public sealed class ApiServer : IAsyncDisposable
                 // Development so the demo seed runs and the seeded owner exists to sign in as.
                 ["ASPNETCORE_ENVIRONMENT"] = "Development",
                 // Double underscore is the .NET convention for nesting: ConnectionStrings:Default.
-                ["ConnectionStrings__Default"] = $"Data Source={databasePath}",
+                ["ConnectionStrings__Default"] = ConnectionFor(databaseName),
+                ["Database__Provider"] = "SqlServer",
                 ["Seed__Demo"] = "true",
                 // The client is served from its own origin, so it must be allowed through CORS.
                 ["Cors__Origins__0"] = options.BaseUrl.TrimEnd('/'),
@@ -134,7 +149,7 @@ public sealed class ApiServer : IAsyncDisposable
         }
 
         log?.Invoke($"API ready on {apiBase}");
-        return new ApiServer(process, databasePath);
+        return new ApiServer(process, databaseName);
     }
 
     /// <summary>
@@ -150,21 +165,28 @@ public sealed class ApiServer : IAsyncDisposable
     {
         await ManagedProcess.StopAsync(_ownedProcess);
 
-        if (_databasePath is null) return;
+        if (_databaseName is null) return;
 
-        // SQLite leaves -wal/-shm beside the database; removing only the .db would leak the pair.
-        foreach (var suffix in new[] { "", "-wal", "-shm" })
+        // SINGLE_USER WITH ROLLBACK IMMEDIATE first: the API's connection pool can outlive the
+        // process by a moment, and DROP fails outright while any session is still attached.
+        try
         {
-            try
-            {
-                var path = _databasePath + suffix;
-                if (File.Exists(path)) File.Delete(path);
-            }
-            catch
-            {
-                // The file is still locked by a process that has not finished dying. Harmless: it
-                // lands in artifacts/uat, which is disposable by definition.
-            }
+            await using var connection = new Microsoft.Data.SqlClient.SqlConnection(ConnectionFor("master"));
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                IF DB_ID(N'{_databaseName}') IS NOT NULL
+                BEGIN
+                    ALTER DATABASE [{_databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                    DROP DATABASE [{_databaseName}];
+                END
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+        catch
+        {
+            // A leftover UAT database costs a few megabytes and is named for the run that made it,
+            // so it is identifiable and disposable. Not worth failing a passing run over.
         }
     }
 }

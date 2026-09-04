@@ -4,6 +4,52 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — A ten-villa book that reconciles, and what driving it turned up
+
+Built a full book of work through the API — 2 sites, 10 villas at 100/60/10 percent and one still
+on paper, 17 purchases, 20 issues, 21 work orders, contractor and customer payments, day labour,
+and site-level overhead — then checked that the screens agree with one another.
+
+**The reconciliation was never broken; the line that reported it was.** The old script compared
+inventory value against the purchase register's *Sub Total* column, which is before tax, and the
+gap it showed was exactly the 18% GST. It now asserts ten identities against the reports the
+product actually serves, and all ten hold to the rupee:
+
+    material bought = in stock + consumed          purchase register = company summary
+    stock value = company summary                  consumption = material in project cost
+    project cost = its four buckets                sum of villa costs = total project cost
+    site villa cost + overhead = total cost        capital employed = its components
+    stock by site = stock by material              sale - received = outstanding
+
+Then the same thing was entered by hand through the UI — a direct-to-villa purchase, approved
+through the queue — and all ten still held, which is the point of doing it twice.
+
+**Three things came out of it.**
+
+The UAT suite was dead: it passed a SQLite connection string to an app that now defaults to SQL
+Server, so all 24 scenarios failed before the browser opened. It now creates and drops its own
+`SwarnakshiUat_<stamp>` database on the local instance, which also means the acceptance layer
+finally exercises the provider production uses.
+
+The burn chip lied by a factor of ten. "110% of budget spent at 10% built" on a villa that had
+spent 11% of its budget — the figure is spend against the spend *expected by this stage*, not
+against the whole budget. It now reads "Spending 110% of what 10% built should have cost".
+
+Material bought straight to a villa is filed under **Miscellaneous**. The total is right and the
+ledger is right — both moves appear, stock nets to zero, the villa is charged — but the by-head
+breakdown puts cement next to sundry contractor money, because `ProjectCostWriter` falls back to
+the Miscellaneous head when a purchase line carries no head, and the purchase form never asks for
+one. The API already takes `ExpenseHeadId` per line. Left alone deliberately: which head
+unallocated material belongs to, or whether the form should require a stage, is a decision about
+the chart of accounts rather than a bug to quietly patch.
+
+Not fixable from here: Playwright's Chromium will not start on this machine — the Visual C++
+redistributable is missing, so the headed run cannot be demonstrated until it is installed.
+
+245 tests pass.
+
+---
+
 ## 2026-09-04 — SQL Server Express, and a deployment that has actually been rehearsed
 
 The app ran on SQLite because nothing had been deployed yet. It now runs on **SQL Server Express**,
