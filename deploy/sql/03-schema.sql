@@ -22,7 +22,7 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-09-04 14:26:02 from commit 89376ba
+    Generated: 2026-09-04 15:57:49 from commit fc5659e
 */
 
 -- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server will not create this schema's indexes
@@ -2260,6 +2260,35 @@ IF NOT EXISTS (
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
     VALUES (N'20260903165631_InitialCreate', N'10.0.0');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260904091235_PerformanceIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_ProjectExpenses_CompanyId_Status_Covering] ON [ProjectExpenses] ([CompanyId], [Status], [ProjectId]) INCLUDE ([ExpenseType], [Amount], [Date]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260904091235_PerformanceIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_InventoryTransactions_CompanyId_SiteId_Type_Date] ON [InventoryTransactions] ([CompanyId], [SiteId], [Type], [Date]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260904091235_PerformanceIndexes'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260904091235_PerformanceIndexes', N'10.0.0');
 END;
 
 COMMIT;

@@ -58,6 +58,11 @@ builder.Host.UseSerilog((context, services, cfg) => cfg
         fileSizeLimitBytes: 50L * 1024 * 1024,
         rollOnFileSizeLimit: true,
         shared: true,
+        // Flush every second rather than only on a clean shutdown. A process that is killed - a
+        // crash, an app-pool recycle, someone ending the task - never gets to flush, and the lines
+        // lost would be the ones written just before it went: exactly the ones worth reading.
+        // The cost is a disk write a second on an idle server.
+        flushToDiskInterval: TimeSpan.FromSeconds(1),
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"));
 
 builder.Services.AddControllers();
