@@ -22,7 +22,7 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-09-04 11:48:11 from commit a7fe549
+    Generated: 2026-09-04 13:22:45 from commit 5e89460
 */
 
 -- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server will not create this schema's indexes

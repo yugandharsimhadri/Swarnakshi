@@ -4,6 +4,40 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — Two artefacts: a UI for Cloudflare Pages, an API for IIS
+
+The single-service shape stays and still works. Alongside it, `Publish.ps1` now emits the UI and
+the API as separate artefacts, because they are hosted apart — the UI on Cloudflare’s edge, the API
+on IIS behind a tunnel. `docs/06b-deployment-split.md` is that runbook, step by step.
+
+**The client could not have worked split.** Every call was built as a relative `/api`, which on
+Cloudflare asks the CDN for an endpoint it has never heard of. There is now one `apiUrl()` through
+which all four fetch sites go, and a build-time `VITE_API_BASE_URL`. Empty — the default — keeps
+the relative behaviour for development and for the API serving its own `wwwroot`.
+
+The UI is built twice from the same source. `appwwwroot` gets the relative build, so
+`http://localhost:6061` on the server is a complete signed-in-able site for a smoke test before
+anything is uploaded; `frontend` gets the absolute build for Cloudflare. Different bundle hashes
+are the proof the address really is baked in. `_redirects` and `_headers` ship with it: without the
+first, refreshing a deep link 404s; without the second, a browser keeps an old `index.html` asking
+for assets the new deploy has replaced.
+
+**Two bugs found by running the scripts rather than reading them.**
+
+`Publish.ps1` died on `npm notice`. Windows PowerShell wraps any stderr line from a native command
+in a NativeCommandError, and under ` = 'Stop'` that ends the script — so a
+build failed on a notice while the command itself had succeeded. Native commands now run with the
+preference relaxed and are judged by their exit code, which is the only thing that reports failure.
+
+And an intermittent test failure that was not intermittent at all: `CreateOwnAsync` sliced its
+database name with `[..60]` when the name is about 59 characters — the width of the process id is
+what varies. Every isolated test failed, or none did, depending on the pid. Five consecutive clean
+runs since.
+
+249 tests pass.
+
+---
+
 ## 2026-09-04 — SQL Server only, and published through a Cloudflare tunnel
 
 **SQLite is gone.** It survived as the test suite’s in-memory database and as a provider branch in

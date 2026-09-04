@@ -44,7 +44,11 @@ public static class TestDatabase
     /// <summary>A database of this run's own, for a test that needs the whole database to itself.</summary>
     public static async Task<string> CreateOwnAsync()
     {
-        var name = $"{Name}_{Guid.NewGuid():N}"[..60];
+        // Math.Min, not a bare [..60]: the name is only about 59 characters when the process id is
+        // four digits, and slicing past the end threw. It failed on some runs and not others for no
+        // reason a reader could see, because what varied was the width of the pid.
+        var candidate = $"{Name}_{Guid.NewGuid():N}";
+        var name = candidate[..Math.Min(candidate.Length, 100)];   // sysname allows 128
         await using var connection = new SqlConnection(For("master"));
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();

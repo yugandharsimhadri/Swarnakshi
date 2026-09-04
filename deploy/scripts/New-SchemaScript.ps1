@@ -38,9 +38,15 @@ try {
         $env:ConnectionStrings__Default = 'Server=.\SQLEXPRESS;Database=SCOPS;Trusted_Connection=True;TrustServerCertificate=True'
     }
 
-    dotnet ef migrations script --idempotent `
-        --project src\Swarnakshi.Infrastructure --startup-project src\Swarnakshi.Api `
-        --output $body
+    # 'dotnet ef' prints its progress to stderr, which Windows PowerShell turns into a terminating
+    # NativeCommandError under $ErrorActionPreference = 'Stop'. The exit code is the real verdict.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        dotnet ef migrations script --idempotent `
+            --project src\Swarnakshi.Infrastructure --startup-project src\Swarnakshi.Api `
+            --output $body 2>&1 | Out-Host
+    } finally { $ErrorActionPreference = $previous }
     if ($LASTEXITCODE -ne 0) { throw "dotnet ef migrations script failed." }
 
     $header = @"

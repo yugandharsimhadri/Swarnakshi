@@ -22,6 +22,10 @@ the same API under a name integrations can use. The UI calls `/api` relative to 
 loaded from, so on `cops.` nothing is cross-origin and CORS never comes into it. `Cors:Origins`
 exists for the other case — a browser on some *other* site calling `copsapi.`.
 
+> **Hosting the UI and the API apart?** If the UI goes to Cloudflare Pages and the API to IIS —
+> two hostnames, two artefacts — follow [06b — Deploying the UI and the API separately](06b-deployment-split.md)
+> instead. This guide is the single-service shape.
+
 ---
 
 ## 1. The first deployment

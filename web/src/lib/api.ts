@@ -1,6 +1,24 @@
 /** Central API client. Wraps fetch, attaches the bearer token, unwraps the {success,data} envelope,
  *  and transparently refreshes an expired access token once. */
 
+/**
+ * Where the API lives, decided when the bundle is built.
+ *
+ * Empty — the default — means "the host that served this page", which is right in development
+ * (Vite proxies /api) and right when the API serves the built UI out of its own wwwroot.
+ *
+ * Set `VITE_API_BASE_URL` to an absolute origin when the two are hosted apart: a UI on Cloudflare
+ * Pages and an API on IIS behind a tunnel have different hostnames, and a relative /api would ask
+ * the CDN for an endpoint it has never heard of. That origin must also appear in the API's
+ * `Cors:Origins`, because the call is then genuinely cross-origin.
+ */
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+/** Absolute or relative, depending on how the bundle was built. Always ends up rooted at /api. */
+function apiUrl(path: string): string {
+  return API_ORIGIN + (path.startsWith("/api") ? path : `/api${path}`);
+}
+
 export interface ApiError {
   message: string;
   errors: string[];
@@ -36,7 +54,7 @@ async function tryRefresh(): Promise<boolean> {
   if (!tokens.refresh) return false;
   refreshing ??= (async () => {
     try {
-      const res = await fetch("/api/auth/refresh", {
+      const res = await fetch(apiUrl("/auth/refresh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken: tokens.refresh }),
@@ -60,7 +78,7 @@ export async function api<T>(
 ): Promise<T> {
   const { method = "GET", body, query, retry = true } = opts;
 
-  let url = path.startsWith("/api") ? path : `/api${path}`;
+  let url = apiUrl(path);
   if (query) {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(query)) {
@@ -100,7 +118,7 @@ export async function api<T>(
 
 /** Multipart upload — the JSON `api()` helper can't send FormData. */
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
-  const url = path.startsWith("/api") ? path : `/api${path}`;
+  const url = apiUrl(path);
   const headers: Record<string, string> = {};
   if (tokens.access) headers.Authorization = `Bearer ${tokens.access}`;
 
