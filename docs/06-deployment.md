@@ -33,6 +33,13 @@ Do these once, in order, on the server. Everything after this is section 2, whic
 the server then needs nothing installed but Windows and SQL Express. For a single-server deployment
 that is usually the right trade.
 
+**The Visual C++ x64 redistributable is not one of these.** It is a prerequisite of the UAT suite
+only — Playwright's Chromium is linked against it, and without it a UAT run fails at browser launch
+with `spawn UNKNOWN` (see `docs/08-uat.md`). The server does not need it: the published app was run
+to completion on a machine carrying only the x86 redistributable, migrating and seeding SQL Server
+without complaint. Nothing in ASP.NET Core or Microsoft.Data.SqlClient depends on it, and the UAT
+suite has no business running on a production box in the first place.
+
 ### 1.2 Create the database
 
 The application needs a database and a SQL login that can reach it. Create them however you
