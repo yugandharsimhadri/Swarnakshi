@@ -1,9 +1,17 @@
 /*
-    Swarnakshi -- create the SCOPS database, its login and its application user.
+    Swarnakshi -- create the application database, its login and its user.
 
-    Run once per server, as a sysadmin, before the first deployment:
+    Run once per server, as a sysadmin, BEFORE the first deployment:
 
-        sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\01-create-database.sql -v AppPassword="<password>"
+        sqlcmd -S .\SQLEXPRESS -E -C -b -i deploy\sql\01-create-database.sql ^
+               -v DbName="SCOPS" -v AppLogin="SivayaanHMS" -v AppPassword="<password>"
+
+    All three are required and none has a default. The database name in particular:
+    the application will NOT create its own database - its login is deliberately not
+    dbcreator - so a name here that does not match the connection string leaves the
+    app dying at startup with "CREATE DATABASE permission denied in database 'master'",
+    which says nothing about the mismatch that caused it. Better to be asked than to
+    silently create a database nobody will connect to.
 
     Idempotent: safe to re-run. It never drops anything and never resets an existing
     password -- rotate a password with 02-rotate-password.sql instead.
@@ -17,15 +25,16 @@
 SET NOCOUNT ON;
 GO
 
-:setvar DbName "SCOPS"
-:setvar AppLogin "SivayaanHMS"
-
--- AppPassword must be supplied on the command line with -v AppPassword="..."
--- so the real password never lives in this file or in source control.
+-- Nothing is defaulted. An unset variable leaves the literal "$(Name)" in the string,
+-- which is what these tests look for; sqlcmd's own -x would abort with a less useful message.
+IF '$(DbName)' = '' OR '$(DbName)' = '$' + '(DbName)'
+    RAISERROR('Pass the database name with:  -v DbName="SCOPS"', 20, 1) WITH LOG;
+GO
+IF '$(AppLogin)' = '' OR '$(AppLogin)' = '$' + '(AppLogin)'
+    RAISERROR('Pass the login name with:  -v AppLogin="SivayaanHMS"', 20, 1) WITH LOG;
+GO
 IF '$(AppPassword)' = '' OR '$(AppPassword)' = '$' + '(AppPassword)'
-BEGIN
     RAISERROR('Pass the application password with:  -v AppPassword="<password>"', 20, 1) WITH LOG;
-END
 GO
 
 /* ---------- 1. the database ---------- */

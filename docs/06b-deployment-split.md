@@ -57,8 +57,11 @@ findstr /C:"copsapi.sivayaantechnologies.com" deploy\out\frontend\assets\*.js
 On the SQL Server, as a sysadmin. Creates the database, the login, and its rights:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -b -i deploy\out\sql\01-create-database.sql -v AppPassword="<password>"
+sqlcmd -S .\SQLEXPRESS -E -C -b -i deploy\out\sql\01-create-database.sql -v DbName="SCOPS" -v AppLogin="SivayaanHMS" -v AppPassword="<password>"
 ```
+
+All three `-v` values are required and none has a default. **`DbName` must match the database named
+in your connection string**, and `AppLogin` the user in it.
 
 Then the schema — all 43 tables, 184 indexes, 64 foreign keys:
 
@@ -68,6 +71,14 @@ sqlcmd -S .\SQLEXPRESS -E -C -b -d SCOPS -i deploy\out\sql\03-schema.sql
 
 Both are idempotent: run them twice and the second run changes nothing. `-b` matters — without it
 `sqlcmd` reports success even when a batch failed, and a half-applied schema looks like a clean run.
+
+> **If the API later dies at startup with `CREATE DATABASE permission denied in database 'master'`,
+> re-run the first command with the right `DbName`.** EF decides whether a database exists by
+> opening a connection to it, so a database that *exists* but has no user for your login looks
+> exactly like one that is not there — EF tries to create it, the login is deliberately not
+> `dbcreator`, and the process exits. The database being visible in SSMS does not rule this out; it
+> is the more common of the two causes. Re-running the script fixes either, and changes nothing if
+> neither applies.
 
 Check what you got:
 

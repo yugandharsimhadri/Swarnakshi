@@ -4,6 +4,51 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-04 — The setup script that always created the wrong database
+
+The live API returned **HTTP 500.30** — the process was failing to start — and the browser, unable
+to read a cross-origin error page, reported it as a CORS error. The CORS fix in the previous entry
+was real, but it was not this. The log said:
+
+```
+Failed executing DbCommand ... CREATE DATABASE [COPS];
+CREATE DATABASE permission denied in database 'master'.
+```
+
+The application is not supposed to create its database; its login is deliberately not `dbcreator`.
+So why did it try? **EF decides whether a database exists by opening a connection to it.** A
+database that exists but has no user for the login is indistinguishable, from the client side, from
+one that is not there — same error class, same code path — so EF concluded it was absent and tried
+to create it. The operator had run the setup script and could see the database in SSMS, which made
+the message read as a permissions problem in `master` and sent the search in the wrong direction
+entirely.
+
+**Why the script hadn't helped.** `01-create-database.sql` carried `:setvar DbName "SCOPS"` and
+`:setvar AppLogin "SivayaanHMS"` at the top. It ran, it succeeded, it reported success — against
+`SCOPS`, every time, while the connection string pointed at `COPS`. A default that is silently
+wrong is worse than no default: it produces a clean run and no database.
+
+All three values are now required, with no defaults, and the script refuses to run without them:
+
+```
+sqlcmd -S .\SQLEXPRESS -E -C -b -i 01-create-database.sql -v DbName="COPS" -v AppLogin="SivayaanHMS" -v AppPassword="<password>"
+```
+
+**And the message now names the fix.** `DbInitializer.MigrateOrExplainAsync` catches the four SQL
+error numbers this failure arrives as (262, 5011, 4060, 916) and replaces them with a sentence
+saying which database, as which login, that both causes look the same from here, that the
+existing-database-without-a-user case is the more common one, and the exact command to run — with
+the real database and login names substituted in, so it can be copied rather than adapted.
+
+Reproduced both ways before and after: a missing database, and an existing database whose login had
+no user in it. Both gave the old error; both are fixed by one run of the parameterised script, after
+which `--migrate` exits 0 with 43 tables. The docs for both deployment shapes now show the required
+parameters and the troubleshooting note.
+
+256 tests pass.
+
+---
+
 ## 2026-09-04 — A CORS error that was really a rate limit
 
 Reported from the live site: a CORS error while registering. It reproduced in one run, and the

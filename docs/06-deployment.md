@@ -58,8 +58,14 @@ The application needs a database and a SQL login that can reach it. Create them 
 normally do — by hand in SSMS, or with the script:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\01-create-database.sql -v AppPassword="<password>"
+sqlcmd -S .\SQLEXPRESS -E -C -b -i deploy\sql\01-create-database.sql -v DbName="SCOPS" -v AppLogin="SivayaanHMS" -v AppPassword="<password>"
 ```
+
+All three `-v` values are required and none has a default. **`DbName` must match the database in
+your connection string.** The application will not create its own database — its login is
+deliberately not `dbcreator` — so a name that does not match leaves the app dying at startup with
+*CREATE DATABASE permission denied in database 'master'*, which says nothing about the mismatch that
+caused it.
 
 If you create it by hand, these are the settings that matter and the rights the login needs.
 
@@ -459,7 +465,7 @@ code is skipped. Only the published build serves the two from one process.
 To work against a throwaway copy rather than SCOPS itself:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -i deploy\sql\01-create-database.sql -v AppPassword="<password>"   # edit :setvar DbName
+sqlcmd -S .\SQLEXPRESS -E -C -b -i deploy\sql\01-create-database.sql -v DbName="SCOPS_Scratch" -v AppLogin="SivayaanHMS" -v AppPassword="<password>"
 ```
 
 Set `Seed:Demo` to `true` in `appsettings.Development.json` to have that database filled with demo
