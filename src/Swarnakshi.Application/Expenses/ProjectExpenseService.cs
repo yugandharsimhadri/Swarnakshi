@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
+using Swarnakshi.Application.Approvals;
 using Swarnakshi.Application.Common;
 using Swarnakshi.Domain.Entities;
 using Swarnakshi.Domain.Enums;
@@ -41,7 +42,8 @@ public interface IProjectExpenseService
 }
 
 public class ProjectExpenseService(
-    IAppDbContext db, ICurrentUser currentUser, ITransactionSequenceService sequences,
+    IAppDbContext db, ITransactionSequenceService sequences,
+    IApprovalService approvals,
     IValidator<SaveProjectExpenseRequest> validator) : IProjectExpenseService
 {
     public async Task<PagedResult<ProjectExpenseDto>> ListAsync(PageQuery page, Guid? projectId, Guid? expenseHeadId,
@@ -67,17 +69,26 @@ public class ProjectExpenseService(
         if (req.ExpenseSubheadId is { } sid && !await db.ExpenseSubheads.AnyAsync(s => s.Id == sid && s.ExpenseHeadId == req.ExpenseHeadId, ct))
             throw new AppException("Subhead does not belong to the selected head.", 400);
 
+        // Money spent on a villa is the Owner's to approve, so this row is created pending and
+        // stays out of the villa's cost until it is approved — every roll-up filters on Posted.
+        // Small ones may approve themselves; that is the limit's job, not this method's.
+        var siteId = await db.Projects.AsNoTracking()
+            .Where(p => p.Id == req.ProjectId).Select(p => p.SiteId).FirstAsync(ct);
+
         var expense = new ProjectExpense
         {
             TxnNumber = await sequences.NextAsync("EXP", ct),
             ProjectId = req.ProjectId, Date = req.Date, ExpenseHeadId = req.ExpenseHeadId,
             ExpenseSubheadId = req.ExpenseSubheadId, Description = req.Description, Amount = req.Amount,
             ExpenseType = req.ExpenseType, PaymentStatus = req.PaymentStatus, PaymentMethodId = req.PaymentMethodId,
-            SourceType = "Manual", Status = TransactionStatus.Posted,
-            ApprovedBy = currentUser.UserId, ApprovedAt = DateTimeOffset.UtcNow
+            SourceType = "Manual", Status = TransactionStatus.PendingApproval
         };
         db.ProjectExpenses.Add(expense);
         await db.SaveChangesAsync(ct);
+
+        await approvals.SubmitAsync(ApprovalEntityTypes.ProjectExpense, expense.Id, expense.TxnNumber,
+            siteId, expense.ProjectId, expense.Amount, ct);
+
         return await db.ProjectExpenses.AsNoTracking().Where(e => e.Id == expense.Id).Select(Projection).FirstAsync(ct);
     }
 
@@ -89,6 +100,9 @@ public class ProjectExpenseService(
             throw new AppException("Only manually-entered expenses can be cancelled here. Reverse the source document instead.", 409);
         if (expense.Status == TransactionStatus.Cancelled)
             throw new AppException("Already cancelled.", 409);
+        // Cancelling it here would leave the Owner an approval request pointing at a dead row.
+        if (expense.Status == TransactionStatus.PendingApproval)
+            throw new AppException("This expense is waiting for approval. Reject it in the Approval Center instead.", 409);
         expense.Status = TransactionStatus.Cancelled;
         expense.Remarks = reason;
         expense.Amount = 0m; // keeps the row for audit but removes it from cost roll-ups
@@ -118,4 +132,34 @@ public class ProjectExpenseService(
         e.Id, e.TxnNumber, e.ProjectId, e.Project.Name, e.Date, e.ExpenseHeadId, e.Head.Name,
         e.ExpenseSubheadId, e.Subhead != null ? e.Subhead.Name : null, e.Description, e.Amount,
         e.ExpenseType, e.PaymentStatus, e.SourceType, e.Status);
+}
+
+/// <summary>
+/// A villa expense is already the cost row, so approving it is just a status change — there is no
+/// second document to write, and the roll-ups that filter on Posted pick it up from that moment.
+/// </summary>
+public class ProjectExpenseApprovalHandler(IAppDbContext db, IDateTimeProvider clock) : IApprovalHandler
+{
+    public string EntityType => ApprovalEntityTypes.ProjectExpense;
+
+    public async Task OnApprovedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var expense = await db.ProjectExpenses.FirstOrDefaultAsync(e => e.Id == entityId, ct)
+                      ?? throw new NotFoundException("ProjectExpense", entityId);
+        if (expense.Status == TransactionStatus.Posted) return;
+
+        expense.Status = TransactionStatus.Posted;
+        expense.ApprovedBy = decidedBy;
+        expense.ApprovedAt = clock.Now;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task OnRejectedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var expense = await db.ProjectExpenses.FirstOrDefaultAsync(e => e.Id == entityId, ct);
+        if (expense is null) return;
+        expense.Status = TransactionStatus.Rejected;
+        expense.Remarks = decision.Remarks;
+        await db.SaveChangesAsync(ct);
+    }
 }

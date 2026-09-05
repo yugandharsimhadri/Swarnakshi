@@ -36,7 +36,13 @@ dotnet ef migrations add <Name> --project src/Swarnakshi.Infrastructure --startu
 cd web && npm run dev
 deploy/scripts/Publish.ps1                     # build a deployable package into deploy/out
 deploy/scripts/Deploy.ps1                     # install or upgrade on a server (elevated)
+deploy/scripts/New-UpgradeScript.ps1 -From <migration>   # per-release SQL for a LIVE database
 ```
+
+The server is live. A migration that changes data as well as schema must be **dry-run as a generated
+script**, not only through `--migrate`: the script is one `sqlcmd` batch and is compiled before it
+runs, so a data statement referencing a column added above it fails to parse. Wrap those in
+`EXEC(N'…')`. See `docs/06c-db-upgrades.md`.
 
 UAT runs on its own ports (6070/6071) against a throwaway database — it never touches a running dev
 server. See `docs/08-uat.md`.

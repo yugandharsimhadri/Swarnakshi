@@ -1,6 +1,7 @@
-import type { ComponentType, SVGProps } from "react";
+import { Suspense, type ComponentType, type SVGProps } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/store/auth";
+import { Spinner } from "@/components/ui";
 import { IconApprovals, IconHome, IconInventory, IconMore, IconProjects } from "@/components/icons";
 
 // The things a site person opens every day, plus More. Everything that is set-up or review work —
@@ -32,8 +33,12 @@ export default function AppShell() {
     // more room for the tables and reports the office does its reconciliation in.
     <div className="mx-auto flex min-h-full max-w-md flex-col lg:max-w-5xl">
       <LicenceBanner company={company} />
+      {/* Screens arrive as their own files, so the boundary sits here rather than around the whole
+          router: the tab bar and the licence banner stay put while the next page is fetched. */}
       <main className="flex-1 px-3 pb-24 pt-3 lg:px-6 lg:pb-8">
-        <Outlet />
+        <Suspense fallback={<div className="grid min-h-40 place-items-center"><Spinner /></div>}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <nav className="safe-b fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/95 backdrop-blur lg:max-w-5xl">

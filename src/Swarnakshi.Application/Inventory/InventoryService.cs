@@ -238,8 +238,11 @@ public class InventoryService(
     {
         await adjustmentValidator.ValidateAndThrowAsync(req, ct);
 
-        var needsApproval = await settings.GetBoolAsync(SettingKeys.InventoryAdjustmentNeedsApproval, req.SiteId, true, ct);
-        if (needsApproval && !currentUser.Has(Permissions.ApprovalsDecide))
+        // Always the Owner's, and not subject to the auto-approve limit: an adjustment writes stock
+        // off against no document and carries no amount to compare a limit to. There used to be a
+        // setting that could turn this off; a switch whose only effect is to let stock disappear
+        // unwitnessed is not a setting worth having.
+        if (!currentUser.Has(Permissions.ApprovalsDecide))
             throw new ForbiddenException("Inventory adjustments require Owner approval — ask an Owner to post it.");
 
         var unitId = await MaterialUnitAsync(req.MaterialId, ct);

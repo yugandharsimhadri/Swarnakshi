@@ -224,11 +224,11 @@ public static class MasterDataSeeder
         db.Settings.AddRange(
             new Setting { Key = SettingKeys.ValuationMethod, Value = nameof(InventoryValuationMethod.WeightedAverage) },
             new Setting { Key = SettingKeys.AllowNegativeStock, Value = "false" },
-            // Money leaving the company is the owner's decision, so a purchase waits for them by
-            // default. This used to seed "false", which meant a supervisor's purchase posted to
-            // stock and to the supplier's ledger with nobody having agreed to it.
-            new Setting { Key = SettingKeys.PurchaseNeedsApproval, Value = "true" },
-            new Setting { Key = SettingKeys.InventoryAdjustmentNeedsApproval, Value = "true" });
+            // Money leaving the company is the owner's decision, so everything waits for them until
+            // they say otherwise. 0 means nothing approves itself; the owner raises it on the
+            // settings screen once they know which of their day-to-day amounts are not worth a
+            // second pair of eyes. Seeding any other number would be deciding that for them.
+            new Setting { Key = SettingKeys.AutoApproveLimit, Value = "0" });
     }
 
 }

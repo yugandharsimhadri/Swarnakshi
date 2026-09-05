@@ -22,7 +22,7 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-09-04 16:04:43 from commit fcf6669
+    Generated: 2026-09-05 13:45:05 from commit 1af9aee
 */
 
 -- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server will not create this schema's indexes
@@ -2289,6 +2289,91 @@ IF NOT EXISTS (
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
     VALUES (N'20260904091235_PerformanceIndexes', N'10.0.0');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [ApprovedAt] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [ApprovedBy] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [ConcurrencyToken] uniqueidentifier NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [ModifiedAt] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [ModifiedBy] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [Remarks] nvarchar(512) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    ALTER TABLE [SupplierPayments] ADD [Status] int NOT NULL DEFAULT 0;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    EXEC(N'UPDATE [SupplierPayments] SET [Status] = 6');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    EXEC(N'UPDATE [SupplierPayments] SET [ConcurrencyToken] = NEWID()');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260905075817_ApprovalGate', N'10.0.0');
 END;
 
 COMMIT;

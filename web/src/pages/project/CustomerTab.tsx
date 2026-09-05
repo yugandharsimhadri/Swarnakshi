@@ -4,10 +4,10 @@ import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
 import { money, dateStr } from "@/lib/format";
 import {
-  Button, Card, EmptyState, ErrorText, Field, Input, LabelRow, Select, Sheet,
+  Button, Card, Chip, EmptyState, ErrorText, Field, Input, LabelRow, Select, Sheet,
   Spinner
 } from "@/components/ui";
-import { type CustomerPayment, type Lookup, type Paged, type ProjectSummary } from "@/lib/types";
+import { TxnStatusName, type CustomerPayment, type Lookup, type Paged, type ProjectSummary } from "@/lib/types";
 
 /**
  * What the customer has been billed and has paid, and the one action that changes it.
@@ -19,6 +19,7 @@ import { type CustomerPayment, type Lookup, type Paged, type ProjectSummary } fr
 export default function CustomerTab({ projectId, hasCustomer, summary }: { projectId: string; hasCustomer: boolean; summary: ProjectSummary }) {
   const canCreate = useAuth((s) => s.can("customer_payment.create"));
   const [open, setOpen] = useState(false);
+  const [sentForApproval, setSentForApproval] = useState(false);
   const { data, loading, error, reload } = useAsync(
     () => api<Paged<CustomerPayment>>("/customer-payments", { query: { projectId, pageSize: 100 } }),
     [projectId],
@@ -36,23 +37,42 @@ export default function CustomerTab({ projectId, hasCustomer, summary }: { proje
         </div>
       </Card>
       {canCreate && <Button className="w-full" onClick={() => setOpen(true)}>+ Record receipt</Button>}
+
+      {sentForApproval && (
+        <div role="status" className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn">
+          Sent to the owner for approval. It comes off the outstanding balance once approved.
+        </div>
+      )}
+
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
         (data?.items.length ?? 0) === 0 ? <EmptyState title="No receipts yet" /> : data!.items.map((r) => (
-          <Card key={r.id} className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">{r.paymentMethodName}{r.reference ? ` · ${r.reference}` : ""}</div>
+          <Card key={r.id} className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold">{r.paymentMethodName}{r.reference ? ` · ${r.reference}` : ""}</span>
+                {r.status !== 6 && (
+                  <Chip tone={r.status === 2 ? "warn" : r.status === 4 ? "danger" : "neutral"}>
+                    {TxnStatusName[r.status]}
+                  </Chip>
+                )}
+              </div>
               <div className="text-xs text-text-dim">{dateStr(r.date)} · {r.txnNumber}</div>
             </div>
-            <span className={`text-sm tabular-nums ${r.status === 5 ? "text-text-dim line-through" : "text-ok"}`}>{money(r.amount)}</span>
+            <span className={`text-sm tabular-nums ${r.status === 5 || r.status === 4 ? "text-text-dim line-through" : r.status === 2 ? "text-text-dim" : "text-ok"}`}>{money(r.amount)}</span>
           </Card>
         ))
       )}
-      <RecordReceiptSheet projectId={projectId} open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
+      <RecordReceiptSheet
+        projectId={projectId}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSaved={(pending) => { setOpen(false); setSentForApproval(pending); reload(); }}
+      />
     </div>
   );
 }
 
-function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
+function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: (sentForApproval: boolean) => void }) {
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
   const [form, setForm] = useState({ amount: "", methodId: "", reference: "", description: "" });
   const [err, setErr] = useState<ApiError | null>(null);
@@ -61,7 +81,7 @@ function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: 
   async function save() {
     setBusy(true); setErr(null);
     try {
-      await api("/customer-payments", {
+      const created = await api<CustomerPayment>("/customer-payments", {
         method: "POST",
         body: {
           projectId, date: new Date().toISOString().slice(0, 10), amount: Number(form.amount),
@@ -69,7 +89,7 @@ function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: 
           description: form.description || null,
         },
       });
-      onSaved();
+      onSaved(created.status === 2);   // 2 = Pending Approval
     } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
   }
 

@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
+using Swarnakshi.Application.Approvals;
 using Swarnakshi.Application.Common;
 using Swarnakshi.Domain.Entities;
 using Swarnakshi.Domain.Enums;
@@ -46,6 +47,7 @@ public interface ISiteExpenseService
 public class SiteExpenseService(
     IAppDbContext db,
     ITransactionSequenceService sequences,
+    IApprovalService approvals,
     IValidator<SaveSiteExpenseRequest> validator) : ISiteExpenseService
 {
     public async Task<PagedResult<SiteExpenseDto>> ListAsync(PageQuery page, Guid? siteId,
@@ -72,16 +74,22 @@ public class SiteExpenseService(
         if (req.PaymentMethodId is { } pm && !await db.PaymentMethods.AnyAsync(m => m.Id == pm, ct))
             throw new NotFoundException("PaymentMethod", pm);
 
+        // Approved like a villa expense, and for the same reason twice over: it is company money,
+        // and leaving this one ungated would make the site bucket the way to spend without asking.
         var entity = new SiteExpense
         {
             TxnNumber = await sequences.NextAsync("SITEEXP", ct),
             SiteId = req.SiteId, Date = req.Date, ExpenseHeadId = req.ExpenseHeadId,
             Description = req.Description, Amount = req.Amount,
             PaymentStatus = req.PaymentStatus, PaymentMethodId = req.PaymentMethodId,
-            Status = TransactionStatus.Posted,
+            Status = TransactionStatus.PendingApproval,
         };
         db.SiteExpenses.Add(entity);
         await db.SaveChangesAsync(ct);
+
+        await approvals.SubmitAsync(ApprovalEntityTypes.SiteExpense, entity.Id, entity.TxnNumber,
+            entity.SiteId, null, entity.Amount, ct);
+
         return await GetAsync(entity.Id, ct);
     }
 
@@ -91,6 +99,8 @@ public class SiteExpenseService(
                      ?? throw new NotFoundException("SiteExpense", id);
         if (entity.Status == TransactionStatus.Cancelled)
             throw new AppException("This expense is already cancelled.", 409);
+        if (entity.Status == TransactionStatus.PendingApproval)
+            throw new AppException("This expense is waiting for approval. Reject it in the Approval Center instead.", 409);
 
         // Never deleted — cancelled, with the reason kept, so the trail survives.
         entity.Status = TransactionStatus.Cancelled;
@@ -114,4 +124,30 @@ public class SiteExpenseService(
         e => new SiteExpenseDto(e.Id, e.TxnNumber, e.SiteId, e.Site.Name, e.Date,
             e.ExpenseHeadId, e.Head.Name, e.Description, e.Amount,
             e.PaymentStatus, e.PaymentMethodId, e.Status);
+}
+
+public class SiteExpenseApprovalHandler(IAppDbContext db, IDateTimeProvider clock) : IApprovalHandler
+{
+    public string EntityType => ApprovalEntityTypes.SiteExpense;
+
+    public async Task OnApprovedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var expense = await db.SiteExpenses.FirstOrDefaultAsync(e => e.Id == entityId, ct)
+                      ?? throw new NotFoundException("SiteExpense", entityId);
+        if (expense.Status == TransactionStatus.Posted) return;
+
+        expense.Status = TransactionStatus.Posted;
+        expense.ApprovedBy = decidedBy;
+        expense.ApprovedAt = clock.Now;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task OnRejectedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var expense = await db.SiteExpenses.FirstOrDefaultAsync(e => e.Id == entityId, ct);
+        if (expense is null) return;
+        expense.Status = TransactionStatus.Rejected;
+        expense.Remarks = decision.Remarks;
+        await db.SaveChangesAsync(ct);
+    }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Application.Common;
@@ -16,6 +17,9 @@ public static class ApprovalEntityTypes
     public const string CustomerPayment = "CustomerPayment";
     public const string InventoryAdjustment = "InventoryAdjustment";
     public const string EmployeePayment = "EmployeePayment";
+    public const string ProjectExpense = "ProjectExpense";
+    public const string SiteExpense = "SiteExpense";
+    public const string SupplierPayment = "SupplierPayment";
 }
 
 public record ApprovalDecision(bool Approve, string? Remarks, bool AllowOverride);
@@ -51,12 +55,22 @@ public class ApprovalService(
     IAppDbContext db,
     ICurrentUser currentUser,
     IDateTimeProvider clock,
+    ISettingsService settings,
     IEnumerable<IApprovalHandler> handlers) : IApprovalService
 {
     private IApprovalHandler Handler(string entityType) =>
         handlers.FirstOrDefault(h => h.EntityType == entityType)
         ?? throw new AppException($"No approval handler registered for '{entityType}'.", 500);
 
+    /// <summary>
+    /// The one gate every purchase, expense and payment passes through, and the only place that
+    /// decides whether the Owner sees it.
+    ///
+    /// <para>Putting the auto-approve rule here rather than in each service is what makes the rule
+    /// true. A caller cannot forget it, cannot apply it slightly differently, and a document type
+    /// added later inherits it by virtue of submitting at all — the alternative, a threshold check
+    /// copied into nine services, is a rule that holds until someone writes the tenth.</para>
+    /// </summary>
     public async Task<ApprovalRequest> SubmitAsync(string entityType, Guid entityId, string? entityRef,
         Guid? siteId, Guid? projectId, decimal? amount, CancellationToken ct = default)
     {
@@ -73,12 +87,13 @@ public class ApprovalService(
 
         await handler.OnSubmitAsync(entityId, ct);
 
+        var uid = currentUser.UserId!.Value;
         var req = new ApprovalRequest
         {
             EntityType = entityType, EntityId = entityId, EntityRef = entityRef,
             SiteId = siteId, ProjectId = projectId, Amount = amount,
             CurrentStatus = TransactionStatus.PendingApproval,
-            RequestedByUserId = currentUser.UserId!.Value,
+            RequestedByUserId = uid,
             RequestedAt = clock.Now
         };
         db.ApprovalRequests.Add(req);
@@ -86,9 +101,46 @@ public class ApprovalService(
         {
             Request = req, Action = ApprovalAction.Submitted,
             PreviousStatus = TransactionStatus.Draft, NewStatus = TransactionStatus.PendingApproval,
-            UserId = currentUser.UserId!.Value, At = clock.Now
+            UserId = uid, At = clock.Now
         });
+
+        // Three conditions, and each one fails safe. The limit defaults to 0, so a company that has
+        // never opened the settings screen approves nothing automatically. An amount the caller
+        // could not work out is null, and an unknown amount is never "small". And the comparison is
+        // strictly less-than, so a limit of 5,000 holds a 5,000 payment — a round number is exactly
+        // what an invoice gets split into to slip under a threshold.
+        // Saved as pending FIRST, unconditionally, and only then auto-approved. If the posting
+        // below fails, what is left behind is an ordinary request sitting in the Owner's queue —
+        // which is recoverable. Committing the request and the posting as one unit would instead
+        // roll the request away too, leaving a document marked PendingApproval that appears in
+        // nobody's list and can never be approved.
         await db.SaveChangesAsync(ct);
+
+        var limit = await settings.AutoApproveLimitAsync(siteId, ct);
+        if (limit <= 0m || amount is not { } value || value >= limit) return req;
+
+        var note = $"Auto-approved: {value.ToString("N2", CultureInfo.InvariantCulture)} is below the "
+                 + $"auto-approve limit of {limit.ToString("N2", CultureInfo.InvariantCulture)}.";
+
+        // Same transaction discipline as a human decision: everything the posting touches, and the
+        // request's move to Posted, land together or not at all.
+        await db.ExecuteInTransactionAsync(async () =>
+        {
+            await handler.OnApprovedAsync(entityId, new ApprovalDecision(true, note, false), uid, ct);
+            req.CurrentStatus = TransactionStatus.Posted;
+            req.Remarks = note;
+            // DecidedByUserId stays null on purpose. Nobody decided this, and naming the person who
+            // entered it would put their name against approvals they were never asked for.
+            req.DecidedAt = clock.Now;
+
+            db.ApprovalHistories.Add(new ApprovalHistory
+            {
+                Request = req, Action = ApprovalAction.AutoApproved,
+                PreviousStatus = TransactionStatus.PendingApproval, NewStatus = TransactionStatus.Posted,
+                UserId = uid, At = clock.Now, Remarks = note
+            });
+        }, ct);
+
         return req;
     }
 

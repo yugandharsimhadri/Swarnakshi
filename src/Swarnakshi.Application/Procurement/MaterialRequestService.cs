@@ -174,8 +174,33 @@ public class MaterialRequestService(
         await db.SaveChangesAsync(ct);
 
         await approvals.SubmitAsync(ApprovalEntityTypes.MaterialRequest, entity.Id, entity.TxnNumber,
-            entity.SiteId, entity.ProjectId, null, ct);
+            entity.SiteId, entity.ProjectId, await EstimatedValueAsync(entity.Id, entity.SiteId, ct), ct);
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// What this request is worth at the store's current rates, so the auto-approve limit can be
+    /// applied to material leaving the store the same way it is applied to money.
+    ///
+    /// <para>It is an estimate: the issue posts at whatever the rate is on the day, and a line for
+    /// a material with no stock yet contributes nothing. Both errors run the same way — a request
+    /// valued low enough to approve itself is a request for material the store barely holds — and
+    /// the Owner sees the real figure on the issue either way.</para>
+    /// </summary>
+    private async Task<decimal?> EstimatedValueAsync(Guid requestId, Guid siteId, CancellationToken ct)
+    {
+        var lines = await db.MaterialRequestItems.AsNoTracking()
+            .Where(i => i.MaterialRequestId == requestId)
+            .Select(i => new { i.MaterialId, i.RequestedQty })
+            .ToListAsync(ct);
+        if (lines.Count == 0) return null;
+
+        var materialIds = lines.Select(l => l.MaterialId).Distinct().ToList();
+        var rates = await db.InventoryBalances.AsNoTracking()
+            .Where(b => b.SiteId == siteId && materialIds.Contains(b.MaterialId))
+            .ToDictionaryAsync(b => b.MaterialId, b => b.AverageRate, ct);
+
+        return Math.Round(lines.Sum(l => l.RequestedQty * rates.GetValueOrDefault(l.MaterialId)), 2);
     }
 
     public async Task<MaterialRequestDto> IssueAsync(Guid id, IssueRequest req, CancellationToken ct = default)

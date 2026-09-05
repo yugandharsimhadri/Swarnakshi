@@ -21,6 +21,11 @@ fails:
 `Publish.ps1` bakes in (1) and this guide sets (2). They are the same two strings written twice — if
 you change one hostname, change both.
 
+> **This guide is for the first deployment.** Once the server is live, a release that changes the
+> schema is an *upgrade*, not an install — see **[06c — Database upgrades on a live
+> server](06c-db-upgrades.md)** for the per-release script, where it comes from, and the order to
+> apply it in.
+
 ---
 
 ## Step 1 — Build

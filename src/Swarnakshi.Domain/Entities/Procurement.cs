@@ -63,7 +63,12 @@ public class PurchaseItem : BaseEntity
     public ExpenseHead? ExpenseHead { get; set; }
 }
 
-public class SupplierPayment : BaseEntity
+/// <summary>
+/// Money paid to a supplier against a purchase. Auditable rather than plain, because paying a
+/// supplier is a decision the Owner approves: until it is Posted the row exists but has not moved
+/// the invoice's paid and outstanding figures.
+/// </summary>
+public class SupplierPayment : AuditableEntity
 {
     public Guid PurchaseHeaderId { get; set; }
     public PurchaseHeader Header { get; set; } = null!;

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Swarnakshi.Application.Approvals;
 using Swarnakshi.Application.Customers;
 using Swarnakshi.Application.Inventory;
 using Swarnakshi.Application.Masters;
@@ -120,8 +121,9 @@ public class ProfitReportingTests
             ProjectStatus.Completed, f.CustomerId);
 
         var methodId = await db.PaymentMethods.Select(m => m.Id).FirstAsync();
-        await sp.GetRequiredService<ICustomerPaymentService>().CreateAsync(
+        var receipt = await sp.GetRequiredService<ICustomerPaymentService>().CreateAsync(
             new SaveCustomerPaymentRequest(villa.Id, Today, 4_425_000, methodId, "NEFT/1", null));
+        await sp.ApproveAsync(ApprovalEntityTypes.CustomerPayment, receipt.Id);
 
         var table = await sp.GetRequiredService<IReportsService>().VillaProfitabilityAsync();
         var row = table.Rows.Single();
@@ -241,10 +243,11 @@ public class ProfitReportingTests
         await sp.SubmitAndApproveAsync(stockBuy.Id);
 
         // The watchman belongs to the site, not to Villa 101.
-        await sp.GetRequiredService<Application.Expenses.ISiteExpenseService>().CreateAsync(
+        var watchman = await sp.GetRequiredService<Application.Expenses.ISiteExpenseService>().CreateAsync(
             new Application.Expenses.SaveSiteExpenseRequest(
                 f.SiteId, Today, await db.ExpenseHeads.Select(h => h.Id).FirstAsync(),
                 "Watchman, three months", 45_000, PaymentStatus.Paid, null));
+        await sp.ApproveAsync(ApprovalEntityTypes.SiteExpense, watchman.Id);
 
         var table = await sp.GetRequiredService<IReportsService>().SiteSummaryAsync();
         var row = table.Rows.Single();
@@ -270,10 +273,11 @@ public class ProfitReportingTests
         var villa = await VillaAsync(sp, f, "Villa 101", 4_200_000, 5_600_000, 50);
         await SpendAsync(sp, f, villa.Id, 800_000);
 
-        await sp.GetRequiredService<Application.Expenses.ISiteExpenseService>().CreateAsync(
+        var power = await sp.GetRequiredService<Application.Expenses.ISiteExpenseService>().CreateAsync(
             new Application.Expenses.SaveSiteExpenseRequest(
                 f.SiteId, Today, await db.ExpenseHeads.Select(h => h.Id).FirstAsync(),
                 "Temporary power connection", 60_000, PaymentStatus.Paid, null));
+        await sp.ApproveAsync(ApprovalEntityTypes.SiteExpense, power.Id);
 
         var summary = await sp.GetRequiredService<IProjectService>().SummaryAsync(villa.Id);
         summary.TotalCost.Should().Be(800_000,

@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
+using Swarnakshi.Application.Approvals;
 using Swarnakshi.Application.Common;
 using Swarnakshi.Domain.Entities;
 using Swarnakshi.Domain.Enums;
@@ -38,7 +39,8 @@ public interface ICustomerPaymentService
 }
 
 public class CustomerPaymentService(
-    IAppDbContext db, ICurrentUser currentUser, ITransactionSequenceService sequences,
+    IAppDbContext db, ITransactionSequenceService sequences,
+    IApprovalService approvals,
     IValidator<SaveCustomerPaymentRequest> validator) : ICustomerPaymentService
 {
     public async Task<PagedResult<CustomerPaymentDto>> ListAsync(PageQuery page, Guid? projectId, Guid? customerId, CancellationToken ct = default)
@@ -60,15 +62,23 @@ public class CustomerPaymentService(
         if (!await db.PaymentMethods.AnyAsync(m => m.Id == req.PaymentMethodId, ct))
             throw new NotFoundException("PaymentMethod", req.PaymentMethodId);
 
+        // A receipt is the one approval here that is not about stopping someone spending: it is
+        // about what the customer is told they still owe. A receipt entered against the wrong villa,
+        // or for money that never arrived, moves that number — so it waits like everything else,
+        // and the same limit lets the small ones through.
         var payment = new CustomerPayment
         {
             TxnNumber = await sequences.NextAsync("CUSTPAY", ct),
             ProjectId = project.Id, CustomerId = project.CustomerId.Value, Date = req.Date, Amount = req.Amount,
             PaymentMethodId = req.PaymentMethodId, Reference = req.Reference, Description = req.Description,
-            Status = TransactionStatus.Posted, ApprovedBy = currentUser.UserId, ApprovedAt = DateTimeOffset.UtcNow
+            Status = TransactionStatus.PendingApproval
         };
         db.CustomerPayments.Add(payment);
         await db.SaveChangesAsync(ct);
+
+        await approvals.SubmitAsync(ApprovalEntityTypes.CustomerPayment, payment.Id, payment.TxnNumber,
+            project.SiteId, project.Id, payment.Amount, ct);
+
         return await db.CustomerPayments.AsNoTracking().Where(p => p.Id == payment.Id).Select(Projection).FirstAsync(ct);
     }
 
@@ -77,6 +87,8 @@ public class CustomerPaymentService(
         var payment = await db.CustomerPayments.FirstOrDefaultAsync(p => p.Id == id, ct)
                       ?? throw new NotFoundException("CustomerPayment", id);
         if (payment.Status == TransactionStatus.Cancelled) throw new AppException("Already cancelled.", 409);
+        if (payment.Status == TransactionStatus.PendingApproval)
+            throw new AppException("This receipt is waiting for approval. Reject it in the Approval Center instead.", 409);
         payment.Status = TransactionStatus.Cancelled;
         payment.Remarks = reason;
         payment.Amount = 0m;
@@ -112,4 +124,30 @@ public class CustomerPaymentService(
     private static readonly Expression<Func<CustomerPayment, CustomerPaymentDto>> Projection = p => new CustomerPaymentDto(
         p.Id, p.TxnNumber, p.ProjectId, p.Project.Name, p.CustomerId, p.Customer.Name, p.Date, p.Amount,
         p.PaymentMethodId, p.PaymentMethod.Name, p.Reference, p.Description, p.Status);
+}
+
+public class CustomerPaymentApprovalHandler(IAppDbContext db, IDateTimeProvider clock) : IApprovalHandler
+{
+    public string EntityType => ApprovalEntityTypes.CustomerPayment;
+
+    public async Task OnApprovedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var payment = await db.CustomerPayments.FirstOrDefaultAsync(p => p.Id == entityId, ct)
+                      ?? throw new NotFoundException("CustomerPayment", entityId);
+        if (payment.Status == TransactionStatus.Posted) return;
+
+        payment.Status = TransactionStatus.Posted;
+        payment.ApprovedBy = decidedBy;
+        payment.ApprovedAt = clock.Now;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task OnRejectedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var payment = await db.CustomerPayments.FirstOrDefaultAsync(p => p.Id == entityId, ct);
+        if (payment is null) return;
+        payment.Status = TransactionStatus.Rejected;
+        payment.Remarks = decision.Remarks;
+        await db.SaveChangesAsync(ct);
+    }
 }

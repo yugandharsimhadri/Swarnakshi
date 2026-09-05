@@ -66,7 +66,10 @@ public enum ContractorPaymentKind { Advance = 1, Partial = 2, Final = 3, Adjustm
 
 public enum InventoryValuationMethod { WeightedAverage = 1, Fifo = 2, ManualRate = 3 }
 
-public enum ApprovalAction { Submitted = 1, Approved = 2, Rejected = 3, Cancelled = 4, Posted = 5, Reopened = 6 }
+// AutoApproved is deliberately its own action rather than an Approved row with a remark. A history
+// that reads "Approved by Ramesh" when Ramesh never saw it is worse than no history: it is the one
+// place someone looks to find out who let a payment through.
+public enum ApprovalAction { Submitted = 1, Approved = 2, Rejected = 3, Cancelled = 4, Posted = 5, Reopened = 6, AutoApproved = 7 }
 
 /// <summary>Input control a material specification field renders as.</summary>
 public enum SpecFieldKind { Text = 1, Number = 2, Select = 3 }

@@ -282,8 +282,8 @@ public class UseCaseWalkthroughTests
         var y = await ArrangeAsync(sp, db);
 
         // No setting is touched here — waiting for the owner is what a new company gets.
-        (await db.Settings.FirstAsync(s => s.Key == SettingKeys.PurchaseNeedsApproval))
-            .Value.Should().Be("true", "money leaving the company is the owner's decision by default");
+        (await db.Settings.FirstAsync(s => s.Key == SettingKeys.AutoApproveLimit))
+            .Value.Should().Be("0", "nothing approves itself until the owner sets a limit");
 
         var created = await purchases.CreateAsync(new SavePurchaseRequest(
             y.SupplierId, null, y.SiteId, null, null, null, Today, 0, null,
@@ -297,6 +297,38 @@ public class UseCaseWalkthroughTests
         await ApproveAsync(sp, ApprovalEntityTypes.Purchase, submitted.TxnNumber);
 
         (await inventory.BalancesAsync(y.SiteId, null, false, null)).Single().Quantity.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task UseCase4_A_purchase_under_the_owners_limit_reaches_stock_on_its_own()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<AppDbContext>();
+        var purchases = sp.GetRequiredService<IPurchaseService>();
+        var inventory = sp.GetRequiredService<IInventoryService>();
+        var approvals = sp.GetRequiredService<IApprovalService>();
+        var y = await ArrangeAsync(sp, db);
+
+        // The owner decides a lorry of sand is not worth being telephoned about.
+        await sp.SetAutoApproveLimitAsync(10_000m);
+
+        var created = await purchases.CreateAsync(new SavePurchaseRequest(
+            y.SupplierId, null, y.SiteId, null, null, null, Today, 0, null,
+            [new PurchaseItemInput(y.Cement.Id, y.Cement.UnitId, 10, 400, 0, 0)]));   // ₹4,000
+        var submitted = await purchases.SubmitAsync(created.Id);
+
+        submitted.Status.Should().Be(TransactionStatus.Posted);
+        (await inventory.BalancesAsync(y.SiteId, null, false, null)).Single().Quantity.Should().Be(10);
+        (await approvals.PendingCountAsync()).Should().Be(0);
+
+        // The trail still exists — it just says nobody was asked.
+        var request = await db.ApprovalRequests.AsNoTracking()
+            .SingleAsync(a => a.EntityType == ApprovalEntityTypes.Purchase && a.EntityId == created.Id);
+        request.CurrentStatus.Should().Be(TransactionStatus.Posted);
+        (await approvals.HistoryAsync(request.Id))
+            .Should().Contain(h => h.Action == ApprovalAction.AutoApproved);
     }
 
     // ── Use case 5: customer payments ────────────────────────────────────
@@ -314,10 +346,15 @@ public class UseCaseWalkthroughTests
 
         var method = await db.PaymentMethods.FirstAsync(m => m.Name == "Bank Transfer");
 
-        await receipts.CreateAsync(new SaveCustomerPaymentRequest(
+        var first = await receipts.CreateAsync(new SaveCustomerPaymentRequest(
             y.ProjectId, Today, 1_000_000, method.Id, "NEFT-8891", "First instalment"));
-        await receipts.CreateAsync(new SaveCustomerPaymentRequest(
+        var second = await receipts.CreateAsync(new SaveCustomerPaymentRequest(
             y.ProjectId, Today, 1_500_000, method.Id, "NEFT-9021", "Second instalment"));
+
+        // A receipt counts against what the customer owes once the owner has agreed it arrived.
+        (await projects.SummaryAsync(y.ProjectId)).CustomerReceived.Should().Be(0);
+        await sp.ApproveAsync(ApprovalEntityTypes.CustomerPayment, first.Id);
+        await sp.ApproveAsync(ApprovalEntityTypes.CustomerPayment, second.Id);
 
         var summary = await projects.SummaryAsync(y.ProjectId);
         summary.CustomerReceived.Should().Be(2_500_000);

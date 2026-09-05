@@ -1,32 +1,62 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 import { Spinner } from "@/components/ui";
 import AppShell from "@/components/AppShell";
 import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Sites from "@/pages/Sites";
-import Projects from "@/pages/Projects";
-import ProjectDetail from "@/pages/project/ProjectDetail";
-import Materials from "@/pages/Materials";
-import More from "@/pages/More";
-import { InventoryList, MaterialInventory } from "@/pages/Inventory";
-import { MaterialRequestList, NewMaterialRequest, MaterialRequestDetail } from "@/pages/MaterialRequests";
-import { PurchaseList, NewPurchase, PurchaseDetail } from "@/pages/Purchases";
-import Approvals from "@/pages/Approvals";
-import Contractors from "@/pages/Contractors";
-import Suppliers from "@/pages/Suppliers";
-import Customers from "@/pages/Customers";
-import { ReportsHub, ReportView } from "@/pages/Reports";
-import Users from "@/pages/Users";
-import Register from "@/pages/Register";
-import PlatformConsole from "@/pages/PlatformConsole";
-import Employees from "@/pages/Employees";
+
+/**
+ * Everything past the sign-in screen is loaded on demand.
+ *
+ * Importing all twenty screens at the top of this file put every one of them — every form, every
+ * report, the platform console a company user can never open — into a single file the browser had
+ * to download and parse before it could draw anything at all. On the site office's connection that
+ * is the whole of the wait. Login stays eagerly imported because it is what most first loads are
+ * for, and making it a second round trip would trade one wait for another.
+ *
+ * Named exports are wrapped rather than re-exported so that both halves of a screen still travel in
+ * the same chunk: opening the purchase list downloads the purchase detail with it, which is where
+ * the user is going next anyway.
+ */
+const named = <T extends Record<string, unknown>, K extends keyof T>(
+  load: () => Promise<T>, key: K,
+) => lazy(() => load().then((m) => ({ default: m[key] as React.ComponentType })));
+
+const Register = lazy(() => import("@/pages/Register"));
+const PlatformConsole = lazy(() => import("@/pages/PlatformConsole"));
+
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Sites = lazy(() => import("@/pages/Sites"));
+const Projects = lazy(() => import("@/pages/Projects"));
+const ProjectDetail = lazy(() => import("@/pages/project/ProjectDetail"));
+const Materials = lazy(() => import("@/pages/Materials"));
+const More = lazy(() => import("@/pages/More"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Approvals = lazy(() => import("@/pages/Approvals"));
+const Contractors = lazy(() => import("@/pages/Contractors"));
+const Suppliers = lazy(() => import("@/pages/Suppliers"));
+const Customers = lazy(() => import("@/pages/Customers"));
+const Users = lazy(() => import("@/pages/Users"));
+const Employees = lazy(() => import("@/pages/Employees"));
+
+const InventoryList = named(() => import("@/pages/Inventory"), "InventoryList");
+const MaterialInventory = named(() => import("@/pages/Inventory"), "MaterialInventory");
+const MaterialRequestList = named(() => import("@/pages/MaterialRequests"), "MaterialRequestList");
+const NewMaterialRequest = named(() => import("@/pages/MaterialRequests"), "NewMaterialRequest");
+const MaterialRequestDetail = named(() => import("@/pages/MaterialRequests"), "MaterialRequestDetail");
+const PurchaseList = named(() => import("@/pages/Purchases"), "PurchaseList");
+const NewPurchase = named(() => import("@/pages/Purchases"), "NewPurchase");
+const PurchaseDetail = named(() => import("@/pages/Purchases"), "PurchaseDetail");
+const ReportsHub = named(() => import("@/pages/Reports"), "ReportsHub");
+const ReportView = named(() => import("@/pages/Reports"), "ReportView");
+
+const Loading = () => <div className="grid min-h-40 place-items-center"><Spinner /></div>;
 
 export default function App() {
   const { user, platformUser, loading, bootstrap } = useAuth();
   const canDashboard = useAuth((s) => s.can("dashboard.view"));
   const canReports = useAuth((s) => s.can("reports.view"));
+  const canSettings = useAuth((s) => s.can("settings.manage"));
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
 
@@ -37,16 +67,20 @@ export default function App() {
       {platformUser ? (
         // A platform operator gets its own console and nothing else — there is no company shell
         // for it to render, and no company route it is allowed to reach.
-        <Routes>
-          <Route path="*" element={<PlatformConsole />} />
-        </Routes>
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            <Route path="*" element={<PlatformConsole />} />
+          </Routes>
+        </Suspense>
       ) : !user ? (
         <Routes>
-          <Route path="/register" element={<Register />} />
+          <Route path="/register" element={<Suspense fallback={<Loading />}><Register /></Suspense>} />
           <Route path="*" element={<Login />} />
         </Routes>
       ) : (
         <Routes>
+          {/* AppShell is eager and holds the Suspense boundary around its own Outlet, so moving
+              between screens swaps the page and leaves the navigation bar where it was. */}
           <Route element={<AppShell />}>
             {/* A site Supervisor has no company dashboard — their landing screen is the work. */}
             <Route index element={canDashboard ? <Dashboard /> : <Navigate to="/projects" replace />} />
@@ -79,6 +113,7 @@ export default function App() {
             <Route path="reports/:slug" element={canReports ? <ReportView /> : <Navigate to="/" replace />} />
             <Route path="users" element={<Users />} />
             <Route path="employees" element={<Employees />} />
+            <Route path="settings" element={canSettings ? <Settings /> : <Navigate to="/more" replace />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -6,9 +6,30 @@
     <meta name="theme-color" content="#0a121c" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)" />
     <title>Swarnakshi</title>
+    <style>
+      /* The gap between the page arriving and React drawing is a blank screen, and on a phone on
+         site that gap is long enough to look like a broken link. This is a name and a moving dot,
+         inline so it costs no request, and React clears it when it mounts into #root. */
+      @keyframes swk-pulse { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+      .swk-boot {
+        display: grid; place-content: center; justify-items: center; gap: .75rem;
+        min-height: 100dvh; font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #64748b; background: #eef1f6;
+      }
+      .swk-boot b { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: #334155; }
+      .swk-boot i { width: 8px; height: 8px; border-radius: 50%; background: currentColor;
+                    animation: swk-pulse 1.1s ease-in-out infinite; }
+      @media (prefers-color-scheme: dark) {
+        .swk-boot { color: #64748b; background: #0a121c; }
+        .swk-boot b { color: #cbd5e1; }
+      }
+      @media (prefers-reduced-motion: reduce) { .swk-boot i { animation: none; opacity: .6 } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="swk-boot"><b>Swarnakshi</b><i></i></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -131,10 +131,7 @@ public interface IPurchaseService
 
 public class PurchaseService(
     IAppDbContext db,
-    ICurrentUser currentUser,
-    ISettingsService settings,
     IApprovalService approvals,
-    PurchasePoster poster,
     ITransactionSequenceService sequences,
     ICodeGenerator codes,
     IValidator<SavePurchaseRequest> validator) : IPurchaseService
@@ -248,42 +245,53 @@ public class PurchaseService(
         if (header.Status != TransactionStatus.Draft)
             throw new AppException($"Purchase is already {header.Status}.", 409);
 
-        // Fallback is true: if the setting row is missing entirely, hold the purchase rather than
-        // post it. An unapproved purchase that reached stock is far worse than one that waited.
-        var needsApproval = await settings.GetBoolAsync(SettingKeys.PurchaseNeedsApproval, header.SiteId, true, ct);
-        if (needsApproval)
-        {
-            header.Status = TransactionStatus.PendingApproval;
-            await db.SaveChangesAsync(ct);
-            await approvals.SubmitAsync(ApprovalEntityTypes.Purchase, header.Id, header.TxnNumber,
-                header.SiteId, header.ProjectId, header.TotalAmount, ct);
-        }
-        else
-        {
-            await db.ExecuteInTransactionAsync(
-                () => poster.PostAsync(header.Id, currentUser.UserId!.Value, ct), ct);
-        }
+        // Every purchase goes to the Owner. There is no per-type "skip approval" switch any more:
+        // the auto-approve limit inside SubmitAsync is the only thing that lets one straight
+        // through, so the rule the Owner sets on one screen is the rule the whole app follows.
+        header.Status = TransactionStatus.PendingApproval;
+        await db.SaveChangesAsync(ct);
+        await approvals.SubmitAsync(ApprovalEntityTypes.Purchase, header.Id, header.TxnNumber,
+            header.SiteId, header.ProjectId, header.TotalAmount, ct);
+
         return await GetAsync(id, ct);
     }
 
+    /// <summary>
+    /// Records a payment to the supplier and sends it for approval. The invoice's paid and
+    /// outstanding figures do not move until it is approved — that happens in
+    /// <see cref="SupplierPaymentApprovalHandler"/>, which is also what makes the two consistent:
+    /// the money and the number it changes are approved as one thing.
+    /// </summary>
     public async Task<PurchaseDto> AddPaymentAsync(Guid id, SupplierPaymentInput input, CancellationToken ct = default)
     {
         if (input.Amount <= 0) throw new AppException("Payment amount must be positive.", 400);
         var header = await db.PurchaseHeaders.FirstOrDefaultAsync(p => p.Id == id, ct)
                      ?? throw new NotFoundException("Purchase", id);
-        if (input.Amount > header.BalanceAmount + 0.01m)
-            throw new AppException($"Payment exceeds outstanding balance ({header.BalanceAmount:0.00}).", 409);
 
-        db.SupplierPayments.Add(new SupplierPayment
+        // Payments already entered and still waiting have not touched BalanceAmount yet, so they
+        // have to be counted here. Without this, three people could each raise a payment for the
+        // full outstanding amount and every one of them would pass this check.
+        var awaiting = await db.SupplierPayments
+            .Where(p => p.PurchaseHeaderId == header.Id && p.Status == TransactionStatus.PendingApproval)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+        var room = header.BalanceAmount - awaiting;
+        if (input.Amount > room + 0.01m)
+            throw new AppException(awaiting > 0
+                ? $"Payment exceeds what is left of the balance ({room:0.00}): {awaiting:0.00} is already awaiting approval."
+                : $"Payment exceeds outstanding balance ({header.BalanceAmount:0.00}).", 409);
+
+        var payment = new SupplierPayment
         {
             PurchaseHeaderId = header.Id, Amount = input.Amount, Date = input.Date,
-            PaymentMethodId = input.PaymentMethodId, Reference = input.Reference
-        });
-        header.PaidAmount = Math.Round(header.PaidAmount + input.Amount, 2);
-        header.BalanceAmount = Math.Round(header.TotalAmount - header.PaidAmount, 2);
-        header.PaymentStatus = header.BalanceAmount <= 0.01m ? PaymentStatus.Paid
-            : header.PaidAmount > 0 ? PaymentStatus.PartiallyPaid : PaymentStatus.Unpaid;
+            PaymentMethodId = input.PaymentMethodId, Reference = input.Reference,
+            Status = TransactionStatus.PendingApproval
+        };
+        db.SupplierPayments.Add(payment);
         await db.SaveChangesAsync(ct);
+
+        await approvals.SubmitAsync(ApprovalEntityTypes.SupplierPayment, payment.Id,
+            $"{header.TxnNumber} payment", header.SiteId, header.ProjectId, payment.Amount, ct);
+
         return await GetAsync(id, ct);
     }
 
@@ -308,5 +316,49 @@ public class PurchaseApprovalHandler(PurchasePoster poster) : IApprovalHandler
     {
         // handled by ApprovalService status; nothing to undo since nothing was posted.
         await Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Applies an approved payment to the invoice it was raised against. The header is recomputed from
+/// the posted payments rather than incremented, so a rejected payment leaves nothing behind and a
+/// second approval of the same row cannot count it twice.
+/// </summary>
+public class SupplierPaymentApprovalHandler(IAppDbContext db, IDateTimeProvider clock) : IApprovalHandler
+{
+    public string EntityType => ApprovalEntityTypes.SupplierPayment;
+
+    public async Task OnApprovedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var payment = await db.SupplierPayments.FirstOrDefaultAsync(p => p.Id == entityId, ct)
+                      ?? throw new NotFoundException("SupplierPayment", entityId);
+        if (payment.Status == TransactionStatus.Posted) return;
+
+        payment.Status = TransactionStatus.Posted;
+        payment.ApprovedBy = decidedBy;
+        payment.ApprovedAt = clock.Now;
+
+        var header = await db.PurchaseHeaders.FirstOrDefaultAsync(p => p.Id == payment.PurchaseHeaderId, ct)
+                     ?? throw new NotFoundException("Purchase", payment.PurchaseHeaderId);
+
+        var paid = await db.SupplierPayments
+            .Where(p => p.PurchaseHeaderId == header.Id
+                        && (p.Status == TransactionStatus.Posted || p.Id == payment.Id))
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+
+        header.PaidAmount = Math.Round(paid, 2);
+        header.BalanceAmount = Math.Round(header.TotalAmount - header.PaidAmount, 2);
+        header.PaymentStatus = header.BalanceAmount <= 0.01m ? PaymentStatus.Paid
+            : header.PaidAmount > 0 ? PaymentStatus.PartiallyPaid : PaymentStatus.Unpaid;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task OnRejectedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var payment = await db.SupplierPayments.FirstOrDefaultAsync(p => p.Id == entityId, ct);
+        if (payment is null) return;
+        payment.Status = TransactionStatus.Rejected;
+        payment.Remarks = decision.Remarks;
+        await db.SaveChangesAsync(ct);
     }
 }

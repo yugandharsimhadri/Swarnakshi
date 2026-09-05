@@ -6,7 +6,7 @@ import { RoleName } from "@/lib/types";
 import { Button, Card, PageHeader } from "@/components/ui";
 import {
   IconAccess, IconChevron, IconContractor, IconCustomer, IconEmployees, IconMaterials, IconPurchase,
-  IconMoon, IconReports, IconSite, IconSun,
+  IconMoon, IconReports, IconSettings, IconSite, IconSun,
 } from "@/components/icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
@@ -21,6 +21,7 @@ export default function More() {
   const logout = useAuth((s) => s.logout);
   const canManageUsers = useAuth((s) => s.can("users.manage"));
   const canReports = useAuth((s) => s.can("reports.view"));
+  const canSettings = useAuth((s) => s.can("settings.manage"));
   const { theme, toggle } = useTheme();
 
   const setup: [string, IconComponent, string, boolean][] = [
@@ -44,6 +45,14 @@ export default function More() {
           {user ? RoleName[user.role] : "—"}{company ? ` · ${company.name}` : ""}
         </div>
       </Card>
+
+      {/* Directly under the owner's own name, because the approval limit is a decision about what
+          they personally want to see rather than a piece of company set-up. */}
+      {canSettings && (
+        <Section title="Your settings">
+          <Row to="/settings" Icon={IconSettings} label="Approvals" />
+        </Section>
+      )}
 
       <Section title="Set up">
         {setup.filter(([, , , show]) => show).map(([to, Icon, label]) => (

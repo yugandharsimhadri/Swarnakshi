@@ -424,25 +424,28 @@ purchase — refused, because inventory is site-level.
 *must be approved*. Submit it, try again while it is still pending — refused again, and the store is
 still untouched. Approve, then issue — now it moves. Reject one instead and the stock never moves.
 
-**Purchases are gated by a setting**, off by default so a small builder is not slowed down. There is
-no settings screen yet, so flip the row directly:
+**Everything money-related is gated, and one number decides what escapes it.** Purchases, supplier
+payments, villa expenses, site expenses, customer receipts, contractor and labour and employee
+payments, and material requests all submit through `ApprovalService.SubmitAsync`, which auto-approves
+a document only when its amount is **strictly below** `approvals.auto_approve_limit`. That limit
+seeds at **0**, so a new company sends everything to the Owner; the Owner raises it on
+**More → Your settings → Approvals**.
 
-```sql
--- src/Swarnakshi.Api/swarnakshi.db
-UPDATE Settings SET Value = 'true' WHERE "Key" = 'purchase.needs_approval';
-```
+There used to be a `purchase.needs_approval` boolean (and one for adjustments). Both are gone. A
+per-type "skip approval" switch is how a category of spending ends up permanently exempt because
+somebody flipped it once, and it contradicted the limit besides.
 
-Restart the API, and a submitted purchase now sits at `PendingApproval` with **nothing entering the
-store** until the Owner approves it. (A settings screen is on the backlog — §11.)
-
-Everything approvable runs through one engine — see **§5** for how to add another. Money-out already
-on it: contractor payments, labour, employee salary/advances.
+An auto-approved document is not an unrecorded one: it still gets an `ApprovalRequest`, its history
+carries an `ApprovalAction.AutoApproved` row naming the amount and the limit, and `DecidedByUserId`
+stays **null** — nobody decided it, so nobody's name is on it.
 
 | Setting | Default | Effect |
 |---|---|---|
-| `purchase.needs_approval` | `false` | purchases post straight to stock |
-| `inventory.adjustment_needs_approval` | `true` | adjustments are Owner-only |
+| `approvals.auto_approve_limit` | `0` | rupee ceiling under which a document approves itself; 0 means nothing does |
 | `inventory.allow_negative_stock` | `false` | issues cannot overdraw the store |
+
+Stock **adjustments** are the one thing the limit does not reach: they carry no amount to compare and
+write stock off against no document, so they stay Owner-only outright.
 
 **Code** · `ApprovalService.DecideAsync` runs the entity's `IApprovalHandler` **inside one DB
 transaction** — if a side effect throws, everything rolls back and the request stays pending.
@@ -657,10 +660,12 @@ The 6-phase plan (P0–P5) is complete. These are enhancements:
 6. Multi-company layer — currently single company per deployment; `CompanyId` deliberately not
    modelled (assumption #1 in [01-architecture](01-architecture.md)). Adding it touches every
    query — plan carefully.
-7. Notifications (approval pending → Owner; low stock → Supervisor) — email or in-app.
-8. Configurable approval for **direct expenses** and **inventory adjustments** (settings keys
-   `expense.needs_approval` / `inventory.adjustment_needs_approval` — the second is honoured today
-   only as an Owner-only gate, not a full approval flow).
+7. Notifications (approval pending → Owner; low stock → Supervisor) — email or in-app. The queue is
+   now the only thing standing between a supervisor's entry and the books, so an Owner who does not
+   open the app for a day is a bottleneck nobody is told about.
+8. A per-site auto-approve limit. `ISettingsService` already resolves per-site rows ahead of the
+   company default and `SubmitAsync` passes the site through, so the plumbing is there — what is
+   missing is somewhere to set it.
 
 ---
 

@@ -199,6 +199,7 @@ export function PurchaseDetail() {
   const [pay, setPay] = useState("");
   const [actErr, setActErr] = useState<ApiError | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
+  const [payPending, setPayPending] = useState(false);
 
   if (loading) return <SkeletonList />;
   if (error || !data) return <ErrorText error={error} />;
@@ -210,9 +211,13 @@ export function PurchaseDetail() {
     catch (e) { setActErr(e as ApiError); } finally { setBusy(false); }
   }
   async function addPayment() {
-    setBusy(true); setActErr(null);
+    setBusy(true); setActErr(null); setPayPending(false);
     try {
-      await api(`/purchases/${id}/payments`, { method: "POST", body: { amount: Number(pay), date: new Date().toISOString().slice(0, 10) } });
+      const before = data!.paidAmount;
+      const after = await api<Purchase>(`/purchases/${id}/payments`, { method: "POST", body: { amount: Number(pay), date: new Date().toISOString().slice(0, 10) } });
+      // Paid unchanged means the payment is waiting for the owner rather than applied. Reading it
+      // off the returned invoice keeps the screen honest whichever side of the limit it fell.
+      setPayPending(after.paidAmount === before);
       setPay(""); reload();
     } catch (e) { setActErr(e as ApiError); } finally { setBusy(false); }
   }
@@ -251,9 +256,16 @@ export function PurchaseDetail() {
         <Button className="w-full" onClick={() => setConfirmPost(true)} disabled={busy}>Submit / post</Button>
       )}
       {data.status === 6 && data.balanceAmount > 0 && canCreate && (
-        <div className="flex gap-2">
-          <Input placeholder="Payment amount" inputMode="decimal" value={pay} onChange={(e) => setPay(e.target.value)} />
-          <Button onClick={addPayment} disabled={busy || !Number(pay)}>Pay</Button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input placeholder="Payment amount" inputMode="decimal" value={pay} onChange={(e) => setPay(e.target.value)} />
+            <Button onClick={addPayment} disabled={busy || !Number(pay)}>Pay</Button>
+          </div>
+          {payPending && (
+            <div role="status" className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn">
+              Sent to the owner for approval. The balance above changes once approved.
+            </div>
+          )}
         </div>
       )}
 

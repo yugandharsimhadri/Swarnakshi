@@ -197,6 +197,15 @@ export const IconExpense = (p: IconProps) => (
   </Icon>
 );
 
+/** Two sliders with their handles set — a threshold that has been dialled in, not a gear. */
+export const IconSettings = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 8h9.2M17.6 8H20M4 16h4.4M12.8 16H20" />
+    <circle cx="15.4" cy="8" r="2.2" />
+    <circle cx="10.6" cy="16" r="2.2" />
+  </Icon>
+);
+
 // ---- controls -------------------------------------------------------------
 
 export const IconBack = (p: IconProps) => (

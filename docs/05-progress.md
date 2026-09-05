@@ -4,6 +4,98 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-05 — One gate, one number, and a bundle that stops carrying the whole app
+
+**The rule.** Every purchase and every payment goes to the Owner, villa expenses included, unless
+the amount is below a limit the Owner sets. The limit defaults to **0**, which means nothing escapes.
+
+**Where it lives.** In `ApprovalService.SubmitAsync`, and nowhere else. That is the whole design
+decision: every approvable document already funnelled through that one method, so putting the
+threshold there gave the six flows that were already gated — purchases, material requests, labour,
+contractor payments, employee payments — the new behaviour without touching them, and means a
+document type added next year inherits it by virtue of submitting at all. The alternative, a
+threshold check copied into nine services, is a rule that holds until somebody writes the tenth.
+
+Three conditions, each failing safe: the limit must be above 0, the amount must be known (an amount
+nobody could work out is never "small"), and the comparison is **strictly** less-than — a limit of
+5,000 holds a 5,000 payment, because a round number is exactly what an invoice gets split into to
+slip under a threshold.
+
+**What was not gated before, and is now.** Villa expenses, site expenses, customer receipts and
+supplier payments all wrote themselves straight to Posted. Villa expenses were the ask; the other
+three were the holes it would have left. Site expenses, because the site bucket would have become
+the way to spend without asking. Supplier payments, because paying a supplier was the one remaining
+way money left the company in a single uninterrupted call. Customer receipts are the odd one out —
+they are money coming *in* — but a receipt against the wrong villa moves what a customer is told
+they still owe, so it waits like everything else.
+
+`SupplierPayment` became an `AuditableEntity` to carry a status; the migration backfills existing
+rows to Posted, because every one of them had already been added to its invoice's PaidAmount and
+the new column would otherwise have defaulted them to Draft and let the handler zero the invoice
+out. Payments still in the queue are also counted against the balance when a new one is raised —
+without that, three people could each raise a payment for the full outstanding amount and all three
+would pass the check.
+
+**Two settings deleted.** `purchase.needs_approval` and `inventory.adjustment_needs_approval` are
+gone. A per-type "never needs approval" switch contradicts a limit the Owner sets in one place, and
+is how a category of spending ends up permanently exempt because somebody flipped it once. Stock
+adjustments are now Owner-only outright rather than by configuration — they have no amount to
+compare and write stock off against no document.
+
+**Auto-approval is recorded, not skipped.** The request row is still written, the history carries a
+new `ApprovalAction.AutoApproved` naming the amount and the limit, and `DecidedByUserId` stays null.
+A history that reads "Approved by Ramesh" when Ramesh never saw it is worse than no history: it is
+the one place someone looks to find out who let a payment through. The request is also saved as
+pending *before* the auto-post runs, so a posting that fails leaves an ordinary item in the Owner's
+queue rather than a document marked pending that appears in nobody's list.
+
+**Front end: 380 kB in one file.** Every screen — every form, every report, the platform console a
+company user can never open — was imported at the top of `App.tsx` and shipped in a single chunk the
+browser had to fetch and parse before drawing anything. Routes are now `React.lazy`, the Suspense
+boundary sits around `AppShell`'s own `<Outlet>` so the tab bar stays put while a page loads, and
+everything from `node_modules` is one vendor chunk.
+
+| | before | after |
+|---|---|---|
+| First load (sign-in screen) | 108.7 kB gz | 84.1 kB gz |
+| …of which changes on a deploy | all of it | 8.9 kB gz |
+| Largest screen (villa detail) | in the first load | 6.0 kB gz, on demand |
+
+Naming the packages in `manualChunks` was not enough: React's implementation is reached through
+`react-dom/client`, so listing `react-dom` left the largest single file in the app's own chunk.
+Splitting by path fixed it.
+
+Two smaller things in front of that. `index.html` now carries an inline name-and-dot splash, because
+the gap before React draws is a blank screen and on a phone at a site that reads as a broken link.
+And when `VITE_API_BASE_URL` is set — the split deployment, UI on Cloudflare and API through the
+tunnel — the build injects a `preconnect` for the API origin, so the DNS lookup, the TCP connection
+and the TLS handshake happen while the JavaScript is still parsing instead of in front of the first
+screen that needs data.
+
+**Settings screen.** `More → Your settings → Approvals`, Owner-only via `settings.manage`. It says in
+words what the number does, because "0" is the value most likely to be read as "no limit" when it
+means precisely the opposite.
+
+**Deploying it to a server that is already running.** Last night's deployment makes this the first
+release that is an *upgrade* rather than an install, so releases now ship a per-release script
+alongside the full schema: `New-UpgradeScript.ps1 -From <migration>` writes
+`deploy\sql\upgrades\<date>-<name>.sql`, and today's is
+`2026-09-05-approval-gate.sql` — seven columns on `SupplierPayments` and the backfill. New doc:
+[06c — Database upgrades on a live server](06c-db-upgrades.md).
+
+Rehearsing it against a copy of last night's schema is what caught a bug that `--migrate` could
+never have shown. `dotnet ef migrations script` emits a migration as **one** `sqlcmd` batch, and SQL
+Server compiles a batch before executing any of it — so the backfill, naming a column the `ALTER`
+two lines above had not yet added, died with *Invalid column name 'Status'* having already added the
+columns. Through the API each statement is sent separately, so that route was fine. The two are not
+equivalent, and the script is the one that breaks. `EXEC(N'…')` defers compilation and makes them
+agree; both routes were then run against identical copies of the live schema, carrying a ₹15,000
+payment already applied to a ₹40,000 invoice, and produced the same result.
+
+264 tests pass, 6 of them new.
+
+---
+
 ## 2026-09-04 — The setup script that always created the wrong database
 
 The live API returned **HTTP 500.30** — the process was failing to start — and the browser, unable

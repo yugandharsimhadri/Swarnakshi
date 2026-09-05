@@ -69,11 +69,17 @@ public static class DependencyInjection
         services.AddScoped<Platform.ICompanyRegistrationService, Platform.CompanyRegistrationService>();
         services.AddScoped<Platform.IPlatformAdminService, Platform.PlatformAdminService>();
 
-        // approval handlers
+        // Approval handlers. One per approvable document type, and ApprovalService resolves them by
+        // EntityType — a type submitted with no handler registered here fails loudly rather than
+        // posting unapproved.
         services.AddScoped<IApprovalHandler, PurchaseApprovalHandler>();
+        services.AddScoped<IApprovalHandler, SupplierPaymentApprovalHandler>();
         services.AddScoped<IApprovalHandler, MaterialRequestApprovalHandler>();
         services.AddScoped<IApprovalHandler, LabourApprovalHandler>();
         services.AddScoped<IApprovalHandler, ContractorPaymentApprovalHandler>();
+        services.AddScoped<IApprovalHandler, ProjectExpenseApprovalHandler>();
+        services.AddScoped<IApprovalHandler, SiteExpenseApprovalHandler>();
+        services.AddScoped<IApprovalHandler, Customers.CustomerPaymentApprovalHandler>();
 
         return services;
     }

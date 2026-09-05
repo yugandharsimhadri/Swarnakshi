@@ -1,6 +1,8 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Swarnakshi.Application.Approvals;
+using Swarnakshi.Application.Common;
 using Swarnakshi.Application.Procurement;
 using Swarnakshi.Domain.Enums;
 using Swarnakshi.Infrastructure.Persistence;
@@ -26,6 +28,29 @@ public static class ApprovalHelpers
 
         await sp.ApproveAsync(ApprovalEntityTypes.Purchase, purchaseId, ct);
         return await purchases.GetAsync(purchaseId, ct);
+    }
+
+    /// <summary>
+    /// Sets the company's auto-approve ceiling. 0 — the default a new company gets — sends
+    /// everything to the owner.
+    /// </summary>
+    public static Task SetAutoApproveLimitAsync(
+        this IServiceProvider sp, decimal limit, CancellationToken ct = default)
+        => sp.GetRequiredService<ISettingsService>().SetAsync(
+            SettingKeys.AutoApproveLimit, limit.ToString(CultureInfo.InvariantCulture), null, ct);
+
+    /// <summary>
+    /// Approves the document if it is still waiting, and does nothing if it approved itself. Tests
+    /// that only need a posted expense to exist say this and stay indifferent to the limit.
+    /// </summary>
+    public static async Task ApproveIfPendingAsync(
+        this IServiceProvider sp, string entityType, Guid entityId, CancellationToken ct = default)
+    {
+        var db = sp.GetRequiredService<AppDbContext>();
+        var waiting = await db.ApprovalRequests.AsNoTracking().AnyAsync(
+            a => a.EntityType == entityType && a.EntityId == entityId
+                 && a.CurrentStatus == TransactionStatus.PendingApproval, ct);
+        if (waiting) await sp.ApproveAsync(entityType, entityId, ct);
     }
 
     /// <summary>Approves the one request outstanding against a specific entity.</summary>

@@ -38,7 +38,7 @@ public class ExpenseAndApprovalTests
     // ---- direct project expenses ----------------------------------------
 
     [Fact]
-    public async Task A_direct_expense_posts_straight_into_project_cost()
+    public async Task A_villa_expense_waits_for_the_owner_before_it_counts()
     {
         await using var host = await TestHost.CreateAsync();
         using var scope = host.Scope();
@@ -53,12 +53,94 @@ public class ExpenseAndApprovalTests
             project.Id, Today, head.Id, null, "Site fencing", 25_000m,
             ProjectExpenseType.Direct, PaymentStatus.Paid, null));
 
-        e.Status.Should().Be(TransactionStatus.Posted);
+        e.Status.Should().Be(TransactionStatus.PendingApproval);
         e.TxnNumber.Should().NotBeNullOrWhiteSpace();
+        (await projects.SummaryAsync(project.Id)).TotalCost.Should().Be(0,
+            "an expense nobody has approved is not yet a cost of the villa");
+
+        await sp.ApproveAsync(ApprovalEntityTypes.ProjectExpense, e.Id);
 
         var summary = await projects.SummaryAsync(project.Id);
         summary.OtherCost.Should().Be(25_000m);
         summary.TotalCost.Should().Be(25_000m);
+    }
+
+    [Fact]
+    public async Task A_villa_expense_below_the_limit_approves_itself()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<AppDbContext>();
+        var expenses = sp.GetRequiredService<IProjectExpenseService>();
+        var projects = sp.GetRequiredService<IProjectService>();
+        var approvals = sp.GetRequiredService<IApprovalService>();
+        var (_, project) = await ArrangeAsync(db);
+        var head = await db.ExpenseHeads.FirstAsync();
+
+        await sp.SetAutoApproveLimitAsync(5_000m);
+
+        var small = await expenses.CreateAsync(new SaveProjectExpenseRequest(
+            project.Id, Today, head.Id, null, "Tea and snacks", 4_500m,
+            ProjectExpenseType.Direct, PaymentStatus.Paid, null));
+        var big = await expenses.CreateAsync(new SaveProjectExpenseRequest(
+            project.Id, Today, head.Id, null, "Scaffolding hire", 12_000m,
+            ProjectExpenseType.Direct, PaymentStatus.Paid, null));
+
+        small.Status.Should().Be(TransactionStatus.Posted, "4,500 is below the 5,000 limit");
+        big.Status.Should().Be(TransactionStatus.PendingApproval, "12,000 is not");
+
+        (await approvals.PendingCountAsync()).Should().Be(1, "only the big one is waiting");
+        (await projects.SummaryAsync(project.Id)).TotalCost.Should().Be(4_500m);
+    }
+
+    [Fact]
+    public async Task An_amount_exactly_on_the_limit_still_goes_to_the_owner()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<AppDbContext>();
+        var expenses = sp.GetRequiredService<IProjectExpenseService>();
+        var (_, project) = await ArrangeAsync(db);
+        var head = await db.ExpenseHeads.FirstAsync();
+
+        await sp.SetAutoApproveLimitAsync(5_000m);
+
+        // "Below 5,000" has to mean below, or 5,000 becomes the amount every split invoice is for.
+        var e = await expenses.CreateAsync(new SaveProjectExpenseRequest(
+            project.Id, Today, head.Id, null, "Exactly the limit", 5_000m,
+            ProjectExpenseType.Direct, PaymentStatus.Paid, null));
+
+        e.Status.Should().Be(TransactionStatus.PendingApproval);
+    }
+
+    [Fact]
+    public async Task An_auto_approved_expense_says_so_in_its_history()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<AppDbContext>();
+        var expenses = sp.GetRequiredService<IProjectExpenseService>();
+        var approvals = sp.GetRequiredService<IApprovalService>();
+        var (_, project) = await ArrangeAsync(db);
+        var head = await db.ExpenseHeads.FirstAsync();
+
+        await sp.SetAutoApproveLimitAsync(5_000m);
+        var e = await expenses.CreateAsync(new SaveProjectExpenseRequest(
+            project.Id, Today, head.Id, null, "Small stuff", 1_200m,
+            ProjectExpenseType.Direct, PaymentStatus.Paid, null));
+
+        var request = await db.ApprovalRequests.AsNoTracking()
+            .SingleAsync(a => a.EntityType == ApprovalEntityTypes.ProjectExpense && a.EntityId == e.Id);
+
+        request.DecidedByUserId.Should().BeNull("nobody decided it, and no one's name belongs on it");
+        request.Remarks.Should().Contain("1,200.00").And.Contain("5,000.00");
+
+        var history = await approvals.HistoryAsync(request.Id);
+        history.Should().Contain(h => h.Action == ApprovalAction.AutoApproved);
+        history.Should().NotContain(h => h.Action == ApprovalAction.Approved);
     }
 
     [Fact]
@@ -76,6 +158,7 @@ public class ExpenseAndApprovalTests
         var e = await expenses.CreateAsync(new SaveProjectExpenseRequest(
             project.Id, Today, head.Id, null, "Booked twice by mistake", 40_000m,
             ProjectExpenseType.Direct, PaymentStatus.Paid, null));
+        await sp.ApproveAsync(ApprovalEntityTypes.ProjectExpense, e.Id);
         (await projects.SummaryAsync(project.Id)).TotalCost.Should().Be(40_000m);
 
         await expenses.CancelAsync(e.Id, "duplicate entry");
@@ -135,10 +218,12 @@ public class ExpenseAndApprovalTests
         var (_, project) = await ArrangeAsync(db);
         var head = await db.ExpenseHeads.FirstAsync();
 
-        await expenses.CreateAsync(new SaveProjectExpenseRequest(project.Id, Today, head.Id, null, "A",
+        var a = await expenses.CreateAsync(new SaveProjectExpenseRequest(project.Id, Today, head.Id, null, "A",
             10_000m, ProjectExpenseType.Direct, PaymentStatus.Paid, null));
-        await expenses.CreateAsync(new SaveProjectExpenseRequest(project.Id, Today, head.Id, null, "B",
+        var b = await expenses.CreateAsync(new SaveProjectExpenseRequest(project.Id, Today, head.Id, null, "B",
             15_000m, ProjectExpenseType.Direct, PaymentStatus.Paid, null));
+        await sp.ApproveAsync(ApprovalEntityTypes.ProjectExpense, a.Id);
+        await sp.ApproveAsync(ApprovalEntityTypes.ProjectExpense, b.Id);
 
         var byHead = await expenses.CostByHeadAsync(project.Id);
 

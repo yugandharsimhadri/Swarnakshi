@@ -8,9 +8,13 @@ import type { ApprovalItem, Paged } from "@/lib/types";
 const label: Record<string, string> = {
   MaterialRequest: "Material Request",
   Purchase: "Purchase",
+  SupplierPayment: "Supplier Payment",
   ContractorPayment: "Contractor Payment",
   LabourEntry: "Labour Payment",
-  CustomerPayment: "Customer Payment",
+  EmployeePayment: "Employee Payment",
+  CustomerPayment: "Customer Receipt",
+  ProjectExpense: "Villa Expense",
+  SiteExpense: "Site Expense",
   InventoryAdjustment: "Inventory Adjustment",
 };
 

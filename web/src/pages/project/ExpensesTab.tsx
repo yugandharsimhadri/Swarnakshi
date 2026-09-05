@@ -18,6 +18,7 @@ export default function Expenses({ projectId }: { projectId: string }) {
   const canLabour = useAuth((s) => s.can("labour.create"));
   const [open, setOpen] = useState(false);
   const [labourOpen, setLabourOpen] = useState(false);
+  const [sentForApproval, setSentForApproval] = useState(false);
   const { data, loading, error, reload } = useAsync(
     () => api<Paged<ProjectExpense>>("/expenses", { query: { projectId, pageSize: 100 } }),
     [projectId],
@@ -33,6 +34,15 @@ export default function Expenses({ projectId }: { projectId: string }) {
         {canCreate && <Button className="flex-1" onClick={() => setOpen(true)}>+ Expense</Button>}
         {canLabour && <Button variant="ghost" className="flex-1" onClick={() => setLabourOpen(true)}>+ Labour</Button>}
       </div>
+
+      {/* Said once, after saving, rather than as standing text on the form: whether an expense
+          waits depends on its amount, and warning about approval on every entry would be wrong
+          for every entry under the limit. */}
+      {sentForApproval && (
+        <div role="status" className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn">
+          Sent to the owner for approval. It counts towards this villa's cost once approved.
+        </div>
+      )}
 
       {(labour?.items.length ?? 0) > 0 && (
         <div className="space-y-2">
@@ -65,23 +75,37 @@ export default function Expenses({ projectId }: { projectId: string }) {
         onSaved={() => { setLabourOpen(false); reloadLabour(); }} />
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
         (data?.items.length ?? 0) === 0 ? <EmptyState title="No expenses" /> : data!.items.map((e) => (
-          <Card key={e.id} className="flex items-center justify-between">
+          <Card key={e.id} className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">{e.expenseHeadName}{e.expenseSubheadName ? ` · ${e.expenseSubheadName}` : ""}</div>
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold">{e.expenseHeadName}{e.expenseSubheadName ? ` · ${e.expenseSubheadName}` : ""}</span>
+                {/* Only the states that mean "this is not a cost yet" get a chip. Posted is the
+                    normal case and labelling every row with it would bury the two that matter. */}
+                {e.status !== 6 && (
+                  <Chip tone={e.status === 2 ? "warn" : e.status === 4 ? "danger" : "neutral"}>
+                    {TxnStatusName[e.status]}
+                  </Chip>
+                )}
+              </div>
               <div className="truncate text-xs text-text-dim">
                 {dateStr(e.date)} · {ExpenseTypeName[e.expenseType]} · {e.description || e.txnNumber}
               </div>
             </div>
-            <div className={`text-right text-sm tabular-nums ${e.status === 5 ? "text-text-dim line-through" : ""}`}>{money(e.amount)}</div>
+            <div className={`text-right text-sm tabular-nums ${e.status === 5 || e.status === 4 ? "text-text-dim line-through" : e.status === 2 ? "text-text-dim" : ""}`}>{money(e.amount)}</div>
           </Card>
         ))
       )}
-      <AddExpenseSheet projectId={projectId} open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); reload(); }} />
+      <AddExpenseSheet
+        projectId={projectId}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSaved={(pending) => { setOpen(false); setSentForApproval(pending); reload(); }}
+      />
     </div>
   );
 }
 
-function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
+function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: (sentForApproval: boolean) => void }) {
   const { data: heads } = useAsync(() => api<Lookup[]>("/expense-heads"), []);
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
   const [form, setForm] = useState({ headId: "", amount: "", description: "", type: "4", methodId: "" });
@@ -91,7 +115,7 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
   async function save() {
     setBusy(true); setErr(null);
     try {
-      await api("/expenses", {
+      const created = await api<ProjectExpense>("/expenses", {
         method: "POST",
         body: {
           projectId, date: new Date().toISOString().slice(0, 10), expenseHeadId: form.headId,
@@ -99,7 +123,9 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
           paymentStatus: 2, paymentMethodId: form.methodId || null,
         },
       });
-      onSaved();
+      // 2 is Pending Approval. Whether it waits depends on the owner's limit, so the screen has to
+      // read the answer off the saved row rather than assume either way.
+      onSaved(created.status === 2);
     } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
   }
 
