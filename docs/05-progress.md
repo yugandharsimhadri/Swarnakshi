@@ -4,6 +4,56 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-08 — The app died because SQL was thirty seconds behind IIS
+
+**The outage.** Sign-in was failing on the live site. `/health` returned **500.30** — the process was
+failing to start — so no credential would have worked; the login screen was reporting the symptom of
+a dead API. `iisreset` brought it back, which ruled out every configuration cause, because a missing
+settings file or an unmapped database user survives a restart.
+
+The event log had the answer, in two parts. First:
+
+```
+Application '/LM/W3SVC/10/ROOT' with physical root 'F:\sivayaan\copsapi\'
+failed to load coreclr. Exception message: CLR worker thread exited prematurely
+```
+
+and then, from the module's stdout capture:
+
+```
+Unhandled exception. Microsoft.Data.SqlClient.SqlException:
+... error: 26 - Error Locating Server/Instance Specified
+```
+
+**A boot race, and our own code turned it into an outage.** The app pool runs `AlwaysRunning`, so on
+a reboot IIS starts the process as soon as it can — which can be before SQL Server Express is
+accepting connections. `DbInitializer` connected, was refused, threw, and the process exited. And a
+process that has died cannot notice the database arriving a moment later: a few seconds of boot
+ordering became an outage that lasted until somebody restarted IIS.
+
+`MigrateOrExplainAsync` now waits. It retries for `Database:StartupWaitSeconds` (default 60, and it
+must stay under the app pool's 120-second `startupTimeLimit`) on the errors that mean *nothing
+answered at that address* — the timeouts and socket failures, -2, -1, 53, 10060, 10061 and the rest.
+Errors that mean *the server answered and refused you* are deliberately not retried: 262, 4060, 916
+and 5011 still fail immediately with the message naming the missing database user, because waiting
+would only delay a diagnosis that is already correct.
+
+Costs a healthy server nothing, and a genuinely misconfigured one a minute, after which it fails
+just as loudly — with a message that now names the server, counts the attempts, and lists the three
+causes in order, starting with the SQL service not running.
+
+Reproduced against `.\NOSUCHINSTANCE` with a 10-second budget: the same error 26, two retries logged
+at Warning, then the give-up message. Against SCOPS, `--migrate` still completes on the first
+attempt.
+
+**Also:** the settings template and `New-ProductionSettings.ps1` now write `StartupWaitSeconds`, and
+06c gained a section on the three ways this app fails to start and how to tell them apart from the
+event log alone.
+
+264 tests pass.
+
+---
+
 ## 2026-09-08 — A script that answers "why won't it start" in one run
 
 The live API is returning **500.30** again — process failed to start — and sign-in fails because

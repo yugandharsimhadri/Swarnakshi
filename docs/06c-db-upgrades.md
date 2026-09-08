@@ -1,5 +1,10 @@
 # 06c — Database upgrades on a live server
 
+> **If the API is down rather than out of date**, this is the wrong page. Run
+> `deploy\scripts\Diagnose-Startup.ps1` on the server; it finds the app through IIS, reads the log,
+> the event log and the database, and names the cause. See "When the API will not start" at the
+> bottom of this page for the failures seen so far.
+
 The server is live. From here on, every release that changes the schema ships **one upgrade script**
 covering only that release, and you choose how it is applied:
 
@@ -194,3 +199,63 @@ sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS_Rehearsal -i deploy\sql\upgrades\<the ne
 Better still, restore last night's backup into `COPS_Rehearsal` instead of building the baseline from
 migrations: then the rehearsal runs against the real data, which is where the surprises live. Drop
 the rehearsal database afterwards.
+
+---
+
+## 6. When the API will not start
+
+`HTTP 500.30` is IIS reporting that the process died before it could serve anything. The browser
+therefore shows nothing useful, and the symptom people report is whatever they were trying to do —
+"a CORS error on registration", "I can't log in". Neither is the problem. Check `/health` first: if
+it is 500, the API is down and no credential would have worked.
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy\scripts\Diagnose-Startup.ps1 -RunMigrate
+```
+
+It locates the app through IIS rather than assuming a path, then works down the startup order:
+process and app-pool state, the settings file, the log directory, the newest log, the event log, the
+database and its service, and finally the exe itself.
+
+### Three failures, and how to tell them apart
+
+**The database is not reachable yet.** Event log: `hit unexpected managed exception ... SqlException
+... error: 26 - Error Locating Server/Instance Specified`. Nothing is wrong with the configuration —
+the app pool runs `AlwaysRunning`, so on a reboot IIS starts the app before SQL Server Express is
+listening. The app now waits `Database:StartupWaitSeconds` (default 60) for the server to appear
+instead of dying on the first refusal, so this should no longer take the site down. Two things worth
+checking anyway:
+
+```bash
+Get-Service 'MSSQL$SQLEXPRESS' | Select-Object Status, StartType
+```
+
+It must be **Automatic**, not *Automatic (Delayed Start)* — delayed start guarantees IIS wins the
+race. And if the machine is slow to boot, raise `Database:StartupWaitSeconds`; it has to stay under
+the app pool's `startupTimeLimit`, which defaults to 120.
+
+**The database is reachable but will not open.** `CREATE DATABASE permission denied in database
+'master'`, or *cannot open database ... requested by the login*. The database exists but the login
+has no user inside it — indistinguishable from a missing database from the app's side. Re-run
+`01-create-database.sql` with the right `-v DbName`. The startup error now says this in full,
+including the command.
+
+**Nothing in the log at all, and the event log says `failed to load coreclr` or `CLR worker thread
+exited prematurely`.** The failure is before managed code, so there is nothing for the app to have
+written. Look at the settings file (missing `appsettings.Production.json`, a `Jwt:Key` under 32
+characters, or invalid JSON all throw before logging exists), then at whether the log directory is
+writable by the app pool identity. Note the default log location is the **parent** of the app
+folder plus `\logs` — an app at `F:\sivayaan\copsapi` logs to `F:\sivayaan\logs`, not beside itself.
+Set `Logging:Directory` explicitly if that is not what you want.
+
+### Keep the module's stdout capture on
+
+It is what turned "the app is down" into a one-line diagnosis both times. In `web.config`:
+
+```xml
+<aspNetCore ... stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" />
+```
+
+The folder must exist and be writable by the app pool identity, or the setting silently does
+nothing. This catches exactly the failures that happen before the application's own logging starts,
+which are the ones that otherwise leave no trace.

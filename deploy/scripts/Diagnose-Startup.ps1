@@ -28,13 +28,11 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $AppRoot = 'C:\Swarnakshi',
+    [string] $AppRoot = '',
     [switch] $RunMigrate
 )
 
 $ErrorActionPreference = 'Continue'
-$app = Join-Path $AppRoot 'app'
-$settingsPath = Join-Path $app 'appsettings.Production.json'
 $problems = New-Object System.Collections.Generic.List[string]
 
 function Section($n) { Write-Host "`n===== $n " -ForegroundColor Cyan }
@@ -42,8 +40,41 @@ function Bad($m) { Write-Host "  FAIL  $m" -ForegroundColor Red; $problems.Add($
 function Ok($m)  { Write-Host "  ok    $m" -ForegroundColor Green }
 function Info($m){ Write-Host "        $m" -ForegroundColor Gray }
 
+# ---- 0. find the app, rather than assuming where it is -----------------------
+# The two supported layouts put the binaries in different places - Deploy.ps1 uses <root>\app\,
+# and an IIS site created by hand often points straight at the folder. Guessing wrong makes every
+# check below report a missing file, which reads like a broken install and is not.
+function Resolve-AppFolder([string] $hint) {
+    $candidates = @()
+    if ($hint) { $candidates += (Join-Path $hint 'app'), $hint }
+
+    # Ask IIS where its sites actually live. This is how you find an install nobody documented.
+    try {
+        Import-Module WebAdministration -ErrorAction Stop
+        foreach ($site in (Get-Website -ErrorAction SilentlyContinue)) {
+            $p = [Environment]::ExpandEnvironmentVariables($site.physicalPath)
+            if ($p) { $candidates += $p, (Join-Path $p 'app') }
+        }
+    } catch { }
+
+    $candidates += 'C:\Swarnakshi\app', 'C:\Swarnakshi'
+
+    foreach ($c in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (Test-Path (Join-Path $c 'Swarnakshi.Api.dll')) { return $c }
+    }
+    return $null
+}
+
+$app = Resolve-AppFolder $AppRoot
+if (-not $app) {
+    $app = if ($AppRoot) { Join-Path $AppRoot 'app' } else { 'C:\Swarnakshi\app' }
+    Bad "Could not find Swarnakshi.Api.dll in any IIS site or the usual locations. Pass -AppRoot <the site's physical path>."
+}
+if (-not $AppRoot) { $AppRoot = Split-Path $app -Parent }
+$settingsPath = Join-Path $app 'appsettings.Production.json'
+
 Write-Host "Swarnakshi startup diagnosis - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor White
-Info "AppRoot: $AppRoot"
+Info "binaries: $app"
 
 # ---- 1. is anything running --------------------------------------------------
 Section '1. Process'
@@ -106,7 +137,9 @@ if ($settings) {
 Section '3. Log directory'
 $logDir = $null
 if ($settings -and $settings.Logging -and $settings.Logging.Directory) { $logDir = $settings.Logging.Directory }
-if (-not $logDir) { $logDir = Join-Path $AppRoot 'logs' }
+# Program.cs derives it from where the binaries are: the PARENT of the app folder, plus \logs. So
+# an app at F:\sivayaan\copsapi logs to F:\sivayaan\logs, not beside itself.
+if (-not $logDir) { $logDir = Join-Path (Split-Path $app -Parent) 'logs' }
 Info "expected at: $logDir"
 
 if (-not (Test-Path $logDir)) {
@@ -169,6 +202,22 @@ if (-not $settings -or [string]::IsNullOrWhiteSpace($settings.ConnectionStrings.
     $cs = $settings.ConnectionStrings.Default
     $b = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $cs
     Info "server=$($b['Data Source'])  database=$($b['Initial Catalog'])  login=$(if ($b['Integrated Security']) { 'integrated' } else { $b['User ID'] })"
+
+    # Is the engine even running? "Cannot connect" and "the service is stopped" get the same
+    # SqlException, and only one of them is fixed by starting a service.
+    $instance = "$($b['Data Source'])" -replace '^.*\\', ''
+    $svcName = if ($instance -and $instance -ne "$($b['Data Source'])") { "MSSQL`$$instance" } else { 'MSSQLSERVER' }
+    $sql = Get-Service $svcName -ErrorAction SilentlyContinue
+    if (-not $sql) { Info "no local service named $svcName - the server may be on another machine" }
+    else {
+        Info "$svcName is $($sql.Status), start type $($sql.StartType)"
+        if ($sql.Status -ne 'Running') { Bad "$svcName is $($sql.Status). Start it: Start-Service '$svcName'" }
+        # Delayed start is the classic cause of a boot-time outage: IIS is up and asking before SQL
+        # is listening, and a process that died cannot notice the database arriving a moment later.
+        if ($sql.StartType -eq 'Automatic' -and (Get-CimInstance Win32_Service -Filter "Name='$($svcName.Replace('$','\$'))'" -ErrorAction SilentlyContinue).DelayedAutoStart) {
+            Bad "$svcName is set to Automatic (Delayed Start), so IIS starts before it at boot. Set it to plain Automatic."
+        }
+    }
 
     $conn = New-Object System.Data.SqlClient.SqlConnection $cs
     try {

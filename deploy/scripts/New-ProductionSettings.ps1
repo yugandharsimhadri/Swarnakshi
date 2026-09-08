@@ -68,7 +68,9 @@ if (-not $jwtKey) {
 
 $settings = [ordered]@{
     ConnectionStrings = [ordered]@{ Default = $ConnectionString }
-    Database          = [ordered]@{ CommandTimeoutSeconds = 60 }
+    # StartupWaitSeconds: IIS starts this app at boot, sometimes before SQL Server is listening.
+    # Waiting a minute turns that race into a slow start instead of an outage.
+    Database          = [ordered]@{ CommandTimeoutSeconds = 60; StartupWaitSeconds = 60 }
     Jwt               = [ordered]@{
         Issuer = 'Swarnakshi'; Audience = 'Swarnakshi'; Key = $jwtKey
         AccessTokenMinutes = 60; RefreshTokenDays = 7
