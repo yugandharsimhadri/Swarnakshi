@@ -4,6 +4,39 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-08 — A script that answers "why won't it start" in one run
+
+The live API is returning **500.30** again — process failed to start — and sign-in fails because
+there is no API behind the UI. Second time in five days that the reported symptom (last time a CORS
+error, this time a login failure) has been a dead process wearing a different mask, and both times
+the first hour went on getting the actual error text off the server.
+
+`Diagnose-Startup.ps1` collects it in one run, in the order the startup path fails:
+
+1. Process, service and IIS app-pool state — a pool that has **stopped itself** is rapid-fail
+   protection after five crashes, and returns 503 rather than 500.30. Different symptom, different
+   fix, easy to conflate.
+2. `appsettings.Production.json` — present, parses, `Jwt:Key` at least 32 characters, readable. A
+   deployment that replaced the app folder without restoring this file throws on `Jwt:Key` before
+   logging exists, so it leaves nothing behind to read.
+3. The log directory — the first thing `Program.cs` touches. A permissions failure here means the
+   process dies having written nothing anywhere, which is the case that wastes the most time.
+4. The newest log: `[ERR]`/`[FTL]` lines first, then the tail.
+5. The Windows event log, where the ASP.NET Core Module captures what died before Serilog existed.
+6. The database, opened with the app's **own** connection string, and the applied migrations
+   compared against the ids compiled into the deployed `Swarnakshi.Infrastructure.dll` — which
+   catches a build copied over without its schema step.
+7. `-RunMigrate` runs the published exe and prints the real exception.
+
+Reading the migration ids out of the DLL needed both encodings: the id sits in a `[Migration("…")]`
+attribute, so it is UTF-8 in the metadata while ordinary user strings are UTF-16, and scanning for
+one silently found nothing and reported nothing — a check that passes by saying less.
+
+Verified against a scratch AppRoot pointed at SCOPS: all seven sections run, the database section
+lists the three applied migrations, and the comparison correctly reports the schema as matching.
+
+---
+
 ## 2026-09-05 — One gate, one number, and a bundle that stops carrying the whole app
 
 **The rule.** Every purchase and every payment goes to the Owner, villa expenses included, unless
