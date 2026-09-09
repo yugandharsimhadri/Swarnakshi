@@ -419,10 +419,16 @@ public class MaterialMasterTests
         await svc.DeactivateAsync(m.Id);
         await svc.ReactivateAsync(m.Id);
 
-        var actions = await db.AuditLogs.Where(a => a.EntityType == "Material" && a.EntityId == m.Id)
-            .Select(a => a.Action).ToListAsync();
+        var trail = await db.AuditLogs.Where(a => a.EntityType == "Material" && a.EntityId == m.Id)
+            .ToListAsync();
 
-        actions.Should().BeEquivalentTo(["Material created", "Material deactivated", "Material reactivated"]);
+        trail.Select(a => a.Action).Should()
+            .BeEquivalentTo(["Created", "Updated: IsActive", "Updated: IsActive"]);
+
+        // The prose version of this trail said "deactivated" and left you to guess what that had
+        // been before. Recording the values is the difference between a log and a record.
+        trail.Should().Contain(a => a.DataJson != null && a.DataJson.Contains("true -> false"));
+        trail.Should().Contain(a => a.DataJson != null && a.DataJson.Contains("false -> true"));
     }
 
     // ---- regression: existing relationships still resolve ----------------

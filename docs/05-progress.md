@@ -4,6 +4,64 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-09 — An audit trail nobody looks at, which is the point
+
+Asked for: a record of every action — edit, delete — with no screen, purely so the actions *can* be
+traced later if they ever need to be.
+
+**Written in `SaveChangesAsync`, and nowhere else.** Same reason the tenant is stamped there and the
+approval limit lives in one method: a rule enforced in one place is a rule, and a rule copied into
+thirty services is a rule until somebody writes the thirty-first. Every write in the application
+goes through that method, so every write is recorded — including the ones added next year, by
+someone who has never read this entry.
+
+What was there before covered `Created` on auditable entities and status transitions, and two
+services hand-wrote their own rows. So an edit to a supplier's bank details, a change to a project's
+estimate, a deleted unit, a permission taken away, a changed auto-approve limit — none of it was
+recorded anywhere. All of it is now.
+
+**What each kind of row keeps, and why they differ.**
+
+| | recorded | reasoning |
+|---|---|---|
+| Created | who and when, no snapshot | the row still exists and can be read |
+| Updated | `field: before -> after` for each change | the *before* is the only part about to be lost |
+| Deleted | the whole row | after this nothing else holds it |
+
+Two mechanisms became one: the hand-written audits in `MaterialService` and `PartyService` are
+deleted. They read more prettily — "Material deactivated" — and said less: the generic diff records
+`IsActive: true -> false`, which is the same fact plus the value. Their tests now assert the values,
+which the prose could not carry.
+
+**Three details that are not obvious.**
+
+Secrets never reach it. Any field whose name contains password, token, secret or hash is written as
+`*** -> ***`, so the trail records *that* a password changed without recording either side of it.
+
+Stamps that always ride along are excluded — `ModifiedAt`, `ModifiedBy`, `ConcurrencyToken`, and
+`ApprovedBy`/`ApprovedAt`. The last two matter: they change with every approval, and the audit row's
+own `UserId` and `At` already say the same thing more precisely. Listing them pushed the interesting
+field out of the action line to repeat what was sitting beside it.
+
+The JSON uses relaxed escaping. The default encoder renders `>` as `>`, which would turn this
+trail's entire vocabulary — `before -> after` — into `before -> after` for whoever is reading it
+in a query window at midnight. The usual reason to keep strict escaping is HTML injection, and
+nothing renders these rows: no screen reads them, by design.
+
+**And the operational half, which nobody asks for until it is too late.** The table is append-only
+and nothing prunes it. SQL Server **Express caps a database at 10 GB**, and reaching that cap does
+not degrade the trail — it stops every write in the application. `deploy\sql\05-purge-audit.sql`
+takes a required `KeepMonths` of at least twelve (a trail shorter than a financial year cannot
+answer what a trail is kept for) and deletes in batches, so a large first run neither holds one
+enormous transaction nor blocks the app while it runs.
+
+Indexed for the only two questions it will ever be asked: what happened to *this* row, and what
+happened *last Tuesday*.
+
+292 tests pass, 8 of them new.
+
+---
+
 ## 2026-09-09 — One villa, end to end, and every rupee accounted for
 
 The suite tested each posting on its own and nothing tested them against each other.

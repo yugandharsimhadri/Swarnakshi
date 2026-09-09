@@ -76,7 +76,6 @@ public interface IPartyService
 /// </summary>
 public class PartyService(
     IAppDbContext db,
-    ICurrentUser currentUser,
     IValidator<SavePartyRequest> validator,
     ICodeGenerator codes) : IPartyService
 {
@@ -236,7 +235,6 @@ public class PartyService(
             }
         }
 
-        Audit(kind, savedId, code, req.Name, isNew ? "created" : "updated");
         await db.SaveChangesAsync(ct);
         return await GetAsync(kind, savedId, ct);
     }
@@ -283,7 +281,6 @@ public class PartyService(
             }
         }
 
-        Audit(kind, id, code, name, active ? "reactivated" : "deactivated");
         await db.SaveChangesAsync(ct);
         return await GetAsync(kind, id, ct);
     }
@@ -339,19 +336,6 @@ public class PartyService(
                 $"This {kind.ToString().ToLowerInvariant()} has transaction history, so its code can no longer be changed.",
                 409);
     }
-
-    /// <summary>Contractor/Customer/Supplier are plain masters, so audit rows are written explicitly
-    /// rather than by the AuditableEntity hook in SaveChangesAsync.</summary>
-    private void Audit(PartyKind kind, Guid id, string code, string name, string action) =>
-        db.AuditLogs.Add(new AuditLog
-        {
-            EntityType = kind.ToString(),
-            EntityId = id,
-            Action = $"{kind} {action}",
-            DataJson = $"{code} · {name}",
-            UserId = currentUser.UserId,
-            At = DateTimeOffset.UtcNow
-        });
 
     private static PartyDetailDto Map(Contractor c, PartyUsageDto usage) => new(
         c.Id, c.Code, c.Name, c.CompanyName, c.Mobile, c.Email, c.Address, c.Pan, c.Gstin,

@@ -826,3 +826,73 @@ Gotcha 30 — **the upgrade path is not the seeded path.** `PlatformSeeder` crea
 only when there are no users, so on an upgraded database that branch never runs. Anything that
 assumes a freshly seeded tenant needs a matching answer for a tenant adopted from a
 pre-multi-tenancy database — see `UpgradeFromSingleTenantTests`.
+
+---
+
+## 13. The audit trail
+
+Every insert, edit and delete in the application writes a row to `AuditLogs`. **No screen reads
+them.** They exist so that "who changed this, and what did it say before?" can be answered months
+later — a question that cannot be answered retrospectively, which is why the writes are paid for now.
+
+It is written in `AppDbContext.SaveChangesAsync` and nowhere else, so it covers every write without
+any service having to remember, including ones added later.
+
+| Action | `DataJson` |
+|---|---|
+| `Created` | *(null — the row still exists and can be read)* |
+| `Updated: Name, City` | `{"Name":"Green Valley -> Green Meadows", ...}` |
+| `Status PendingApproval -> Posted` | the same diff; the transition leads because it is what people search for |
+| `Deleted` | the whole row, because nothing else holds it afterwards |
+
+Fields whose names contain password, token, secret or hash are written as `*** -> ***`: the trail
+records *that* a password changed, never either side of it.
+
+### Reading it
+
+```sql
+-- everything that ever happened to one row
+SELECT At, Action, DataJson, UserId FROM AuditLogs
+WHERE EntityType = 'ProjectExpense' AND EntityId = '<id>' ORDER BY At;
+
+-- everything one person did on one day
+SELECT a.At, a.EntityType, a.Action, a.DataJson FROM AuditLogs a
+JOIN Users u ON u.Id = a.UserId
+WHERE u.Username = 'anil' AND a.At >= '2026-09-01' AND a.At < '2026-09-02' ORDER BY a.At;
+
+-- who changed the auto-approve limit, and to what
+SELECT a.At, u.Username, a.DataJson FROM AuditLogs a
+LEFT JOIN Users u ON u.Id = a.UserId
+JOIN Settings s ON s.Id = a.EntityId
+WHERE s.[Key] = 'approvals.auto_approve_limit' ORDER BY a.At DESC;
+```
+
+Both indexed paths are covered: `IX_AuditLogs_Entity` for the first, `IX_AuditLogs_When` for the
+second.
+
+### It has to be trimmed
+
+The table is append-only and nothing prunes it. **SQL Server Express caps a database at 10 GB**, and
+hitting that cap does not degrade the trail — it stops every write in the application. So this is
+not housekeeping:
+
+```bash
+sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i 05-purge-audit.sql -v KeepMonths="24"
+```
+
+`KeepMonths` is required and must be at least 12 — a trail shorter than a financial year cannot
+answer what a trail is kept for. It deletes in batches, so a large first run does not hold one
+enormous transaction or block the application, and it is safe to stop and re-run. Check the size
+before deciding:
+
+```sql
+SELECT COUNT(*) AS Rows,
+       CAST(SUM(DATALENGTH(DataJson)) / 1048576.0 AS decimal(10,1)) AS DataMB,
+       MIN(At) AS Oldest, MAX(At) AS Newest
+FROM AuditLogs;
+```
+
+### What it does not cover
+
+Platform-level rows — the `Companies` table and `PlatformUsers` — are not tenant-owned and are not
+audited. An audit row belongs to a company by construction, and those rows belong to none.

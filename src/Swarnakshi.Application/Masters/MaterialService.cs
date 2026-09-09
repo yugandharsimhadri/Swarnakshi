@@ -93,7 +93,6 @@ public interface IMaterialService
 
 public class MaterialService(
     IAppDbContext db,
-    ICurrentUser currentUser,
     IValidator<SaveMaterialRequest> validator,
     ICodeGenerator codes) : IMaterialService
 {
@@ -312,7 +311,6 @@ public class MaterialService(
 
         SyncSpecValues(material, resolved, isNew);
 
-        Audit(material, isNew ? "Material created" : "Material updated");
         await db.SaveChangesAsync(ct);
         return await GetAsync(material.Id, ct);
     }
@@ -333,7 +331,6 @@ public class MaterialService(
                 "stock before deactivating the material.", 409);
 
         m.IsActive = false;
-        Audit(m, "Material deactivated");
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
@@ -345,7 +342,6 @@ public class MaterialService(
 
         if (m.IsActive) return await GetAsync(id, ct);
         m.IsActive = true;
-        Audit(m, "Material reactivated");
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
@@ -384,17 +380,6 @@ public class MaterialService(
             }
     }
 
-    /// <summary>Material is a plain master, so audit rows are written explicitly rather than by the
-    /// AuditableEntity hook in <c>SaveChangesAsync</c>.</summary>
-    private void Audit(Material m, string action) => db.AuditLogs.Add(new AuditLog
-    {
-        EntityType = nameof(Material),
-        EntityId = m.Id,
-        Action = action,
-        DataJson = $"{m.Code} · {m.Name}",
-        UserId = currentUser.UserId,
-        At = DateTimeOffset.UtcNow
-    });
 
     /// <summary>
     /// The unit a material gets when nobody picked one. "Nos" (a countable thing) is right far more

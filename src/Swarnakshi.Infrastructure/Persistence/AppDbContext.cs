@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Domain.Common;
@@ -180,33 +181,49 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>().ToList())
         {
-            if (entry.State == EntityState.Added)
-            {
-                // Stamp the tenant rather than trusting each service to remember it. Refusing to
-                // write an unowned row is the point: a row with no company would be visible to
-                // nobody and belong to nobody, and silently losing it is worse than failing here.
-                if (entry.Entity.CompanyId == Guid.Empty)
-                {
-                    entry.Entity.CompanyId = CompanyScope
-                        ?? throw new InvalidOperationException(
-                            $"Cannot insert {entry.Entity.GetType().Name}: no tenant is in scope. " +
-                            "Sign in as a company user, or wrap the write in IAppDbContext.BeginTenantScope.");
-                }
+            // Never audit the audit. Nothing reads these rows in the application, so a trail of
+            // trail-writing would grow without limit and tell nobody anything.
+            if (entry.Entity is AuditLog) continue;
 
-                entry.Entity.CreatedAt = now;
-                entry.Entity.CreatedBy ??= uid;
-                if (entry.Entity is AuditableEntity)
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    // Stamp the tenant rather than trusting each service to remember it. Refusing to
+                    // write an unowned row is the point: a row with no company would be visible to
+                    // nobody and belong to nobody, and silently losing it is worse than failing here.
+                    if (entry.Entity.CompanyId == Guid.Empty)
+                    {
+                        entry.Entity.CompanyId = CompanyScope
+                            ?? throw new InvalidOperationException(
+                                $"Cannot insert {entry.Entity.GetType().Name}: no tenant is in scope. " +
+                                "Sign in as a company user, or wrap the write in IAppDbContext.BeginTenantScope.");
+                    }
+
+                    entry.Entity.CreatedAt = now;
+                    entry.Entity.CreatedBy ??= uid;
+                    // No snapshot: the row itself is the record of what was created, and it is
+                    // still there to be read.
                     audits.Add(Audit(entry.Entity, "Created", null, uid, now));
-            }
-            else if (entry.State == EntityState.Modified && entry.Entity is AuditableEntity aud)
-            {
-                aud.ModifiedAt = now;
-                aud.ModifiedBy = uid;
-                aud.ConcurrencyToken = Guid.NewGuid(); // EF keeps the loaded value for the WHERE clause
+                    break;
 
-                var statusProp = entry.Property(nameof(AuditableEntity.Status));
-                if (statusProp.IsModified && !Equals(statusProp.OriginalValue, statusProp.CurrentValue))
-                    audits.Add(Audit(aud, $"Status {statusProp.OriginalValue} -> {statusProp.CurrentValue}", aud.Remarks, uid, now));
+                case EntityState.Modified:
+                    if (entry.Entity is AuditableEntity aud)
+                    {
+                        aud.ModifiedAt = now;
+                        aud.ModifiedBy = uid;
+                        aud.ConcurrencyToken = Guid.NewGuid(); // EF keeps the loaded value for the WHERE clause
+                    }
+
+                    var changes = Changes(entry);
+                    if (changes.Count > 0)
+                        audits.Add(Audit(entry.Entity, DescribeEdit(changes), Json(changes), uid, now));
+                    break;
+
+                case EntityState.Deleted:
+                    // The opposite of Created: after this the row is gone, so the snapshot IS the
+                    // record. Whatever is not written here cannot be recovered from the table.
+                    audits.Add(Audit(entry.Entity, "Deleted", Json(Snapshot(entry)), uid, now));
+                    break;
             }
         }
 
@@ -214,12 +231,123 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
         return base.SaveChangesAsync(ct);
     }
 
+    // ---- the audit trail ---------------------------------------------------
+    //
+    // Written here rather than in each service, for the same reason the tenant is stamped here: a
+    // rule enforced in one place is a rule, and a rule copied into thirty services is a rule until
+    // somebody writes the thirty-first. Every write in the application goes through SaveChangesAsync,
+    // so every write is recorded, including the ones added next year.
+    //
+    // Nothing displays these rows. They exist to answer "who changed this, and what did it say
+    // before" months later, which is a question that cannot be answered retrospectively.
+
+    /// <summary>
+    /// Columns that ride along with every edit and carry no information about it. CompanyId and
+    /// IsDemo are here because they never legitimately change; the rest are stamps that the audit
+    /// row itself already records, and more precisely — <c>ApprovedBy</c> and <c>ApprovedAt</c>
+    /// always travel with the status change that set them, where <c>UserId</c> and <c>At</c> on
+    /// this very row say the same thing. Listing them would push the interesting field out of the
+    /// action line for the sake of repeating what is beside it.
+    /// </summary>
+    private static readonly HashSet<string> NotWorthRecording =
+    [
+        nameof(BaseEntity.CompanyId), nameof(BaseEntity.CreatedAt), nameof(BaseEntity.CreatedBy),
+        nameof(BaseEntity.IsDemo), nameof(AuditableEntity.ModifiedAt), nameof(AuditableEntity.ModifiedBy),
+        nameof(AuditableEntity.ConcurrencyToken),
+        nameof(AuditableEntity.ApprovedAt), nameof(AuditableEntity.ApprovedBy),
+    ];
+
+    private static bool IsSecret(string property) =>
+        property.Contains("Password", StringComparison.OrdinalIgnoreCase)
+        || property.Contains("Token", StringComparison.OrdinalIgnoreCase)
+        || property.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+        || property.Contains("Hash", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What actually changed, as <c>field: before -> after</c>.</summary>
+    private static Dictionary<string, string> Changes(EntityEntry<BaseEntity> entry)
+    {
+        var changes = new Dictionary<string, string>();
+        foreach (var p in entry.Properties)
+        {
+            var name = p.Metadata.Name;
+            if (!p.IsModified || NotWorthRecording.Contains(name)) continue;
+            if (Equals(p.OriginalValue, p.CurrentValue)) continue;   // EF marks unchanged values modified often enough
+
+            changes[name] = IsSecret(name)
+                ? "*** -> ***"
+                : $"{Show(p.OriginalValue)} -> {Show(p.CurrentValue)}";
+        }
+        return changes;
+    }
+
+    /// <summary>Everything the row said, for a row that is about to stop existing.</summary>
+    private static Dictionary<string, string> Snapshot(EntityEntry<BaseEntity> entry)
+    {
+        var values = new Dictionary<string, string>();
+        foreach (var p in entry.Properties)
+        {
+            var name = p.Metadata.Name;
+            if (NotWorthRecording.Contains(name)) continue;
+            values[name] = IsSecret(name) ? "***" : Show(p.OriginalValue);
+        }
+        return values;
+    }
+
+    /// <summary>
+    /// The action line, written to be searched. A status change is spelled out in full because it
+    /// is what anyone reading this trail is usually looking for — but it never hides the rest of
+    /// the edit, because a rename smuggled through alongside an approval is exactly the thing
+    /// somebody would come here to find. Values for every field are in <c>DataJson</c>.
+    /// </summary>
+    private static string DescribeEdit(Dictionary<string, string> changes)
+    {
+        if (!changes.TryGetValue(nameof(AuditableEntity.Status), out var status))
+            return $"Updated: {string.Join(", ", changes.Keys)}";
+
+        var others = changes.Keys.Where(k => k != nameof(AuditableEntity.Status)).ToList();
+        return others.Count == 0
+            ? $"Status {status}"
+            : $"Status {status} (+ {string.Join(", ", others)})";
+    }
+
+    private static string Show(object? value) => value switch
+    {
+        null => "(null)",
+        bool b => b ? "true" : "false",
+        DateOnly d => d.ToString("yyyy-MM-dd"),
+        DateTimeOffset t => t.ToString("u"),
+        IFormattable f => f.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        _ => value.ToString() ?? "",
+    };
+
+    /// <summary>
+    /// Relaxed escaping on purpose. The default encoder turns every <c>&gt;</c> into <c>></c>,
+    /// which would render this trail's whole vocabulary — <c>before -&gt; after</c> — as
+    /// <c>before -> after</c> to whoever is reading it in a query window at midnight. The
+    /// usual reason to keep the strict encoder is HTML injection, and nothing renders these rows:
+    /// no screen reads them, by design.
+    /// </summary>
+    private static readonly System.Text.Json.JsonSerializerOptions AuditJson = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    /// <summary>
+    /// Capped, because one pathological row must not be able to bloat the table. The cap is far
+    /// above any real row and the marker says plainly when it has bitten.
+    /// </summary>
+    private static string Json(Dictionary<string, string> values)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(values, AuditJson);
+        return json.Length <= 3_800 ? json : json[..3_800] + "…(truncated)";
+    }
+
     private static AuditLog Audit(BaseEntity entity, string action, string? data, Guid? uid, DateTimeOffset at) => new()
     {
         CompanyId = entity.CompanyId,
         EntityType = entity.GetType().Name,
         EntityId = entity.Id,
-        Action = action,
+        Action = action.Length <= 400 ? action : action[..400],
         DataJson = data,
         UserId = uid,
         At = at

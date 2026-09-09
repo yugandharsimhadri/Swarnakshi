@@ -9,7 +9,7 @@
 
     Run it against the LIVE database, before or during the deployment of the matching build:
 
-        sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i 2026-09-09-engineer-role-and-contract-amount-only.sql
+        sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i 2026-09-09-audit-trail.sql
 
     -b matters: without it sqlcmd returns success even when a batch failed, and a half-applied
     upgrade looks like a clean run.
@@ -22,7 +22,7 @@
     Schema only. No master data: settings, expense heads, units and the material taxonomy are
     seeded by the application on first start, not here.
 
-    Generated: 2026-09-09 10:13:54 from commit d7b417a
+    Generated: 2026-09-09 19:27:52 from commit 965bb9f
 */
 
 -- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server refuses to create this schema's
@@ -138,6 +138,93 @@ IF NOT EXISTS (
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
     VALUES (N'20260909043949_EngineerRoleAndContractAmountOnly', N'10.0.0');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    UPDATE [AuditLogs] SET [Action] = LEFT([Action], 400) WHERE LEN([Action]) > 400;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    UPDATE [AuditLogs] SET [EntityType] = LEFT([EntityType], 100) WHERE LEN([EntityType]) > 100;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    DECLARE @var1 nvarchar(max);
+    SELECT @var1 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[AuditLogs]') AND [c].[name] = N'EntityType');
+    IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [AuditLogs] DROP CONSTRAINT ' + @var1 + ';');
+    ALTER TABLE [AuditLogs] ALTER COLUMN [EntityType] nvarchar(100) NOT NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    DECLARE @var2 nvarchar(max);
+    SELECT @var2 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[AuditLogs]') AND [c].[name] = N'DataJson');
+    IF @var2 IS NOT NULL EXEC(N'ALTER TABLE [AuditLogs] DROP CONSTRAINT ' + @var2 + ';');
+    ALTER TABLE [AuditLogs] ALTER COLUMN [DataJson] nvarchar(max) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    DECLARE @var3 nvarchar(max);
+    SELECT @var3 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[AuditLogs]') AND [c].[name] = N'Action');
+    IF @var3 IS NOT NULL EXEC(N'ALTER TABLE [AuditLogs] DROP CONSTRAINT ' + @var3 + ';');
+    ALTER TABLE [AuditLogs] ALTER COLUMN [Action] nvarchar(400) NOT NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    CREATE INDEX [IX_AuditLogs_Entity] ON [AuditLogs] ([CompanyId], [EntityType], [EntityId], [At]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    CREATE INDEX [IX_AuditLogs_When] ON [AuditLogs] ([CompanyId], [At]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909134423_AuditTrail'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260909134423_AuditTrail', N'10.0.0');
 END;
 
 COMMIT;

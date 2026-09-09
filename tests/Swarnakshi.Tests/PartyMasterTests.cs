@@ -464,11 +464,15 @@ public class PartyMasterTests
         await svc.DeactivateAsync(PartyKind.Contractor, c.Id);
         await svc.ReactivateAsync(PartyKind.Contractor, c.Id);
 
-        var actions = await db.AuditLogs.Where(a => a.EntityType == "Contractor" && a.EntityId == c.Id)
-            .Select(a => a.Action).ToListAsync();
+        var trail = await db.AuditLogs.Where(a => a.EntityType == "Contractor" && a.EntityId == c.Id)
+            .ToListAsync();
 
-        actions.Should().BeEquivalentTo(
-            ["Contractor created", "Contractor updated", "Contractor deactivated", "Contractor reactivated"]);
+        trail.Should().HaveCount(4, "created, renamed, deactivated, reactivated");
+        trail.Should().ContainSingle(a => a.Action == "Created");
+        trail.Should().Contain(a => a.DataJson != null && a.DataJson.Contains("Renamed"),
+            "the new name is in the trail, and so is the one it replaced");
+        trail.Should().Contain(a => a.DataJson != null && a.DataJson.Contains("true -> false"));
+        trail.Should().Contain(a => a.DataJson != null && a.DataJson.Contains("false -> true"));
     }
 
     [Fact]
@@ -485,7 +489,7 @@ public class PartyMasterTests
         var actions = await db.AuditLogs.Where(a => a.EntityType == "Customer" && a.EntityId == c.Id)
             .Select(a => a.Action).ToListAsync();
 
-        actions.Should().BeEquivalentTo(["Customer created", "Customer deactivated"]);
+        actions.Should().BeEquivalentTo(["Created", "Updated: IsActive"]);
     }
 
     // ---- permissions -----------------------------------------------------
