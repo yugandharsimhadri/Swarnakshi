@@ -4,6 +4,54 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-09 — One villa, end to end, and every rupee accounted for
+
+The suite tested each posting on its own and nothing tested them against each other.
+`EndToEndVillaTests` walks a villa from an empty site to a half-built house with money owed both
+ways — purchase, issue, direct delivery, contractor, labour, a salary charged to the villa, an
+expense, two customer receipts — through the services a person actually uses, and then checks every
+number against every other.
+
+The assertion that earns its place:
+
+```
+bought 281,000 = 180,000 still in the store + 101,000 charged to villas
+```
+
+Material is either on the shelf or on a villa. If that ever fails, it has been charged twice or has
+left the store without being charged to anybody, and both are the kind of discrepancy that is
+impossible to unpick a month later. Four more cover the rest: the total is the sum of its parts and
+nothing else; nothing pending counts towards anything; the auto-approve limit lets the small ones
+through and holds the rest; and one villa's cost never includes what was spent on its neighbour,
+even though they draw from the same store.
+
+**And the same journey by hand, through the UI.** A throwaway company registered through the real
+registration screen, then: buy 200 bags at ₹400, approve, request 80 for the villa, approve, issue,
+add an expense, approve. The screens agreed with the books at every step —
+
+| | |
+|---|---|
+| After the purchase | inventory ₹80,000 · **project cost ₹0** — the invariant the product rests on |
+| After the issue | store ₹48,000 (120 bags) · villa ₹32,000 — and 48 + 32 = 80 |
+| Expense raised | villa still ₹32,000, chip reads **Pending Approval** |
+| Expense approved | material 32,000 + other 15,000 = **total 47,000** |
+
+This is also what finally verified the two screens the last commit could not: the store balance now
+reads **"In store: 200 BAG · ₹400.00 each"** under a picked material, asking for 500 of 200 shows
+the red line and the banner and disables both buttons — confirmed disabled, not merely grey — and a
+villa expense says "Sent to the owner for approval" and stays out of the cost until it is.
+
+The material request in the approval queue showed **₹32,000**, which is the estimated value added
+last week so the auto-approve limit can apply to material as well as to money. That had never been
+seen on a screen before.
+
+The throwaway tenant was deleted afterwards; the `swarnakshi` tenant and its rows are untouched and
+nothing was orphaned.
+
+284 tests pass.
+
+---
+
 ## 2026-09-09 — A store that cannot lend what it does not have, and two roles
 
 **A request can no longer be raised for material the store does not hold.** It was refused before,
