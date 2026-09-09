@@ -307,7 +307,7 @@ public class ProfitReportingTests
 
         await sp.GetRequiredService<Application.Contractors.IContractWorkService>().CreateAsync(
             new Application.Contractors.SaveContractWorkRequest(
-                villa.Id, contractor.Id, "Masonry", null, 620_000, 640_000,
+                villa.Id, contractor.Id, "Masonry", null, 640_000,
                 Today, null, null, ContractWorkStatus.Active));
 
         var table = await sp.GetRequiredService<IReportsService>().ContractorCommitmentAsync();

@@ -269,7 +269,7 @@ public class AuthAndUserTests
     }
 
     [Fact]
-    public async Task Extra_permissions_widen_a_sub_owner_beyond_the_role_default()
+    public async Task A_new_sub_owner_can_do_everything_the_owner_can()
     {
         await using var host = await TestHost.CreateAsync();
         using var scope = host.Scope();
@@ -280,15 +280,39 @@ public class AuthAndUserTests
         var sub = await users.CreateAsync(
             new CreateUserRequest("Sub Owner", "sub", "subowner-pw", UserRole.SubOwner, null));
 
-        // SubOwner's role default is deliberately narrow.
-        var before = await host.MeAsAsync(auth, sub.Id);
-        before.Permissions.Should().NotContain(Permissions.MastersManage);
+        // Nothing is granted to them explicitly — they simply are one, and that is the point. A
+        // partner appointed on Monday should not need a second visit to the permission screen
+        // before they can approve anything.
+        var me = await host.MeAsAsync(auth, sub.Id);
+        me.Permissions.Should().BeEquivalentTo(Permissions.All);
+        me.Permissions.Should().Contain(Permissions.ApprovalsDecide);
+    }
 
-        await users.SetPermissionsAsync(sub.Id, new SetPermissionsRequest([Permissions.MastersManage]));
+    [Fact]
+    public async Task The_owner_can_take_a_permission_back_from_a_sub_owner()
+    {
+        await using var host = await TestHost.CreateAsync();
+        using var scope = host.Scope();
+        var sp = scope.ServiceProvider;
+        var users = sp.GetRequiredService<IUserService>();
+        var auth = sp.GetRequiredService<IAuthService>();
+
+        var sub = await users.CreateAsync(
+            new CreateUserRequest("Sub Owner", "sub", "subowner-pw", UserRole.SubOwner, null));
+
+        // The screen sends the list of what should remain ticked. Everything absent from it has to
+        // become an explicit denial — with a base set of everything, "not mentioned" would
+        // otherwise still mean allowed, and unticking a box would do nothing at all.
+        await users.SetPermissionsAsync(sub.Id,
+            new SetPermissionsRequest([Permissions.InventoryView, Permissions.ReportsView]));
 
         var after = await host.MeAsAsync(auth, sub.Id);
-        after.Permissions.Should().Contain(Permissions.MastersManage);
-        after.Permissions.Should().Contain(Permissions.InventoryView, "role defaults are kept as well");
+        after.Permissions.Should().BeEquivalentTo([Permissions.InventoryView, Permissions.ReportsView]);
+        after.Permissions.Should().NotContain(Permissions.ApprovalsDecide);
+
+        // And the screen must show what the session actually holds, not the stored rows.
+        (await users.GetAsync(sub.Id)).Permissions
+            .Should().BeEquivalentTo(after.Permissions);
     }
 
     [Fact]
@@ -303,12 +327,18 @@ public class AuthAndUserTests
         var sub = await users.CreateAsync(
             new CreateUserRequest("Sub Owner", "sub2", "subowner-pw", UserRole.SubOwner, null));
 
-        try { await users.SetPermissionsAsync(sub.Id, new SetPermissionsRequest(["not.a.real.permission"])); }
-        catch (AppException) { /* rejecting outright is also acceptable */ }
+        var act = () => users.SetPermissionsAsync(sub.Id,
+            new SetPermissionsRequest([Permissions.InventoryView, "not.a.real.permission"]));
+
+        // Refused outright. Dropping the bad key and saving the rest would be worse than it sounds:
+        // every permission left out of the list is now recorded as a denial, so a typo would take
+        // permissions away and report success.
+        (await act.Should().ThrowAsync<AppException>()).Which.Message.Should().Contain("not.a.real.permission");
 
         var me = await host.MeAsAsync(auth, sub.Id);
         me.Permissions.Should().NotContain("not.a.real.permission");
         me.Permissions.Should().OnlyContain(p => Permissions.All.Contains(p));
+        me.Permissions.Should().BeEquivalentTo(Permissions.All, "a refused save changes nothing");
     }
 
     [Fact]
@@ -352,7 +382,10 @@ public class AuthAndUserTests
     [Fact]
     public void Only_the_owner_can_decide_approvals_or_manage_users()
     {
-        foreach (var role in new[] { UserRole.SubOwner, UserRole.Supervisor, UserRole.Accountant })
+        // The Sub-Owner is deliberately absent from this list. They are the owner's second pair of
+        // hands, and approving while the owner is away is most of the point of the role — the
+        // owner takes individual permissions back per user if they want to. See RolePermissionTests.
+        foreach (var role in new[] { UserRole.Supervisor, UserRole.Engineer, UserRole.Accountant })
         {
             Permissions.ForRole(role).Should().NotContain(Permissions.ApprovalsDecide, $"{role} must not approve");
             Permissions.ForRole(role).Should().NotContain(Permissions.UsersManage, $"{role} must not manage users");

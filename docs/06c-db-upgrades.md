@@ -39,7 +39,32 @@ not match, you have the wrong script — stop and get the right one rather than 
 
 ---
 
-## 2. The upgrade for today's release — 5 September 2026
+## 2. The current upgrade — 9 September 2026
+
+**File:** `deploy\sql\upgrades\2026-09-09-engineer-role-and-contract-amount-only.sql`
+**From:** `20260904091235_PerformanceIndexes` → `20260909043949_EngineerRoleAndContractAmountOnly`
+
+Generated from the **4 September** baseline on purpose, so it carries the 5 September release as
+well for a server that has not taken it yet. Each migration is guarded independently: if
+`20260905075817_ApprovalGate` is already applied, that half is skipped and only the new work runs.
+
+It drops one column, `ContractWorks.EstimatedCost`. That is a **loss of data** and is intended — a
+work order now carries only what was agreed with the contractor. Everything else in the file is the
+5 September change described in section 2a below.
+
+The new **Engineer** role needs no schema change: `Users.Role` is an `int` and this is one more
+value (5). Nothing has to be run for it.
+
+```bash
+sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i 2026-09-09-engineer-role-and-contract-amount-only.sql
+```
+
+Rehearsed against a copy of the 4 September schema: ran clean twice, `EstimatedCost` gone,
+`__EFMigrationsHistory` holding all four migrations.
+
+---
+
+## 2a. The upgrade for the 5 September release
 
 **File:** `deploy\sql\upgrades\2026-09-05-approval-gate.sql`
 **From:** `20260904091235_PerformanceIndexes` → `20260905075817_ApprovalGate`

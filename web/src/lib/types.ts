@@ -1,5 +1,5 @@
-export type Role = 1 | 2 | 3 | 4; // Owner, SubOwner, Supervisor, Accountant
-export const RoleName: Record<Role, string> = { 1: "Owner", 2: "Sub-Owner", 3: "Supervisor", 4: "Accountant" };
+export type Role = 1 | 2 | 3 | 4 | 5; // Owner, SubOwner, Supervisor, Accountant, Engineer
+export const RoleName: Record<Role, string> = { 1: "Owner", 2: "Sub-Owner", 3: "Supervisor", 4: "Accountant", 5: "Engineer" };
 
 export interface AuthUser {
   id: string;
@@ -48,7 +48,8 @@ export interface AdminUser {
   role: Role;
   isActive: boolean;
   isCompanyAdmin: boolean;
-  extraPermissions: string[];
+  /** What this user can actually do: the role's set with their own grants and denials applied. */
+  permissions: string[];
   siteIds: string[];
 }
 
@@ -455,7 +456,7 @@ export interface LabourEntry {
 
 export interface ContractWork {
   id: string; projectId: string; projectName: string; contractorId: string; contractorName: string;
-  workCategory: string; description?: string | null; estimatedCost: number; contractAmount: number;
+  workCategory: string; description?: string | null; contractAmount: number;
   startDate?: string | null; expectedCompletion?: string | null; workStatus: number;
   totalPaid: number; balance: number;
 }

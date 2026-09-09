@@ -4,6 +4,69 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-09 — A store that cannot lend what it does not have, and two roles
+
+**A request can no longer be raised for material the store does not hold.** It was refused before,
+but only at issue — three steps and often days after somebody typed it. By then the owner had
+approved an amount that could never become a cost, and the villa's material cost and the store's
+ledger had been asked to agree about material that never left the shelf.
+
+`MaterialRequestService` now checks at **creation** and again at **submit**, and the "Take from
+store" screen shows the balance beside each material as soon as it is picked, with the buttons
+disabled while a line is short. Lines are summed **per material** before the comparison: two rows of
+60 bags against 100 in stock each fit and together do not, and a long request written stage by stage
+is exactly how a second row for the same material appears.
+
+Only `FromStock` requests are checked. Asking to *buy* material is the right answer to an empty
+store, so the check that refuses an empty store must not also refuse the way out of it.
+
+It is a guard, not a guarantee, and the issue-time check in the ledger is still what protects the
+balance — stock can leave between raising a request and issuing it. What moved earlier is the
+*conversation*: the failure now arrives while the person who can fix it is still looking at the
+screen.
+
+**Four tests had to change, and they were the interesting part.** `UseCase1_The_store_cannot_issue_
+more_than_it_holds` now asserts the refusal where it happens, at creation, and that not even a draft
+is saved. The two rollback tests deliberately asked for 5,000 steel against 10 in stock, which is no
+longer a thing anyone can type — they now stock the steel, get the request approved, and *then* write
+it off with an adjustment. That is a better test than the original: it is the case the new check
+cannot catch, which is precisely why the issue-time one still has to exist.
+
+**A Sub-Owner now starts with everything an Owner has.** They had three permissions, which meant
+every new Sub-Owner was locked out of the job they had just been appointed to — approving while the
+owner is away most of all. The Owner can still take permissions back per user, and that needed a fix
+of its own: with a base set of everything, leaving a key out of the request no longer means "not
+granted", so `SetPermissionsAsync` writes an explicit `Granted = false` row instead. Without it,
+unticking a box would have appeared to work and changed nothing.
+
+The user screen would have lied too. It listed the stored rows, and a Sub-Owner who has never been
+edited has none — an empty list of ticks beside somebody who holds every permission there is. The
+DTO now carries the **effective** set, resolved by one shared `Permissions.Effective`, which the
+sign-in token also uses. Two implementations of the same rule could disagree, and this one is what
+the screen and the session both read.
+
+**Engineer, a new role**, with exactly a Supervisor's permissions — expressed as one shared list
+rather than written out twice, so the two cannot drift by accident. Engineers are posted to sites
+like supervisors. Role is an `int`, so the new value needs no schema change.
+
+**Contractor work orders carry only the contract amount.** The estimate beside it was read by no
+report and compared against by no screen; two figures where one is the truth is an invitation to pay
+against the wrong one. The column is dropped.
+
+One more sharp edge fell out of the permission change. `SetPermissionsAsync` used to drop unknown
+keys silently, which was harmless when the list only ever *added* — but now that everything absent
+from the list becomes a denial, a misspelt key would have taken every permission away and reported
+success. Unknown keys are refused outright.
+
+Upgrade script: `deploy\sql\upgrades\2026-09-09-engineer-role-and-contract-amount-only.sql`,
+generated from the 4 September baseline so it also carries the 5 September release for a server that
+has not taken it yet. Rehearsed against a copy of that baseline: clean, twice, `EstimatedCost` gone,
+all four migrations recorded.
+
+279 tests pass, 13 of them new.
+
+---
+
 ## 2026-09-08 — The app died because SQL was thirty seconds behind IIS
 
 **The outage.** Sign-in was failing on the live site. `/health` returned **500.30** — the process was

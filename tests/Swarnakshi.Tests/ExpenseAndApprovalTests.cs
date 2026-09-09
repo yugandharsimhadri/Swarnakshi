@@ -316,8 +316,13 @@ public class ExpenseAndApprovalTests
         var db = sp.GetRequiredService<AppDbContext>();
         var requests = sp.GetRequiredService<IMaterialRequestService>();
         var approvals = sp.GetRequiredService<IApprovalService>();
-        var (_, project) = await ArrangeAsync(db);
+        var (site, project) = await ArrangeAsync(db);
         var material = await db.Materials.FirstAsync(m => m.Code == "MAT-CEM-OPC");
+
+        // The store has to hold the material before it can be asked for; opening stock is the
+        // shortest way to put it there.
+        await sp.GetRequiredService<Application.Inventory.IInventoryService>().OpeningStockAsync(
+            new Application.Inventory.OpeningStockRequest(site.Id, material.Id, 50, 400, Today, null));
 
         var req = await requests.CreateAsync(new SaveMaterialRequestRequest(
             project.Id, MaterialRequestType.FromStock, Today, null,

@@ -68,7 +68,7 @@ public class PaymentFlowTests
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var work = await contracts.CreateAsync(new SaveContractWorkRequest(
-            project.Id, contractor.Id, "Plumbing", null, 90_000, 100_000, null, null, null, ContractWorkStatus.Active));
+            project.Id, contractor.Id, "Plumbing", null, 100_000, null, null, null, ContractWorkStatus.Active));
 
         var pay = await payments.CreateAsync(new SaveContractorPaymentRequest(
             contractor.Id, project.Id, work.Id, today, 150_000, pm.Id, null, null, ContractorPaymentKind.Partial));

@@ -12,7 +12,8 @@ public class ContractWork : AuditableEntity
 
     public string WorkCategory { get; set; } = null!;
     public string? Description { get; set; }
-    public decimal EstimatedCost { get; set; }
+
+    /// <summary>What was agreed with the contractor. The only figure a payment is measured against.</summary>
     public decimal ContractAmount { get; set; }
     public DateOnly? StartDate { get; set; }
     public DateOnly? ExpectedCompletion { get; set; }

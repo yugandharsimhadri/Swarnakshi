@@ -10,13 +10,16 @@ using Swarnakshi.Domain.Enums;
 namespace Swarnakshi.Application.Contractors;
 
 // ---- Contract work ---------------------------------------------------
+// A work order carries the amount that was agreed with the contractor, and nothing else. There used
+// to be an estimate beside it, which no report ever read and no screen ever compared against: two
+// figures where one is the truth is an invitation to pay against the wrong one.
 public record ContractWorkDto(Guid Id, Guid ProjectId, string ProjectName, Guid ContractorId, string ContractorName,
-    string WorkCategory, string? Description, decimal EstimatedCost, decimal ContractAmount,
+    string WorkCategory, string? Description, decimal ContractAmount,
     DateOnly? StartDate, DateOnly? ExpectedCompletion, ContractWorkStatus WorkStatus,
     decimal TotalPaid, decimal Balance);
 
 public record SaveContractWorkRequest(Guid ProjectId, Guid ContractorId, string WorkCategory, string? Description,
-    decimal EstimatedCost, decimal ContractAmount, DateOnly? StartDate, DateOnly? ExpectedCompletion,
+    decimal ContractAmount, DateOnly? StartDate, DateOnly? ExpectedCompletion,
     string? PaymentTerms, ContractWorkStatus WorkStatus);
 
 public class SaveContractWorkValidator : AbstractValidator<SaveContractWorkRequest>
@@ -27,7 +30,6 @@ public class SaveContractWorkValidator : AbstractValidator<SaveContractWorkReque
         RuleFor(x => x.ContractorId).NotEmpty();
         RuleFor(x => x.WorkCategory).NotEmpty().MaximumLength(120);
         RuleFor(x => x.ContractAmount).GreaterThan(0);
-        RuleFor(x => x.EstimatedCost).GreaterThanOrEqualTo(0);
     }
 }
 
@@ -64,7 +66,7 @@ public class ContractWorkService(IAppDbContext db, IValidator<SaveContractWorkRe
         var work = new ContractWork
         {
             ProjectId = req.ProjectId, ContractorId = req.ContractorId, WorkCategory = req.WorkCategory,
-            Description = req.Description, EstimatedCost = req.EstimatedCost, ContractAmount = req.ContractAmount,
+            Description = req.Description, ContractAmount = req.ContractAmount,
             StartDate = req.StartDate, ExpectedCompletion = req.ExpectedCompletion, PaymentTerms = req.PaymentTerms,
             WorkStatus = req.WorkStatus, TotalPaid = 0m, Balance = req.ContractAmount,
             Status = TransactionStatus.Posted
@@ -82,7 +84,7 @@ public class ContractWorkService(IAppDbContext db, IValidator<SaveContractWorkRe
         if (req.ContractAmount < work.TotalPaid)
             throw new AppException($"Contract amount cannot be less than amount already paid ({work.TotalPaid:0.00}).", 409);
 
-        work.WorkCategory = req.WorkCategory; work.Description = req.Description; work.EstimatedCost = req.EstimatedCost;
+        work.WorkCategory = req.WorkCategory; work.Description = req.Description;
         work.ContractAmount = req.ContractAmount; work.StartDate = req.StartDate;
         work.ExpectedCompletion = req.ExpectedCompletion; work.PaymentTerms = req.PaymentTerms; work.WorkStatus = req.WorkStatus;
         work.Balance = work.ContractAmount - work.TotalPaid;
@@ -92,7 +94,7 @@ public class ContractWorkService(IAppDbContext db, IValidator<SaveContractWorkRe
 
     private static readonly Expression<Func<ContractWork, ContractWorkDto>> Projection = c => new ContractWorkDto(
         c.Id, c.ProjectId, c.Project.Name, c.ContractorId, c.Contractor.Name, c.WorkCategory, c.Description,
-        c.EstimatedCost, c.ContractAmount, c.StartDate, c.ExpectedCompletion, c.WorkStatus, c.TotalPaid, c.Balance);
+        c.ContractAmount, c.StartDate, c.ExpectedCompletion, c.WorkStatus, c.TotalPaid, c.Balance);
 }
 
 // ---- Contractor payments -------------------------------------------

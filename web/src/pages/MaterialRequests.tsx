@@ -3,11 +3,11 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { num, dateStr } from "@/lib/format";
+import { num, money, dateStr } from "@/lib/format";
 import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { MaterialPicker } from "@/components/MaterialPicker";
-import { MatReqStatusName, type Material, type MaterialRequest, type Paged, type Project } from "@/lib/types";
+import { MatReqStatusName, type InventoryBalance, type Material, type MaterialRequest, type Paged, type Project } from "@/lib/types";
 
 const statusTone = (s: number) =>
   s === 4 || s === 7 ? "danger" : s === 5 ? "ok" : s === 3 || s === 6 ? "brand" : "neutral";
@@ -66,6 +66,29 @@ export function NewMaterialRequest() {
   const setMaterial = (i: number, m: Material | null) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, material: m } : r)));
 
+  // What the chosen villa's site actually holds. Fetched once for the whole site rather than per
+  // material: the list is small, and one request keeps every row's answer consistent with the rest.
+  const siteId = projects?.items.find((p) => p.id === projectId)?.siteId ?? "";
+  const { data: stock } = useAsync(
+    () => (siteId ? api<InventoryBalance[]>("/inventory", { query: { siteId } }) : Promise.resolve([])),
+    [siteId],
+  );
+  const inStore = (materialId: string) => stock?.find((b) => b.materialId === materialId);
+
+  // Summed per material, because two rows for the same material each fit inside the balance while
+  // together they do not — and that is what a long request written stage by stage looks like.
+  const askedFor = (materialId: string) =>
+    rows.filter((r) => r.material?.id === materialId).reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
+
+  const shortOf = (r: { material: Material | null; qty: string }) => {
+    if (!r.material || !siteId || !stock) return null;
+    const have = inStore(r.material.id)?.quantity ?? 0;
+    const want = askedFor(r.material.id);
+    return want > have ? { have, want } : null;
+  };
+
+  const anyShort = rows.some((r) => shortOf(r) !== null);
+
   async function save(submit: boolean) {
     setBusy(true);
     setError(null);
@@ -102,17 +125,38 @@ export function NewMaterialRequest() {
       </Field>
 
       <div className="space-y-2">
-        {rows.map((r, i) => (
-          <Card key={i} className="space-y-2">
-            <MaterialPicker value={r.material} onChange={(m) => setMaterial(i, m)} />
-            <div className="flex gap-2">
-              <Input placeholder="Quantity" inputMode="decimal" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} />
-              {rows.length > 1 && (
-                <Button variant="ghost" onClick={() => setRows(rows.filter((_, idx) => idx !== i))}>✕</Button>
+        {rows.map((r, i) => {
+          const balance = r.material ? inStore(r.material.id) : undefined;
+          const short = shortOf(r);
+          return (
+            <Card key={i} className="space-y-2">
+              <MaterialPicker value={r.material} onChange={(m) => setMaterial(i, m)} />
+              <div className="flex gap-2">
+                <Input placeholder="Quantity" inputMode="decimal" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} />
+                {rows.length > 1 && (
+                  <Button variant="ghost" onClick={() => setRows(rows.filter((_, idx) => idx !== i))}>✕</Button>
+                )}
+              </div>
+
+              {/* What the store holds, shown as soon as a material is picked rather than after the
+                  quantity is typed — the number you need in order to type the right quantity is no
+                  use as an error afterwards. */}
+              {r.material && siteId && (
+                short ? (
+                  <div className="text-xs font-medium text-danger">
+                    Only {num(short.have)} {r.material.unitCode} in store, and this request asks for {num(short.want)}.
+                    Reduce it, or buy the material instead of taking it from the store.
+                  </div>
+                ) : (
+                  <div className="text-xs text-text-dim">
+                    In store: <span className="tabular-nums text-text">{num(balance?.quantity ?? 0)} {r.material.unitCode}</span>
+                    {balance && balance.quantity > 0 && ` · ${money(balance.averageRate, true)} each`}
+                  </div>
+                )
               )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
         <Button variant="ghost" className="w-full" onClick={() => setRows([...rows, { material: null, qty: "" }])}>
           + Add material
         </Button>
@@ -123,9 +167,15 @@ export function NewMaterialRequest() {
       </Field>
 
       <ErrorText error={error} />
+      {anyShort && (
+        <div role="status" className="rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">
+          The store cannot cover this request. A villa can only be charged for material that
+          actually left the shelf, so this has to come down to what is there — or be bought.
+        </div>
+      )}
       <div className="flex gap-2">
-        <Button variant="ghost" className="flex-1" onClick={() => save(false)} disabled={busy}>Save draft</Button>
-        <Button className="flex-1" onClick={() => save(true)} disabled={busy}>Submit for approval</Button>
+        <Button variant="ghost" className="flex-1" onClick={() => save(false)} disabled={busy || anyShort}>Save draft</Button>
+        <Button className="flex-1" onClick={() => save(true)} disabled={busy || anyShort}>Submit for approval</Button>
       </div>
     </div>
   );

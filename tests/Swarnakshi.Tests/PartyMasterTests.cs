@@ -252,7 +252,7 @@ public class PartyMasterTests
         await parties.DeactivateAsync(PartyKind.Contractor, contractorId);
 
         var act = () => contracts.CreateAsync(new SaveContractWorkRequest(
-            projectId, contractorId, "Plumbing", null, 50_000m, 50_000m, null, null, null,
+            projectId, contractorId, "Plumbing", null, 50_000m, null, null, null,
             ContractWorkStatus.Planned));
 
         await act.Should().ThrowAsync<AppException>();
@@ -520,7 +520,7 @@ public class PartyMasterTests
 
         var contractor = await parties.CreateAsync(PartyKind.Contractor, Contractor("CON-001"));
         await contracts.CreateAsync(new SaveContractWorkRequest(
-            project.Id, contractor.Id, "Civil", "Foundation", 100_000m, 100_000m, null, null, null,
+            project.Id, contractor.Id, "Civil", "Foundation", 100_000m, null, null, null,
             ContractWorkStatus.Planned));
 
         return (contractor.Id, project.Id);

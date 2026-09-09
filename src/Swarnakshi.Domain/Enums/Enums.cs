@@ -1,6 +1,6 @@
 namespace Swarnakshi.Domain.Enums;
 
-public enum UserRole { Owner = 1, SubOwner = 2, Supervisor = 3, Accountant = 4 }
+public enum UserRole { Owner = 1, SubOwner = 2, Supervisor = 3, Accountant = 4, Engineer = 5 }
 
 /// <summary>Generic lifecycle status for approvable / transactional entities.</summary>
 public enum TransactionStatus

@@ -6,7 +6,10 @@ import {
   Button, Card, Chip, ErrorText, Field, Input, PageHeader, Select, Sheet, SkeletonList,
 } from "@/components/ui";
 
-const ROLES: Role[] = [1, 2, 3, 4];
+const ROLES: Role[] = [1, 2, 3, 4, 5];
+
+/** Roles whose work is on a site, so they are posted to particular ones. */
+const ON_SITE: number[] = [3, 5]; // Supervisor, Engineer
 
 export default function Users() {
   const { data, loading, error, reload } = useAsync(() => api<AdminUser[]>("/users"), []);
@@ -31,13 +34,10 @@ export default function Users() {
                 </div>
                 <Chip tone="brand">{RoleName[u.role]}</Chip>
               </div>
-              {(u.extraPermissions.length > 0 || u.siteIds.length > 0) && (
-                <div className="mt-1 text-xs text-text-dim">
-                  {u.extraPermissions.length > 0 && `${u.extraPermissions.length} extra permission(s)`}
-                  {u.extraPermissions.length > 0 && u.siteIds.length > 0 && " · "}
-                  {u.siteIds.length > 0 && `${u.siteIds.length} site(s)`}
-                </div>
-              )}
+              <div className="mt-1 text-xs text-text-dim">
+                {u.permissions.length} permission(s)
+                {u.siteIds.length > 0 && ` · ${u.siteIds.length} site(s)`}
+              </div>
             </Card>
           ))}
         </div>
@@ -107,7 +107,7 @@ function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   const { data: permKeys } = useAsync(() => api<string[]>("/users/permission-keys"), []);
   const { data: sites } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 100 } }), []);
   const [form, setForm] = useState({ name: user.name, role: String(user.role), isActive: user.isActive, mobile: user.mobile ?? "" });
-  const [perms, setPerms] = useState<string[]>(user.extraPermissions);
+  const [perms, setPerms] = useState<string[]>(user.permissions);
   const [siteIds, setSiteIds] = useState<string[]>(user.siteIds);
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState<ApiError | null>(null);
@@ -121,7 +121,7 @@ function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: (
     try {
       await api(`/users/${user.id}`, { method: "PUT", body: { name: form.name, role: Number(form.role), isActive: form.isActive, mobile: form.mobile.trim() || null } });
       if (Number(form.role) === 2) await api(`/users/${user.id}/permissions`, { method: "PUT", body: { permissions: perms } });
-      if (Number(form.role) === 3) await api(`/users/${user.id}/sites`, { method: "PUT", body: { siteIds } });
+      if (ON_SITE.includes(Number(form.role))) await api(`/users/${user.id}/sites`, { method: "PUT", body: { siteIds } });
       if (pwd.length >= 8) await api(`/users/${user.id}/password`, { method: "POST", body: { password: pwd } });
       onSaved();
     } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
@@ -145,7 +145,7 @@ function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: (
         </label>
 
         {Number(form.role) === 2 && (
-          <Field label="Extra permissions (Sub-Owner)">
+          <Field label="Permissions (a Sub-Owner starts with all of them — untick to take one away)">
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
               {permKeys?.map((k) => (
                 <label key={k} className="flex items-center gap-2 text-xs">
@@ -157,8 +157,8 @@ function EditUserSheet({ user, onClose, onSaved }: { user: AdminUser; onClose: (
           </Field>
         )}
 
-        {Number(form.role) === 3 && (
-          <Field label="Assigned sites (Supervisor)">
+        {ON_SITE.includes(Number(form.role)) && (
+          <Field label="Assigned sites">
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
               {sites?.items.map((s) => (
                 <label key={s.id} className="flex items-center gap-2 text-xs">

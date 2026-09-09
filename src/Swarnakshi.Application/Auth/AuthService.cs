@@ -216,15 +216,7 @@ public class AuthService(
     }
 
     private static IReadOnlyCollection<string> ResolvePermissions(User user)
-    {
-        var set = new HashSet<string>(Permissions.ForRole(user.Role));
-        foreach (var p in user.Permissions)
-        {
-            if (p.Granted) set.Add(p.PermissionKey);
-            else set.Remove(p.PermissionKey);
-        }
-        return set;
-    }
+        => Permissions.Effective(user.Role, user.Permissions.Select(p => (p.PermissionKey, p.Granted)));
 
     private static AuthUserDto ToDto(User user, Company company, IReadOnlyCollection<string>? perms = null)
         => new(user.Id, user.Name, user.Username, LoginIdentity.Format(user.Username, company.Code),

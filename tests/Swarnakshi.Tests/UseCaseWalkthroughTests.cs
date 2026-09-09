@@ -164,14 +164,19 @@ public class UseCaseWalkthroughTests
 
         await BuyAsync(sp, y, 10, 400);
 
-        var request = await requests.CreateAsync(new SaveMaterialRequestRequest(
+        // Refused where it is written, not three steps later at issue. A request the store cannot
+        // fill is an approval the owner would give for an amount that can never become a cost, and
+        // the villa's material cost and the store's ledger would stop agreeing about what left the
+        // shelf. (The ledger still refuses at issue as well — see TransactionRollbackTests, which
+        // covers the case where the stock disappears after the owner has approved it.)
+        var act = () => requests.CreateAsync(new SaveMaterialRequestRequest(
             y.ProjectId, MaterialRequestType.FromStock, Today, "more than we have",
             [new MaterialRequestItemInput(y.Cement.Id, y.Cement.UnitId, 500, null, null)]));
-        await requests.SubmitAsync(request.Id);
-        await ApproveAsync(sp, ApprovalEntityTypes.MaterialRequest, request.TxnNumber);
 
-        var act = () => requests.IssueAsync(request.Id, new IssueRequest(null));
-        await act.Should().ThrowAsync<AppException>().WithMessage("*Insufficient stock*");
+        (await act.Should().ThrowAsync<AppException>())
+            .Which.Message.Should().Contain("asked 500").And.Contain("in store 10");
+
+        (await db.MaterialRequests.CountAsync()).Should().Be(0, "nothing is saved, not even a draft");
     }
 
     // ── Use case 2: buy cement straight for a villa ──────────────────────

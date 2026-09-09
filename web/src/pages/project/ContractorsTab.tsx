@@ -92,7 +92,7 @@ export default function ContractorsTab({ projectId }: { projectId: string }) {
 
 function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
   const { data: contractors } = useAsync(() => api<Paged<Contractor>>("/contractors", { query: { pageSize: 200, active: true } }), []);
-  const [form, setForm] = useState({ contractorId: "", workCategory: "", contractAmount: "", estimatedCost: "" });
+  const [form, setForm] = useState({ contractorId: "", workCategory: "", contractAmount: "" });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -103,7 +103,7 @@ function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: st
         method: "POST",
         body: {
           projectId, contractorId: form.contractorId, workCategory: form.workCategory,
-          contractAmount: Number(form.contractAmount), estimatedCost: Number(form.estimatedCost || 0), workStatus: 1,
+          contractAmount: Number(form.contractAmount), workStatus: 1,
         },
       });
       onSaved();
@@ -121,7 +121,6 @@ function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: st
         </Field>
         <Field label="Work category"><Input value={form.workCategory} onChange={(e) => setForm({ ...form, workCategory: e.target.value })} placeholder="Plumbing" /></Field>
         <Field label="Contract amount"><Input inputMode="decimal" value={form.contractAmount} onChange={(e) => setForm({ ...form, contractAmount: e.target.value })} /></Field>
-        <Field label="Estimated cost"><Input inputMode="decimal" value={form.estimatedCost} onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })} /></Field>
         <ErrorText error={err} />
         <Button className="w-full" onClick={save} disabled={busy || !form.contractorId || !form.workCategory || !Number(form.contractAmount)}>Create</Button>
       </div>

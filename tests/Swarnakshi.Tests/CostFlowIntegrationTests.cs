@@ -86,6 +86,12 @@ public class CostFlowIntegrationTests
         await db.SaveChangesAsync();
         var material = await db.Materials.FirstAsync(m => m.Code == "MAT-CEM-OPC");
 
+        // Stock first: a request can no longer be raised against a store that has none, so putting
+        // the cement on the shelf is what lets this test reach the thing it is actually about.
+        await sp.GetRequiredService<Application.Inventory.IInventoryService>().OpeningStockAsync(
+            new Application.Inventory.OpeningStockRequest(
+                site.Id, material.Id, 50, 400, DateOnly.FromDateTime(DateTime.UtcNow), null));
+
         var requests = sp.GetRequiredService<IMaterialRequestService>();
         var req = await requests.CreateAsync(new SaveMaterialRequestRequest(
             project.Id, MaterialRequestType.FromStock, DateOnly.FromDateTime(DateTime.UtcNow), null,

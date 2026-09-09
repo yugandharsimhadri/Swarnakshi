@@ -9,9 +9,11 @@ using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Application.Users;
 
+/// <summary><c>Permissions</c> is what this user can actually do — the role's set with their own
+/// grants and denials already applied — not the rows stored against them.</summary>
 public record UserDto(Guid Id, string Name, string Username, string Login, string? Email, string? Mobile,
     UserRole Role, bool IsActive, bool IsCompanyAdmin,
-    IReadOnlyList<string> ExtraPermissions, IReadOnlyList<Guid> SiteIds);
+    IReadOnlyList<string> Permissions, IReadOnlyList<Guid> SiteIds);
 
 public record CreateUserRequest(string Name, string Username, string Password, UserRole Role, string? Email, string? Mobile = null);
 public record UpdateUserRequest(string Name, UserRole Role, bool IsActive, string? Mobile = null);
@@ -126,11 +128,29 @@ public class UserService(
     public async Task<UserDto> SetPermissionsAsync(Guid id, SetPermissionsRequest req, CancellationToken ct = default)
     {
         var user = await Load(id, ct);
-        var valid = req.Permissions.Where(Permissions.All.Contains).Distinct().ToList();
+
+        // Refused, not quietly dropped. Silently ignoring a key that does not exist was harmless
+        // when the list only ever added permissions; now that everything absent from it becomes a
+        // denial, a caller sending a misspelt key would have had every permission taken away
+        // instead of one granted — and would have been told the save succeeded.
+        var unknown = req.Permissions.Where(k => !Permissions.All.Contains(k)).Distinct().ToList();
+        if (unknown.Count > 0)
+            throw new AppException($"Unknown permission key(s): {string.Join(", ", unknown)}.", 400);
+
+        var wanted = req.Permissions.ToHashSet();
 
         db.UserPermissions.RemoveRange(user.Permissions);
-        foreach (var key in valid)
-            db.UserPermissions.Add(new UserPermission { UserId = user.Id, PermissionKey = key, Granted = true });
+
+        // Both sides are written, not just the grants. The role's own set is the starting point and
+        // a Sub-Owner's is now everything, so a key simply left out of the request would still be
+        // allowed by the role — unticking a box would appear to work and change nothing. An
+        // explicit Granted = false row is what actually takes a permission away.
+        foreach (var key in Permissions.All)
+            db.UserPermissions.Add(new UserPermission
+            {
+                UserId = user.Id, PermissionKey = key, Granted = wanted.Contains(key)
+            });
+
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
@@ -162,9 +182,12 @@ public class UserService(
             .Where(c => c.Id == companyId).Select(c => c.Code).FirstOrDefaultAsync(ct) ?? "?";
     }
 
+    // The EFFECTIVE set, not the stored rows. A Sub-Owner who has never been edited has no rows at
+    // all and can do everything, so returning the rows would have shown the Owner an empty list of
+    // ticks beside a user who holds every permission there is.
     private static UserDto Map(User u, string companyCode) => new(
         u.Id, u.Name, u.Username, LoginIdentity.Format(u.Username, companyCode), u.Email, u.Mobile,
         u.Role, u.IsActive, u.IsCompanyAdmin,
-        u.Permissions.Where(p => p.Granted).Select(p => p.PermissionKey).ToList(),
+        Permissions.Effective(u.Role, u.Permissions.Select(p => (p.PermissionKey, p.Granted))).ToList(),
         u.SiteAssignments.Select(a => a.SiteId).ToList());
 }

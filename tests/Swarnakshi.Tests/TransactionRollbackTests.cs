@@ -57,6 +57,19 @@ public class TransactionRollbackTests
         await sp.SubmitAndApproveAsync(created.Id);
     }
 
+    /// <summary>
+    /// Takes material back off the shelf after a request has been approved against it.
+    ///
+    /// <para>A request cannot be raised for stock that is not there — the store is checked when it
+    /// is written and again when it is submitted. The failure these tests are about is the one that
+    /// survives both: material that WAS there when the owner approved it and has gone by the time
+    /// somebody presses Issue. An adjustment is how that is arranged in one call, and unlike a
+    /// second request it writes no project cost rows to confuse the counts below.</para>
+    /// </summary>
+    private static Task DrainAsync(IServiceProvider sp, Fixture f, Material m, decimal qty) =>
+        sp.GetRequiredService<IInventoryService>().AdjustmentAsync(
+            new AdjustmentRequest(f.SiteId, m.Id, -qty, null, Today, "Damaged in the yard"));
+
     [Fact]
     public async Task An_issue_that_runs_out_of_stock_halfway_writes_nothing_at_all()
     {
@@ -67,18 +80,11 @@ public class TransactionRollbackTests
         var requests = sp.GetRequiredService<IMaterialRequestService>();
         var f = await ArrangeAsync(sp, db);
 
-        // Plenty of cement, barely any steel.
+        // Plenty of both, so the request can legitimately be raised and approved.
         await StockAsync(sp, f, f.Cement, 500, 400);
-        await StockAsync(sp, f, f.Steel, 10, 60);
+        await StockAsync(sp, f, f.Steel, 6_000, 60);
 
-        var cementBefore = await db.InventoryBalances.AsNoTracking()
-            .Where(b => b.MaterialId == f.Cement.Id).Select(b => b.Quantity).SingleAsync();
-        var costRowsBefore = await db.ProjectExpenses.CountAsync(e => e.ProjectId == f.ProjectId);
-        var ledgerBefore = await db.InventoryTransactions.CountAsync();
-
-        // Cement first, then more steel than exists. The cement line issues cleanly; the steel
-        // line throws. That is the shape of the failure that matters — not a request rejected up
-        // front, but one that fails after it has already moved something.
+        // Cement first, then a lot of steel. Both are covered at this point.
         var created = await requests.CreateAsync(new SaveMaterialRequestRequest(
             f.ProjectId, MaterialRequestType.FromStock, Today, null,
             [
@@ -87,6 +93,16 @@ public class TransactionRollbackTests
             ]));
         await requests.SubmitAsync(created.Id);
         await sp.ApproveAsync(ApprovalEntityTypes.MaterialRequest, created.Id);
+
+        // …and then the steel goes, after the owner has already approved it. The cement line will
+        // issue cleanly and the steel line will throw: not a request rejected up front, but one
+        // that fails after it has already moved something.
+        await DrainAsync(sp, f, f.Steel, 5_990);
+
+        var cementBefore = await db.InventoryBalances.AsNoTracking()
+            .Where(b => b.MaterialId == f.Cement.Id).Select(b => b.Quantity).SingleAsync();
+        var costRowsBefore = await db.ProjectExpenses.CountAsync(e => e.ProjectId == f.ProjectId);
+        var ledgerBefore = await db.InventoryTransactions.CountAsync();
 
         var act = () => requests.IssueAsync(created.Id, new IssueRequest(null));
         await act.Should().ThrowAsync<AppException>().WithMessage("*Insufficient stock*");
@@ -118,7 +134,7 @@ public class TransactionRollbackTests
         var f = await ArrangeAsync(sp, db);
 
         await StockAsync(sp, f, f.Cement, 500, 400);
-        await StockAsync(sp, f, f.Steel, 10, 60);
+        await StockAsync(sp, f, f.Steel, 6_000, 60);
 
         var created = await requests.CreateAsync(new SaveMaterialRequestRequest(
             f.ProjectId, MaterialRequestType.FromStock, Today, null,
@@ -128,6 +144,9 @@ public class TransactionRollbackTests
             ]));
         await requests.SubmitAsync(created.Id);
         await sp.ApproveAsync(ApprovalEntityTypes.MaterialRequest, created.Id);
+
+        // The steel is written off between approval and issue.
+        await DrainAsync(sp, f, f.Steel, 5_990);
 
         await ((Func<Task>)(() => requests.IssueAsync(created.Id, new IssueRequest(null))))
             .Should().ThrowAsync<AppException>();

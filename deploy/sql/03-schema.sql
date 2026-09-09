@@ -22,7 +22,7 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-09-05 13:45:05 from commit 1af9aee
+    Generated: 2026-09-09 10:15:29 from commit d7b417a
 */
 
 -- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server will not create this schema's indexes
@@ -2374,6 +2374,33 @@ IF NOT EXISTS (
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
     VALUES (N'20260905075817_ApprovalGate', N'10.0.0');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909043949_EngineerRoleAndContractAmountOnly'
+)
+BEGIN
+    DECLARE @var nvarchar(max);
+    SELECT @var = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[ContractWorks]') AND [c].[name] = N'EstimatedCost');
+    IF @var IS NOT NULL EXEC(N'ALTER TABLE [ContractWorks] DROP CONSTRAINT ' + @var + ';');
+    ALTER TABLE [ContractWorks] DROP COLUMN [EstimatedCost];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260909043949_EngineerRoleAndContractAmountOnly'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260909043949_EngineerRoleAndContractAmountOnly', N'10.0.0');
 END;
 
 COMMIT;

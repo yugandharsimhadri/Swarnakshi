@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -157,10 +158,66 @@ public class MaterialRequestService(
                 ExpenseHeadId = i.ExpenseHeadId, ExpenseSubheadId = i.ExpenseSubheadId
             });
 
+        // Asked for before the request is written, not at issue three days later. A request for
+        // cement the store does not hold is not a request anybody can fulfil, and letting it
+        // through means the owner approves a number that can never become a cost — the villa's
+        // material cost and the store's ledger stop agreeing on what left the shelf.
+        if (req.RequestType == MaterialRequestType.FromStock)
+            await EnsureStockCoversAsync(project.SiteId, req.Items, ct);
+
         db.MaterialRequests.Add(entity);
         await db.SaveChangesAsync(ct);
         return await GetAsync(entity.Id, ct);
     }
+
+    /// <summary>
+    /// Refuses a request the store cannot fill, naming the material, what is there and what was
+    /// asked for.
+    ///
+    /// <para>Lines are summed per material first. Two rows of 60 bags against 100 in stock is the
+    /// case a per-line check waves through, and it is not a contrived one — a long request written
+    /// stage by stage grows a second row for the same material without anybody noticing.</para>
+    ///
+    /// <para>This is a guard, not a guarantee: stock can leave between raising a request and
+    /// issuing it, and the ledger's own check at issue is what actually protects the balance. What
+    /// this buys is the failure arriving while the person who can fix it is still on the screen,
+    /// rather than days later in front of whoever pressed Issue.</para>
+    /// </summary>
+    private async Task EnsureStockCoversAsync(
+        Guid siteId, IEnumerable<MaterialRequestItemInput> items, CancellationToken ct)
+    {
+        var wanted = items
+            .GroupBy(i => i.MaterialId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.RequestedQty));
+
+        var ids = wanted.Keys.ToList();
+        var available = await db.InventoryBalances.AsNoTracking()
+            .Where(b => b.SiteId == siteId && ids.Contains(b.MaterialId))
+            .ToDictionaryAsync(b => b.MaterialId, b => b.Quantity, ct);
+        var names = await db.Materials.AsNoTracking()
+            .Where(m => ids.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id, m => m.Name, ct);
+
+        var short_ = wanted
+            .Where(w => available.GetValueOrDefault(w.Key) < w.Value)
+            .Select(w => $"{names.GetValueOrDefault(w.Key, "this material")} — "
+                       + $"asked {Trim(w.Value)}, in store {Trim(available.GetValueOrDefault(w.Key))}")
+            .ToList();
+
+        if (short_.Count == 0) return;
+
+        throw new AppException(
+            short_.Count == 1
+                ? $"The store does not hold enough for this request: {short_[0]}. "
+                  + "Reduce the quantity, or raise a purchase instead of taking it from the store."
+                : $"The store does not hold enough for {short_.Count} of these materials: "
+                  + string.Join("; ", short_)
+                  + ". Reduce the quantities, or raise a purchase instead of taking them from the store.",
+            409);
+    }
+
+    /// <summary>Quantities are decimal(18,3); "100" reads better than "100.000" in a message.</summary>
+    private static string Trim(decimal q) => q.ToString("0.###", CultureInfo.InvariantCulture);
 
     public async Task<MaterialRequestDto> SubmitAsync(Guid id, CancellationToken ct = default)
     {
@@ -168,6 +225,18 @@ public class MaterialRequestService(
                      ?? throw new NotFoundException("MaterialRequest", id);
         if (entity.RequestStatus != MaterialRequestStatus.Draft)
             throw new AppException($"Request is already {entity.RequestStatus}.", 409);
+
+        // Checked again here, and deliberately. A draft can sit for days while the store empties,
+        // and sending the owner something that cannot be issued wastes the one approval they were
+        // asked for. The message names what has changed since it was written.
+        if (entity.RequestType == MaterialRequestType.FromStock)
+        {
+            var lines = await db.MaterialRequestItems.AsNoTracking()
+                .Where(i => i.MaterialRequestId == entity.Id)
+                .Select(i => new MaterialRequestItemInput(i.MaterialId, i.UnitId, i.RequestedQty, null, null))
+                .ToListAsync(ct);
+            await EnsureStockCoversAsync(entity.SiteId, lines, ct);
+        }
 
         entity.RequestStatus = MaterialRequestStatus.PendingApproval;
         entity.Status = TransactionStatus.PendingApproval;
