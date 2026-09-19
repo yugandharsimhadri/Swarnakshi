@@ -20,11 +20,12 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $Output = (Join-Path $PSScriptRoot '..\sql\03-schema.sql')
+    [string] $Output = ''     # resolved in the body: $PSScriptRoot is empty in param defaults under 5.1 -File
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+if (-not $Output) { $Output = Join-Path $PSScriptRoot '..\sql\03-schema.sql' }
 $body = Join-Path ([System.IO.Path]::GetTempPath()) "swk-schema-$([guid]::NewGuid().ToString('N')).sql"
 
 Push-Location $repo

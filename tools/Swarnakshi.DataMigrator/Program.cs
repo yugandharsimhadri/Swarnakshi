@@ -108,10 +108,15 @@ foreach (var t in tables)
 if (problems.Count > 0)
 {
     Console.WriteLine();
-    Console.WriteLine($"VERIFICATION FAILED — {problems.Count} difference(s):");
+    Console.WriteLine($"{(verifyOnly ? "DIFFERENCES" : "VERIFICATION FAILED")} — {problems.Count}:");
     foreach (var p in problems) Console.WriteLine("   " + p);
     Console.WriteLine();
-    Console.WriteLine("Do not point the application at this database. Drop it, fix the cause, and run again.");
+    Console.WriteLine(verifyOnly
+        // After the move, the target is live and the source is frozen: every row entered since
+        // shows up here. A count that is HIGHER at the target is the application working.
+        ? "Rows that are higher at the target are what the application has written since the move. "
+          + "A count or total that is LOWER at the target, or a money total that differs with equal counts, is a problem."
+        : "Do not point the application at this database. Drop it, fix the cause, and run again.");
     return 2;
 }
 
@@ -319,7 +324,7 @@ static (string Source, string Target, bool VerifyOnly) ParseArgs(string[] args)
         Fail($"{configPath} still holds the template's CHANGE_ME placeholder.");
 
     Console.WriteLine($"Settings: {configPath}");
-    return (source, target, verifyOnly);
+    return (source, target!, verifyOnly);
 }
 
 static string? FindUpwards(string fileName)

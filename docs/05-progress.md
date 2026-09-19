@@ -4,6 +4,42 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-19 — The migration guide, written for the server as it actually is
+
+The first draft of [11-postgresql.md](11-postgresql.md) was written for a generic install:
+`C:\Swarnakshi\app`, a Windows service, PostgreSQL still to be installed. None of that is this
+server. It is IIS at `F:\sivayaan\copsapi` behind the Cloudflare tunnel, the frontend on Cloudflare
+Pages, and PostgreSQL already running. The guide now says so in section 2 and every command after it
+is the one to type there — app pool names, `F:\` paths, the two settings-file copies and which one
+is the rollback.
+
+**The frontend does not change.** It calls `copsapi.sivayaantechnologies.com`, which is the same
+URL before and after, so there is nothing to upload to Cloudflare Pages. Worth a sentence at the
+top, because "we're changing the database" sounds like it should involve every tier.
+
+**The migrator ships as an executable.** `Publish.ps1` now publishes it into
+`deploy\out\tools\DataMigrator\` beside the template, so the server needs no SDK — only the
+runtime IIS already uses — and no copy of the repository. The first draft of the guide said
+`dotnet run --project`, which would have failed on the day on a server without the SDK; that is
+the kind of gap a rehearsal on the real layout catches. The packaged exe was run from the package
+folder against the already-migrated dev database, and `--verify-only` reported the single expected
+difference: one audit row, written when the application signed in against it earlier. Its closing
+line now says what a difference means in that mode — rows higher at the target are the application
+working since the move; lower, or a money total that differs with equal counts, is the problem.
+
+**The scripts find the app the way the diagnostic does.** `Backup-Database.ps1` and
+`Restore-Database.ps1` with no arguments ask IIS where its sites are, so a scheduled backup with no
+parameters backs up the right database; `-AppRoot F:\sivayaan\copsapi` also works, with backups
+landing in `F:\sivayaan\backups` — beside the app, not inside it, because a deployment replaces
+the app folder and the backups taken before it should outlive it. Tested against that layout.
+
+**A 5.1 quirk fixed twice.** `Publish.ps1` and `New-SchemaScript.ps1` used `$PSScriptRoot` in a
+`param()` default, which is empty in Windows PowerShell 5.1 when a script is started with `-File`
+— `Join-Path` failed before the first line ran. Both resolve it in the body now. This is the shell
+the server has.
+
+---
+
 ## 2026-09-19 — PostgreSQL, and a way to get the data there
 
 Asked for: move to PostgreSQL, keep every setting in a config file, migrate the existing SQL Server

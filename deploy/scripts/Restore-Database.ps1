@@ -23,7 +23,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string] $BackupFile,
-    [string] $AppRoot = 'C:\Swarnakshi',
+    [string] $AppRoot = '',          # blank: found through IIS, then C:\Swarnakshi (PostgresSettings.ps1)
     [string] $PgBin   = '',
     [switch] $Confirm
 )

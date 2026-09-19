@@ -33,7 +33,10 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $OutputRoot   = (Join-Path $PSScriptRoot '..\out'),
+    # Resolved in the body, not here: in Windows PowerShell 5.1, $PSScriptRoot is still empty while
+    # parameter defaults are evaluated when the script is started with -File, and Join-Path then
+    # fails before the first line of the script runs.
+    [string] $OutputRoot   = '',
     [string] $Configuration = 'Release',
 
     # The absolute origin the uploaded UI should call. Leave empty for a UI served by the API
@@ -47,6 +50,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+if (-not $OutputRoot) { $OutputRoot = Join-Path $PSScriptRoot '..\out' }
 
 # npm and dotnet write ordinary progress and notices to stderr. Windows PowerShell wraps any
 # stderr line from a native command in a NativeCommandError, and with $ErrorActionPreference =
@@ -157,6 +161,23 @@ try {
     # and the interactive API docs if the environment variable were ever missing.
     Remove-Item (Join-Path $appOut 'appsettings.Development.json') -ErrorAction SilentlyContinue
 
+    # ---- 4a. the data migrator, as an executable ----
+    # Published rather than shipped as source, so the server needs no SDK to run it: the runtime the
+    # API already uses is enough. It travels in every package though it is needed once, because the
+    # one day it is needed is not the day to discover it was left out.
+    Write-Host "`n== publishing the data migrator ==" -ForegroundColor Cyan
+    $migratorOut = Join-Path $OutputRoot 'tools\DataMigrator'
+    New-Item -ItemType Directory -Force -Path $migratorOut | Out-Null
+    $migratorArgs = @(
+        'publish', (Join-Path $repo 'tools\Swarnakshi.DataMigrator\Swarnakshi.DataMigrator.csproj')
+        '--configuration', $Configuration
+        '--output', $migratorOut
+        '--nologo'
+        '--runtime', 'win-x64', '--self-contained', $(if ($SelfContained) { 'true' } else { 'false' })
+    )
+    Invoke-Native 'dotnet publish (migrator)' { dotnet @migratorArgs }
+    Copy-Item (Join-Path $repo 'tools\Swarnakshi.DataMigrator\migration.template.json') $migratorOut
+
     # ---- 5. the scripts, SQL and settings template the server needs, beside the binaries ----
     # Regenerate the schema script from the migrations that just compiled, so a package can never
     # ship binaries expecting one schema next to a script that builds another.
@@ -181,9 +202,10 @@ try {
     Write-Host "  $OutputRoot"
     Write-Host "    frontend\   $(& $mb $frontendOut)   -> upload to Cloudflare Pages"
     Write-Host "    app\        $(& $mb $appOut)   -> copy into the IIS site"
-    Write-Host "    sql\        NEW server: 01-create-database.sql then 03-schema.sql"
+    Write-Host "    sql\        NEW server: 01-create-database.sql then 03-schema.sql (psql)"
     Write-Host "    sql\upgrades\  LIVE server: the one script for this release -- see docs/06c-db-upgrades.md"
-    Write-Host "    scripts\    Deploy.ps1 if you want the Windows-service install instead of IIS"
+    Write-Host "    scripts\    Backup / Restore / Diagnose, and Deploy.ps1 for the Windows-service shape"
+    Write-Host "    tools\DataMigrator\  SQL Server -> PostgreSQL, once -- see docs/11-postgresql.md"
     Write-Host "`n  The UI in frontend\ calls: $(if ($ApiBaseUrl) { $ApiBaseUrl } else { 'its own origin' })"
     Write-Host "  That origin must appear in the API's Cors:Origins, or the browser will block it."
 } finally { Pop-Location }

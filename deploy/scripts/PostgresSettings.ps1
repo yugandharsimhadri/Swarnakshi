@@ -10,15 +10,30 @@
 #>
 
 function Read-PostgresConnection {
-    param([Parameter(Mandatory)] [string] $AppRoot)
+    param([string] $AppRoot = '')
 
-    $candidates = @(
-        (Join-Path $AppRoot 'app\appsettings.Production.json'),
-        (Join-Path $AppRoot 'appsettings.Production.json')
-    )
-    $file = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    # Two supported layouts, and one more way to find it. Deploy.ps1 installs to <root>\app\; an
+    # IIS site created by hand points straight at the folder (F:\sivayaan\copsapi). And when no
+    # root is given at all, IIS itself knows where its sites are - which is how the diagnostic
+    # finds the app, and the reason a backup scheduled with no arguments still backs up the
+    # right database.
+    $candidates = @()
+    if ($AppRoot) {
+        $candidates += (Join-Path $AppRoot 'app\appsettings.Production.json'),
+                       (Join-Path $AppRoot 'appsettings.Production.json')
+    }
+    try {
+        Import-Module WebAdministration -ErrorAction Stop
+        foreach ($site in (Get-Website -ErrorAction SilentlyContinue)) {
+            $p = [Environment]::ExpandEnvironmentVariables($site.physicalPath)
+            if ($p) { $candidates += (Join-Path $p 'appsettings.Production.json'), (Join-Path $p 'app\appsettings.Production.json') }
+        }
+    } catch { }
+    $candidates += 'C:\Swarnakshi\app\appsettings.Production.json'
+
+    $file = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
     if (-not $file) {
-        throw "No appsettings.Production.json under $AppRoot (looked in app\ and the root). Pass -AppRoot <where the app is installed>."
+        throw "No appsettings.Production.json found$(if ($AppRoot) { " under $AppRoot" }), in any IIS site, or at C:\Swarnakshi\app. Pass -AppRoot <the folder holding the app>."
     }
 
     $settings = Get-Content $file -Raw | ConvertFrom-Json

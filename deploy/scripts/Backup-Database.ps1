@@ -21,8 +21,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $AppRoot    = 'C:\Swarnakshi',
-    [string] $BackupPath = '',
+    [string] $AppRoot    = '',       # blank: found through IIS, then C:\Swarnakshi (PostgresSettings.ps1)
+    [string] $BackupPath = '',       # blank: a backups\ folder beside the app
     [string] $Label      = 'scheduled',
     [int]    $KeepDays   = 30,
     [string] $PgBin      = ''        # folder holding pg_dump.exe; found automatically when blank
@@ -33,7 +33,9 @@ $ErrorActionPreference = 'Stop'
 
 $conn = Read-PostgresConnection -AppRoot $AppRoot
 $pgDump = Find-PgTool -Name 'pg_dump' -PgBin $PgBin
-if (-not $BackupPath) { $BackupPath = Join-Path $AppRoot 'backups' }
+# Beside the app rather than inside it: a deployment replaces the app folder, and the backups
+# taken before it should outlive it. For F:\sivayaan\copsapi that is F:\sivayaan\backups.
+if (-not $BackupPath) { $BackupPath = Join-Path (Split-Path (Split-Path $conn.File -Parent) -Parent) 'backups' }
 if (-not (Test-Path $BackupPath)) { New-Item -ItemType Directory -Force -Path $BackupPath | Out-Null }
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
