@@ -188,7 +188,7 @@ public class PartyService(
             ? await codes.ResolveAsync(req.Code, PrefixFor(kind), ct)
             : string.IsNullOrWhiteSpace(req.Code)
                 ? await ExistingCodeAsync(kind, id!.Value, ct)
-                : req.Code.Trim();
+                : CodeGenerator.Canonical(req.Code);
 
         if (await CodeExistsAsync(kind, code, id ?? Guid.Empty, ct))
             throw new AppException($"{kind} code '{code}' already exists.", 409);

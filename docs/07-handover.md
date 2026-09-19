@@ -672,7 +672,7 @@ The 6-phase plan (P0–P5) is complete. These are enhancements:
 ## 12. Deploying
 
 See [06-deployment.md](06-deployment.md) — `dotnet publish`, env vars, static frontend hosting,
-SQLite → SQL Server switch, backups.
+backups, and [11-postgresql.md](11-postgresql.md) for the database move.
 
 ---
 
@@ -852,29 +852,32 @@ records *that* a password changed, never either side of it.
 
 ```sql
 -- everything that ever happened to one row
-SELECT At, Action, DataJson, UserId FROM AuditLogs
-WHERE EntityType = 'ProjectExpense' AND EntityId = '<id>' ORDER BY At;
+SELECT at, action, data_json, user_id FROM audit_logs
+WHERE entity_type = 'ProjectExpense' AND entity_id = '<id>' ORDER BY at;
 
 -- everything one person did on one day
-SELECT a.At, a.EntityType, a.Action, a.DataJson FROM AuditLogs a
-JOIN Users u ON u.Id = a.UserId
-WHERE u.Username = 'anil' AND a.At >= '2026-09-01' AND a.At < '2026-09-02' ORDER BY a.At;
+SELECT a.at, a.entity_type, a.action, a.data_json FROM audit_logs a
+JOIN users u ON u.id = a.user_id
+WHERE u.username = 'anil' AND a.at >= '2026-09-01' AND a.at < '2026-09-02' ORDER BY a.at;
 
 -- who changed the auto-approve limit, and to what
-SELECT a.At, u.Username, a.DataJson FROM AuditLogs a
-LEFT JOIN Users u ON u.Id = a.UserId
-JOIN Settings s ON s.Id = a.EntityId
-WHERE s.[Key] = 'approvals.auto_approve_limit' ORDER BY a.At DESC;
+SELECT a.at, u.username, a.data_json FROM audit_logs a
+LEFT JOIN users u ON u.id = a.user_id
+JOIN settings s ON s.id = a.entity_id
+WHERE s.key = 'approvals.auto_approve_limit' ORDER BY a.at DESC;
 ```
 
-Both indexed paths are covered: `IX_AuditLogs_Entity` for the first, `IX_AuditLogs_When` for the
+Names are snake_case since the move to PostgreSQL: the property `EntityType` is the column
+`entity_type`, the entity `AuditLog` is the table `audit_logs`. Nothing needs quoting.
+
+Both indexed paths are covered: `ix_audit_logs_entity` for the first, `ix_audit_logs_when` for the
 second.
 
 ### It has to be trimmed
 
-The table is append-only and nothing prunes it. **SQL Server Express caps a database at 10 GB**, and
-hitting that cap does not degrade the trail — it stops every write in the application. So this is
-not housekeeping:
+The table is append-only and nothing prunes it. PostgreSQL has no hard size cap the way SQL Server
+Express did, but a table that grows without limit still fills a disk, and a full disk stops every
+write in the application. So this is not housekeeping:
 
 ```bash
 sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i 05-purge-audit.sql -v KeepMonths="24"

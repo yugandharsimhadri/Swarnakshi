@@ -1,0 +1,11 @@
+{
+  "//": [
+    "Copy this file to  testsettings.json  in the same folder (the repository root) and fill it in.",
+    "testsettings.json is git-ignored: it holds a password and must never be committed.",
+    "",
+    "The test suite and the UAT tool both read it. Each run creates its own throwaway database on",
+    "this server and drops it afterwards, so the role needs CREATEDB - the postgres superuser is",
+    "the usual choice on a developer machine. Leave Database out: the run picks its own name."
+  ],
+  "Postgres": "Host=localhost;Port=5432;Username=postgres;Password=CHANGE_ME"
+}

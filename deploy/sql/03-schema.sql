@@ -7,7 +7,7 @@
 
     Run it against a database that already exists (create it with 01-create-database.sql):
 
-        sqlcmd -S .\SQLEXPRESS -E -C -b -d SCOPS -i 03-schema.sql
+        psql -U cops_app -h localhost -d cops -v ON_ERROR_STOP=1 -1 -f 03-schema.sql
 
     Idempotent. Every migration is wrapped in a check against __EFMigrationsHistory, so running
     this twice does nothing the second time, and running it against a partly-migrated database
@@ -22,2475 +22,2085 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-09-09 19:28:00 from commit 965bb9f
+    Generated: 2026-09-19 12:05:49 from commit b2f9375
 */
+CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+    migration_id character varying(150) NOT NULL,
+    product_version character varying(32) NOT NULL,
+    CONSTRAINT pk___ef_migrations_history PRIMARY KEY (migration_id)
+);
 
--- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server will not create this schema's indexes
--- under that setting. SSMS defaults it ON, so without these two lines the script works in SSMS and
--- dies on the command line after one table - which is the worst way for it to fail.
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-GO
-IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+START TRANSACTION;
+
+DO $EF$
 BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE approval_requests (
+        id uuid NOT NULL,
+        entity_type character varying(512) NOT NULL,
+        entity_id uuid NOT NULL,
+        entity_ref character varying(512),
+        site_id uuid,
+        project_id uuid,
+        amount numeric(18,2),
+        current_status integer NOT NULL,
+        requested_by_user_id uuid NOT NULL,
+        requested_at timestamp with time zone NOT NULL,
+        decided_by_user_id uuid,
+        decided_at timestamp with time zone,
+        remarks character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_approval_requests PRIMARY KEY (id)
     );
-END;
-GO
+    END IF;
+END $EF$;
 
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ApprovalRequests] (
-        [Id] uniqueidentifier NOT NULL,
-        [EntityType] nvarchar(512) NOT NULL,
-        [EntityId] uniqueidentifier NOT NULL,
-        [EntityRef] nvarchar(512) NULL,
-        [SiteId] uniqueidentifier NULL,
-        [ProjectId] uniqueidentifier NULL,
-        [Amount] decimal(18,2) NULL,
-        [CurrentStatus] int NOT NULL,
-        [RequestedByUserId] uniqueidentifier NOT NULL,
-        [RequestedAt] datetimeoffset NOT NULL,
-        [DecidedByUserId] uniqueidentifier NULL,
-        [DecidedAt] datetimeoffset NULL,
-        [Remarks] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_ApprovalRequests] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE attachments (
+        id uuid NOT NULL,
+        entity_type character varying(512) NOT NULL,
+        entity_id uuid NOT NULL,
+        file_name character varying(512) NOT NULL,
+        content_type character varying(512) NOT NULL,
+        size bigint NOT NULL,
+        storage_path character varying(512) NOT NULL,
+        uploaded_by_user_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_attachments PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Attachments] (
-        [Id] uniqueidentifier NOT NULL,
-        [EntityType] nvarchar(512) NOT NULL,
-        [EntityId] uniqueidentifier NOT NULL,
-        [FileName] nvarchar(512) NOT NULL,
-        [ContentType] nvarchar(512) NOT NULL,
-        [Size] bigint NOT NULL,
-        [StoragePath] nvarchar(512) NOT NULL,
-        [UploadedByUserId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Attachments] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE audit_logs (
+        id uuid NOT NULL,
+        entity_type character varying(100) NOT NULL,
+        entity_id uuid NOT NULL,
+        action character varying(400) NOT NULL,
+        data_json text,
+        user_id uuid,
+        at timestamp with time zone NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_audit_logs PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [AuditLogs] (
-        [Id] uniqueidentifier NOT NULL,
-        [EntityType] nvarchar(512) NOT NULL,
-        [EntityId] uniqueidentifier NOT NULL,
-        [Action] nvarchar(512) NOT NULL,
-        [DataJson] nvarchar(512) NULL,
-        [UserId] uniqueidentifier NULL,
-        [At] datetimeoffset NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_AuditLogs] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE companies (
+        id uuid NOT NULL,
+        code character varying(30) NOT NULL,
+        name character varying(200) NOT NULL,
+        contact_email character varying(512),
+        contact_mobile character varying(512),
+        license_expires_on date NOT NULL,
+        is_active boolean NOT NULL,
+        notes character varying(512),
+        created_at timestamp with time zone NOT NULL,
+        CONSTRAINT pk_companies PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Companies] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(30) NOT NULL,
-        [Name] nvarchar(200) NOT NULL,
-        [ContactEmail] nvarchar(512) NULL,
-        [ContactMobile] nvarchar(512) NULL,
-        [LicenseExpiresOn] date NOT NULL,
-        [IsActive] bit NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        CONSTRAINT [PK_Companies] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE contractors (
+        id uuid NOT NULL,
+        code character varying(512) NOT NULL,
+        name character varying(512) NOT NULL,
+        company_name character varying(512),
+        mobile character varying(512),
+        email character varying(512),
+        address character varying(512),
+        pan character varying(512),
+        gstin character varying(512),
+        bank_details character varying(512),
+        contractor_type character varying(512),
+        is_active boolean NOT NULL,
+        notes character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_contractors PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Contractors] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(512) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [CompanyName] nvarchar(512) NULL,
-        [Mobile] nvarchar(512) NULL,
-        [Email] nvarchar(512) NULL,
-        [Address] nvarchar(512) NULL,
-        [Pan] nvarchar(512) NULL,
-        [Gstin] nvarchar(512) NULL,
-        [BankDetails] nvarchar(512) NULL,
-        [ContractorType] nvarchar(512) NULL,
-        [IsActive] bit NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Contractors] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE customers (
+        id uuid NOT NULL,
+        code character varying(512) NOT NULL,
+        name character varying(512) NOT NULL,
+        mobile character varying(512),
+        email character varying(512),
+        address character varying(512),
+        pan character varying(512),
+        gstin character varying(512),
+        is_active boolean NOT NULL,
+        notes character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_customers PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Customers] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(512) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [Mobile] nvarchar(512) NULL,
-        [Email] nvarchar(512) NULL,
-        [Address] nvarchar(512) NULL,
-        [Pan] nvarchar(512) NULL,
-        [Gstin] nvarchar(512) NULL,
-        [IsActive] bit NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Customers] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE expense_heads (
+        id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        sort_order integer NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_expense_heads PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ExpenseHeads] (
-        [Id] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [SortOrder] int NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_ExpenseHeads] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE labour_categories (
+        id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_labour_categories PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [LabourCategories] (
-        [Id] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_LabourCategories] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE material_categories (
+        id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        sort_order integer NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_material_categories PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [MaterialCategories] (
-        [Id] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [SortOrder] int NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_MaterialCategories] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE payment_methods (
+        id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_payment_methods PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [PaymentMethods] (
-        [Id] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_PaymentMethods] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE platform_users (
+        id uuid NOT NULL,
+        username character varying(60) NOT NULL,
+        display_name character varying(200) NOT NULL,
+        password_hash character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        refresh_token character varying(512),
+        refresh_token_expiry timestamp with time zone,
+        last_login_at timestamp with time zone,
+        created_at timestamp with time zone NOT NULL,
+        CONSTRAINT pk_platform_users PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [PlatformUsers] (
-        [Id] uniqueidentifier NOT NULL,
-        [Username] nvarchar(60) NOT NULL,
-        [DisplayName] nvarchar(200) NOT NULL,
-        [PasswordHash] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [RefreshToken] nvarchar(512) NULL,
-        [RefreshTokenExpiry] datetimeoffset NULL,
-        [LastLoginAt] datetimeoffset NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        CONSTRAINT [PK_PlatformUsers] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE project_types (
+        id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_project_types PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ProjectTypes] (
-        [Id] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_ProjectTypes] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE suppliers (
+        id uuid NOT NULL,
+        code character varying(512) NOT NULL,
+        name character varying(512) NOT NULL,
+        mobile character varying(512),
+        email character varying(512),
+        address character varying(512),
+        pan character varying(512),
+        gstin character varying(512),
+        is_active boolean NOT NULL,
+        notes character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_suppliers PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Suppliers] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(512) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [Mobile] nvarchar(512) NULL,
-        [Email] nvarchar(512) NULL,
-        [Address] nvarchar(512) NULL,
-        [Pan] nvarchar(512) NULL,
-        [Gstin] nvarchar(512) NULL,
-        [IsActive] bit NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Suppliers] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE transaction_sequences (
+        id uuid NOT NULL,
+        prefix character varying(512) NOT NULL,
+        year integer NOT NULL,
+        last_number integer NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_transaction_sequences PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [TransactionSequences] (
-        [Id] uniqueidentifier NOT NULL,
-        [Prefix] nvarchar(512) NOT NULL,
-        [Year] int NOT NULL,
-        [LastNumber] int NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_TransactionSequences] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE units (
+        id uuid NOT NULL,
+        code character varying(20) NOT NULL,
+        name character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_units PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Units] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(20) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Units] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE users (
+        id uuid NOT NULL,
+        name character varying(200) NOT NULL,
+        username character varying(60) NOT NULL,
+        email character varying(256),
+        mobile character varying(20),
+        password_hash character varying(512) NOT NULL,
+        role integer NOT NULL,
+        is_active boolean NOT NULL,
+        is_company_admin boolean NOT NULL,
+        refresh_token character varying(512),
+        refresh_token_expiry timestamp with time zone,
+        tokens_valid_from timestamp with time zone,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_users PRIMARY KEY (id)
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Users] (
-        [Id] uniqueidentifier NOT NULL,
-        [Name] nvarchar(200) NOT NULL,
-        [Username] nvarchar(60) NOT NULL,
-        [Email] nvarchar(256) NULL,
-        [Mobile] nvarchar(20) NULL,
-        [PasswordHash] nvarchar(512) NOT NULL,
-        [Role] int NOT NULL,
-        [IsActive] bit NOT NULL,
-        [IsCompanyAdmin] bit NOT NULL,
-        [RefreshToken] nvarchar(512) NULL,
-        [RefreshTokenExpiry] datetimeoffset NULL,
-        [TokensValidFrom] datetimeoffset NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Users] PRIMARY KEY ([Id])
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE approval_histories (
+        id uuid NOT NULL,
+        approval_request_id uuid NOT NULL,
+        action integer NOT NULL,
+        previous_status integer NOT NULL,
+        new_status integer NOT NULL,
+        user_id uuid NOT NULL,
+        at timestamp with time zone NOT NULL,
+        remarks character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_approval_histories PRIMARY KEY (id),
+        CONSTRAINT fk_approval_histories_approval_requests_approval_request_id FOREIGN KEY (approval_request_id) REFERENCES approval_requests (id) ON DELETE CASCADE
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ApprovalHistories] (
-        [Id] uniqueidentifier NOT NULL,
-        [ApprovalRequestId] uniqueidentifier NOT NULL,
-        [Action] int NOT NULL,
-        [PreviousStatus] int NOT NULL,
-        [NewStatus] int NOT NULL,
-        [UserId] uniqueidentifier NOT NULL,
-        [At] datetimeoffset NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_ApprovalHistories] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_ApprovalHistories_ApprovalRequests_ApprovalRequestId] FOREIGN KEY ([ApprovalRequestId]) REFERENCES [ApprovalRequests] ([Id]) ON DELETE CASCADE
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE expense_subheads (
+        id uuid NOT NULL,
+        expense_head_id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_expense_subheads PRIMARY KEY (id),
+        CONSTRAINT fk_expense_subheads_expense_heads_expense_head_id FOREIGN KEY (expense_head_id) REFERENCES expense_heads (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ExpenseSubheads] (
-        [Id] uniqueidentifier NOT NULL,
-        [ExpenseHeadId] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_ExpenseSubheads] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_ExpenseSubheads_ExpenseHeads_ExpenseHeadId] FOREIGN KEY ([ExpenseHeadId]) REFERENCES [ExpenseHeads] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE material_subcategories (
+        id uuid NOT NULL,
+        material_category_id uuid NOT NULL,
+        name character varying(512) NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_material_subcategories PRIMARY KEY (id),
+        CONSTRAINT fk_material_subcategories_material_categories_material_categor FOREIGN KEY (material_category_id) REFERENCES material_categories (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [MaterialSubcategories] (
-        [Id] uniqueidentifier NOT NULL,
-        [MaterialCategoryId] uniqueidentifier NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_MaterialSubcategories] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_MaterialSubcategories_MaterialCategories_MaterialCategoryId] FOREIGN KEY ([MaterialCategoryId]) REFERENCES [MaterialCategories] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE sites (
+        id uuid NOT NULL,
+        code character varying(30) NOT NULL,
+        name character varying(512) NOT NULL,
+        address character varying(512),
+        city character varying(512),
+        state character varying(512),
+        pin character varying(512),
+        supervisor_user_id uuid,
+        start_date date,
+        status integer NOT NULL,
+        notes character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_sites PRIMARY KEY (id),
+        CONSTRAINT fk_sites_users_supervisor_user_id FOREIGN KEY (supervisor_user_id) REFERENCES users (id) ON DELETE SET NULL
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Sites] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(30) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [Address] nvarchar(512) NULL,
-        [City] nvarchar(512) NULL,
-        [State] nvarchar(512) NULL,
-        [Pin] nvarchar(512) NULL,
-        [SupervisorUserId] uniqueidentifier NULL,
-        [StartDate] date NULL,
-        [Status] int NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Sites] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_Sites_Users_SupervisorUserId] FOREIGN KEY ([SupervisorUserId]) REFERENCES [Users] ([Id]) ON DELETE SET NULL
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE user_permissions (
+        id uuid NOT NULL,
+        user_id uuid NOT NULL,
+        permission_key character varying(512) NOT NULL,
+        granted boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_user_permissions PRIMARY KEY (id),
+        CONSTRAINT fk_user_permissions_users_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [UserPermissions] (
-        [Id] uniqueidentifier NOT NULL,
-        [UserId] uniqueidentifier NOT NULL,
-        [PermissionKey] nvarchar(512) NOT NULL,
-        [Granted] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_UserPermissions] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_UserPermissions_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE material_spec_definitions (
+        id uuid NOT NULL,
+        material_subcategory_id uuid NOT NULL,
+        key character varying(60) NOT NULL,
+        label character varying(120) NOT NULL,
+        kind integer NOT NULL,
+        options character varying(600),
+        is_required boolean NOT NULL,
+        part_of_identity boolean NOT NULL,
+        sort_order integer NOT NULL,
+        is_active boolean NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_material_spec_definitions PRIMARY KEY (id),
+        CONSTRAINT fk_material_spec_definitions_material_subcategories_material_s FOREIGN KEY (material_subcategory_id) REFERENCES material_subcategories (id) ON DELETE CASCADE
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [MaterialSpecDefinitions] (
-        [Id] uniqueidentifier NOT NULL,
-        [MaterialSubcategoryId] uniqueidentifier NOT NULL,
-        [Key] nvarchar(60) NOT NULL,
-        [Label] nvarchar(120) NOT NULL,
-        [Kind] int NOT NULL,
-        [Options] nvarchar(600) NULL,
-        [IsRequired] bit NOT NULL,
-        [PartOfIdentity] bit NOT NULL,
-        [SortOrder] int NOT NULL,
-        [IsActive] bit NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_MaterialSpecDefinitions] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_MaterialSpecDefinitions_MaterialSubcategories_MaterialSubcategoryId] FOREIGN KEY ([MaterialSubcategoryId]) REFERENCES [MaterialSubcategories] ([Id]) ON DELETE CASCADE
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE materials (
+        id uuid NOT NULL,
+        code character varying(40) NOT NULL,
+        name character varying(512) NOT NULL,
+        material_subcategory_id uuid NOT NULL,
+        brand character varying(120),
+        description character varying(512),
+        unit_id uuid NOT NULL,
+        secondary_unit_id uuid,
+        conversion_factor numeric(18,2),
+        generic_measurement character varying(120),
+        min_stock_level numeric(18,2) NOT NULL,
+        reorder_level numeric(18,2) NOT NULL,
+        default_purchase_rate numeric(18,2) NOT NULL,
+        gst_rate numeric(18,2),
+        is_active boolean NOT NULL,
+        notes character varying(512),
+        spec_summary character varying(400),
+        spec_signature character varying(500) NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_materials PRIMARY KEY (id),
+        CONSTRAINT fk_materials_material_subcategories_material_subcategory_id FOREIGN KEY (material_subcategory_id) REFERENCES material_subcategories (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_materials_units_secondary_unit_id FOREIGN KEY (secondary_unit_id) REFERENCES units (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_materials_units_unit_id FOREIGN KEY (unit_id) REFERENCES units (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Materials] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(40) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [MaterialSubcategoryId] uniqueidentifier NOT NULL,
-        [Brand] nvarchar(120) NULL,
-        [Description] nvarchar(512) NULL,
-        [UnitId] uniqueidentifier NOT NULL,
-        [SecondaryUnitId] uniqueidentifier NULL,
-        [ConversionFactor] decimal(18,2) NULL,
-        [GenericMeasurement] nvarchar(120) NULL,
-        [MinStockLevel] decimal(18,2) NOT NULL,
-        [ReorderLevel] decimal(18,2) NOT NULL,
-        [DefaultPurchaseRate] decimal(18,2) NOT NULL,
-        [GstRate] decimal(18,2) NULL,
-        [IsActive] bit NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [SpecSummary] nvarchar(400) NULL,
-        [SpecSignature] nvarchar(500) NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Materials] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_Materials_MaterialSubcategories_MaterialSubcategoryId] FOREIGN KEY ([MaterialSubcategoryId]) REFERENCES [MaterialSubcategories] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_Materials_Units_SecondaryUnitId] FOREIGN KEY ([SecondaryUnitId]) REFERENCES [Units] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_Materials_Units_UnitId] FOREIGN KEY ([UnitId]) REFERENCES [Units] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE employees (
+        id uuid NOT NULL,
+        code character varying(40) NOT NULL,
+        name character varying(200) NOT NULL,
+        phone character varying(20) NOT NULL,
+        monthly_salary numeric(18,2) NOT NULL,
+        join_date date NOT NULL,
+        leave_date date,
+        designation character varying(120),
+        address character varying(512),
+        notes character varying(512),
+        is_active boolean NOT NULL,
+        site_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_employees PRIMARY KEY (id),
+        CONSTRAINT fk_employees_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE SET NULL
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Employees] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(40) NOT NULL,
-        [Name] nvarchar(200) NOT NULL,
-        [Phone] nvarchar(20) NOT NULL,
-        [MonthlySalary] decimal(18,2) NOT NULL,
-        [JoinDate] date NOT NULL,
-        [LeaveDate] date NULL,
-        [Designation] nvarchar(120) NULL,
-        [Address] nvarchar(512) NULL,
-        [Notes] nvarchar(512) NULL,
-        [IsActive] bit NOT NULL,
-        [SiteId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Employees] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_Employees_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE SET NULL
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE projects (
+        id uuid NOT NULL,
+        code character varying(30) NOT NULL,
+        name character varying(512) NOT NULL,
+        villa_number character varying(512),
+        site_id uuid NOT NULL,
+        customer_id uuid,
+        project_type_id uuid,
+        address character varying(512),
+        start_date date,
+        expected_completion_date date,
+        actual_completion_date date,
+        estimated_cost numeric(18,2) NOT NULL,
+        contract_sale_value numeric(18,2),
+        status integer NOT NULL,
+        completion_percent integer NOT NULL,
+        notes character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_projects PRIMARY KEY (id),
+        CONSTRAINT fk_projects_customers_customer_id FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_projects_project_types_project_type_id FOREIGN KEY (project_type_id) REFERENCES project_types (id) ON DELETE SET NULL,
+        CONSTRAINT fk_projects_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Projects] (
-        [Id] uniqueidentifier NOT NULL,
-        [Code] nvarchar(30) NOT NULL,
-        [Name] nvarchar(512) NOT NULL,
-        [VillaNumber] nvarchar(512) NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [CustomerId] uniqueidentifier NULL,
-        [ProjectTypeId] uniqueidentifier NULL,
-        [Address] nvarchar(512) NULL,
-        [StartDate] date NULL,
-        [ExpectedCompletionDate] date NULL,
-        [ActualCompletionDate] date NULL,
-        [EstimatedCost] decimal(18,2) NOT NULL,
-        [ContractSaleValue] decimal(18,2) NULL,
-        [Status] int NOT NULL,
-        [CompletionPercent] int NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Projects] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_Projects_Customers_CustomerId] FOREIGN KEY ([CustomerId]) REFERENCES [Customers] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_Projects_ProjectTypes_ProjectTypeId] FOREIGN KEY ([ProjectTypeId]) REFERENCES [ProjectTypes] ([Id]) ON DELETE SET NULL,
-        CONSTRAINT [FK_Projects_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE settings (
+        id uuid NOT NULL,
+        key character varying(512) NOT NULL,
+        value character varying(512) NOT NULL,
+        site_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_settings PRIMARY KEY (id),
+        CONSTRAINT fk_settings_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE CASCADE
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [Settings] (
-        [Id] uniqueidentifier NOT NULL,
-        [Key] nvarchar(512) NOT NULL,
-        [Value] nvarchar(512) NOT NULL,
-        [SiteId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_Settings] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_Settings_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE CASCADE
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE site_expenses (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        site_id uuid NOT NULL,
+        date date NOT NULL,
+        expense_head_id uuid NOT NULL,
+        description character varying(512),
+        amount numeric(18,2) NOT NULL,
+        payment_status integer NOT NULL,
+        payment_method_id uuid,
+        source_type character varying(512),
+        source_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_site_expenses PRIMARY KEY (id),
+        CONSTRAINT fk_site_expenses_expense_heads_expense_head_id FOREIGN KEY (expense_head_id) REFERENCES expense_heads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_site_expenses_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_site_expenses_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [SiteExpenses] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [Date] date NOT NULL,
-        [ExpenseHeadId] uniqueidentifier NOT NULL,
-        [Description] nvarchar(512) NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [PaymentStatus] int NOT NULL,
-        [PaymentMethodId] uniqueidentifier NULL,
-        [SourceType] nvarchar(512) NULL,
-        [SourceId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_SiteExpenses] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_SiteExpenses_ExpenseHeads_ExpenseHeadId] FOREIGN KEY ([ExpenseHeadId]) REFERENCES [ExpenseHeads] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_SiteExpenses_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_SiteExpenses_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE user_site_assignments (
+        id uuid NOT NULL,
+        user_id uuid NOT NULL,
+        site_id uuid NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_user_site_assignments PRIMARY KEY (id),
+        CONSTRAINT fk_user_site_assignments_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE CASCADE,
+        CONSTRAINT fk_user_site_assignments_users_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [UserSiteAssignments] (
-        [Id] uniqueidentifier NOT NULL,
-        [UserId] uniqueidentifier NOT NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_UserSiteAssignments] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_UserSiteAssignments_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE CASCADE,
-        CONSTRAINT [FK_UserSiteAssignments_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE inventory_balances (
+        id uuid NOT NULL,
+        site_id uuid NOT NULL,
+        material_id uuid NOT NULL,
+        quantity numeric(18,2) NOT NULL,
+        average_rate numeric(18,2) NOT NULL,
+        value numeric(18,2) NOT NULL,
+        last_movement_at timestamp with time zone,
+        last_purchase_rate numeric(18,2),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_inventory_balances PRIMARY KEY (id),
+        CONSTRAINT fk_inventory_balances_materials_material_id FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_inventory_balances_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [InventoryBalances] (
-        [Id] uniqueidentifier NOT NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [MaterialId] uniqueidentifier NOT NULL,
-        [Quantity] decimal(18,2) NOT NULL,
-        [AverageRate] decimal(18,2) NOT NULL,
-        [Value] decimal(18,2) NOT NULL,
-        [LastMovementAt] datetimeoffset NULL,
-        [LastPurchaseRate] decimal(18,2) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_InventoryBalances] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_InventoryBalances_Materials_MaterialId] FOREIGN KEY ([MaterialId]) REFERENCES [Materials] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_InventoryBalances_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE material_spec_values (
+        id uuid NOT NULL,
+        material_id uuid NOT NULL,
+        material_spec_definition_id uuid NOT NULL,
+        value character varying(200) NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_material_spec_values PRIMARY KEY (id),
+        CONSTRAINT fk_material_spec_values_material_spec_definitions_material_spe FOREIGN KEY (material_spec_definition_id) REFERENCES material_spec_definitions (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_material_spec_values_materials_material_id FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [MaterialSpecValues] (
-        [Id] uniqueidentifier NOT NULL,
-        [MaterialId] uniqueidentifier NOT NULL,
-        [MaterialSpecDefinitionId] uniqueidentifier NOT NULL,
-        [Value] nvarchar(200) NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_MaterialSpecValues] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_MaterialSpecValues_MaterialSpecDefinitions_MaterialSpecDefinitionId] FOREIGN KEY ([MaterialSpecDefinitionId]) REFERENCES [MaterialSpecDefinitions] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_MaterialSpecValues_Materials_MaterialId] FOREIGN KEY ([MaterialId]) REFERENCES [Materials] ([Id]) ON DELETE CASCADE
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE contract_works (
+        id uuid NOT NULL,
+        project_id uuid NOT NULL,
+        contractor_id uuid NOT NULL,
+        work_category character varying(512) NOT NULL,
+        description character varying(512),
+        contract_amount numeric(18,2) NOT NULL,
+        start_date date,
+        expected_completion date,
+        actual_completion date,
+        payment_terms character varying(512),
+        work_status integer NOT NULL,
+        total_paid numeric(18,2) NOT NULL,
+        balance numeric(18,2) NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_contract_works PRIMARY KEY (id),
+        CONSTRAINT fk_contract_works_contractors_contractor_id FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_contract_works_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ContractWorks] (
-        [Id] uniqueidentifier NOT NULL,
-        [ProjectId] uniqueidentifier NOT NULL,
-        [ContractorId] uniqueidentifier NOT NULL,
-        [WorkCategory] nvarchar(512) NOT NULL,
-        [Description] nvarchar(512) NULL,
-        [EstimatedCost] decimal(18,2) NOT NULL,
-        [ContractAmount] decimal(18,2) NOT NULL,
-        [StartDate] date NULL,
-        [ExpectedCompletion] date NULL,
-        [ActualCompletion] date NULL,
-        [PaymentTerms] nvarchar(512) NULL,
-        [WorkStatus] int NOT NULL,
-        [TotalPaid] decimal(18,2) NOT NULL,
-        [Balance] decimal(18,2) NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_ContractWorks] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_ContractWorks_Contractors_ContractorId] FOREIGN KEY ([ContractorId]) REFERENCES [Contractors] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ContractWorks_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE customer_payments (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        project_id uuid NOT NULL,
+        customer_id uuid NOT NULL,
+        date date NOT NULL,
+        amount numeric(18,2) NOT NULL,
+        payment_method_id uuid NOT NULL,
+        reference character varying(512),
+        description character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_customer_payments PRIMARY KEY (id),
+        CONSTRAINT fk_customer_payments_customers_customer_id FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_customer_payments_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_customer_payments_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [CustomerPayments] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [ProjectId] uniqueidentifier NOT NULL,
-        [CustomerId] uniqueidentifier NOT NULL,
-        [Date] date NOT NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [PaymentMethodId] uniqueidentifier NOT NULL,
-        [Reference] nvarchar(512) NULL,
-        [Description] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_CustomerPayments] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_CustomerPayments_Customers_CustomerId] FOREIGN KEY ([CustomerId]) REFERENCES [Customers] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_CustomerPayments_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_CustomerPayments_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE employee_payments (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        employee_id uuid NOT NULL,
+        date date NOT NULL,
+        kind integer NOT NULL,
+        amount numeric(18,2) NOT NULL,
+        advance_recovered numeric(18,2) NOT NULL,
+        period_start date,
+        period_end date,
+        payment_method_id uuid,
+        reference character varying(512),
+        project_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_employee_payments PRIMARY KEY (id),
+        CONSTRAINT fk_employee_payments_employees_employee_id FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_employee_payments_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_employee_payments_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [EmployeePayments] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [EmployeeId] uniqueidentifier NOT NULL,
-        [Date] date NOT NULL,
-        [Kind] int NOT NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [AdvanceRecovered] decimal(18,2) NOT NULL,
-        [PeriodStart] date NULL,
-        [PeriodEnd] date NULL,
-        [PaymentMethodId] uniqueidentifier NULL,
-        [Reference] nvarchar(512) NULL,
-        [ProjectId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_EmployeePayments] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_EmployeePayments_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_EmployeePayments_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_EmployeePayments_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE inventory_transactions (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        date date NOT NULL,
+        site_id uuid NOT NULL,
+        material_id uuid NOT NULL,
+        unit_id uuid NOT NULL,
+        quantity numeric(18,2) NOT NULL,
+        rate numeric(18,2) NOT NULL,
+        amount numeric(18,2) NOT NULL,
+        type integer NOT NULL,
+        project_id uuid,
+        source_type character varying(512),
+        source_id uuid,
+        source_ref character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_inventory_transactions PRIMARY KEY (id),
+        CONSTRAINT fk_inventory_transactions_materials_material_id FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_inventory_transactions_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_inventory_transactions_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_inventory_transactions_units_unit_id FOREIGN KEY (unit_id) REFERENCES units (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [InventoryTransactions] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [Date] date NOT NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [MaterialId] uniqueidentifier NOT NULL,
-        [UnitId] uniqueidentifier NOT NULL,
-        [Quantity] decimal(18,2) NOT NULL,
-        [Rate] decimal(18,2) NOT NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [Type] int NOT NULL,
-        [ProjectId] uniqueidentifier NULL,
-        [SourceType] nvarchar(512) NULL,
-        [SourceId] uniqueidentifier NULL,
-        [SourceRef] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_InventoryTransactions] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_InventoryTransactions_Materials_MaterialId] FOREIGN KEY ([MaterialId]) REFERENCES [Materials] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_InventoryTransactions_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_InventoryTransactions_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_InventoryTransactions_Units_UnitId] FOREIGN KEY ([UnitId]) REFERENCES [Units] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE labour_entries (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        project_id uuid NOT NULL,
+        labour_category_id uuid NOT NULL,
+        period_type integer NOT NULL,
+        period_start date NOT NULL,
+        period_end date NOT NULL,
+        amount numeric(18,2) NOT NULL,
+        payment_method_id uuid,
+        payment_type character varying(512),
+        remarks character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_labour_entries PRIMARY KEY (id),
+        CONSTRAINT fk_labour_entries_labour_categories_labour_category_id FOREIGN KEY (labour_category_id) REFERENCES labour_categories (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_labour_entries_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_labour_entries_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [LabourEntries] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [ProjectId] uniqueidentifier NOT NULL,
-        [LabourCategoryId] uniqueidentifier NOT NULL,
-        [PeriodType] int NOT NULL,
-        [PeriodStart] date NOT NULL,
-        [PeriodEnd] date NOT NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [PaymentMethodId] uniqueidentifier NULL,
-        [PaymentType] nvarchar(512) NULL,
-        [Remarks] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_LabourEntries] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_LabourEntries_LabourCategories_LabourCategoryId] FOREIGN KEY ([LabourCategoryId]) REFERENCES [LabourCategories] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_LabourEntries_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_LabourEntries_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE material_requests (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        site_id uuid NOT NULL,
+        project_id uuid NOT NULL,
+        request_type integer NOT NULL,
+        request_status integer NOT NULL,
+        requested_by_user_id uuid NOT NULL,
+        date date NOT NULL,
+        notes character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_material_requests PRIMARY KEY (id),
+        CONSTRAINT fk_material_requests_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_material_requests_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [MaterialRequests] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [ProjectId] uniqueidentifier NOT NULL,
-        [RequestType] int NOT NULL,
-        [RequestStatus] int NOT NULL,
-        [RequestedByUserId] uniqueidentifier NOT NULL,
-        [Date] date NOT NULL,
-        [Notes] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_MaterialRequests] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_MaterialRequests_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_MaterialRequests_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE project_expenses (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        project_id uuid NOT NULL,
+        date date NOT NULL,
+        expense_head_id uuid NOT NULL,
+        expense_subhead_id uuid,
+        description character varying(512),
+        amount numeric(18,2) NOT NULL,
+        expense_type integer NOT NULL,
+        payment_status integer NOT NULL,
+        payment_method_id uuid,
+        source_type character varying(512),
+        source_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_project_expenses PRIMARY KEY (id),
+        CONSTRAINT fk_project_expenses_expense_heads_expense_head_id FOREIGN KEY (expense_head_id) REFERENCES expense_heads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_project_expenses_expense_subheads_expense_subhead_id FOREIGN KEY (expense_subhead_id) REFERENCES expense_subheads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_project_expenses_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_project_expenses_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ProjectExpenses] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [ProjectId] uniqueidentifier NOT NULL,
-        [Date] date NOT NULL,
-        [ExpenseHeadId] uniqueidentifier NOT NULL,
-        [ExpenseSubheadId] uniqueidentifier NULL,
-        [Description] nvarchar(512) NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [ExpenseType] int NOT NULL,
-        [PaymentStatus] int NOT NULL,
-        [PaymentMethodId] uniqueidentifier NULL,
-        [SourceType] nvarchar(512) NULL,
-        [SourceId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_ProjectExpenses] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_ProjectExpenses_ExpenseHeads_ExpenseHeadId] FOREIGN KEY ([ExpenseHeadId]) REFERENCES [ExpenseHeads] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ProjectExpenses_ExpenseSubheads_ExpenseSubheadId] FOREIGN KEY ([ExpenseSubheadId]) REFERENCES [ExpenseSubheads] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ProjectExpenses_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ProjectExpenses_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE contractor_payments (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        contractor_id uuid NOT NULL,
+        project_id uuid NOT NULL,
+        contract_work_id uuid,
+        date date NOT NULL,
+        amount numeric(18,2) NOT NULL,
+        payment_method_id uuid NOT NULL,
+        reference_number character varying(512),
+        description character varying(512),
+        payment_kind integer NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_contractor_payments PRIMARY KEY (id),
+        CONSTRAINT fk_contractor_payments_contract_works_contract_work_id FOREIGN KEY (contract_work_id) REFERENCES contract_works (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_contractor_payments_contractors_contractor_id FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_contractor_payments_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_contractor_payments_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [ContractorPayments] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [ContractorId] uniqueidentifier NOT NULL,
-        [ProjectId] uniqueidentifier NOT NULL,
-        [ContractWorkId] uniqueidentifier NULL,
-        [Date] date NOT NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [PaymentMethodId] uniqueidentifier NOT NULL,
-        [ReferenceNumber] nvarchar(512) NULL,
-        [Description] nvarchar(512) NULL,
-        [PaymentKind] int NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_ContractorPayments] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_ContractorPayments_ContractWorks_ContractWorkId] FOREIGN KEY ([ContractWorkId]) REFERENCES [ContractWorks] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ContractorPayments_Contractors_ContractorId] FOREIGN KEY ([ContractorId]) REFERENCES [Contractors] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ContractorPayments_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_ContractorPayments_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE material_request_items (
+        id uuid NOT NULL,
+        material_request_id uuid NOT NULL,
+        material_id uuid NOT NULL,
+        unit_id uuid NOT NULL,
+        requested_qty numeric(18,2) NOT NULL,
+        approved_qty numeric(18,2),
+        issued_qty numeric(18,2) NOT NULL,
+        rate numeric(18,2),
+        expense_head_id uuid,
+        expense_subhead_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_material_request_items PRIMARY KEY (id),
+        CONSTRAINT fk_material_request_items_expense_heads_expense_head_id FOREIGN KEY (expense_head_id) REFERENCES expense_heads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_material_request_items_expense_subheads_expense_subhead_id FOREIGN KEY (expense_subhead_id) REFERENCES expense_subheads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_material_request_items_material_requests_material_request_id FOREIGN KEY (material_request_id) REFERENCES material_requests (id) ON DELETE CASCADE,
+        CONSTRAINT fk_material_request_items_materials_material_id FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_material_request_items_units_unit_id FOREIGN KEY (unit_id) REFERENCES units (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [MaterialRequestItems] (
-        [Id] uniqueidentifier NOT NULL,
-        [MaterialRequestId] uniqueidentifier NOT NULL,
-        [MaterialId] uniqueidentifier NOT NULL,
-        [UnitId] uniqueidentifier NOT NULL,
-        [RequestedQty] decimal(18,2) NOT NULL,
-        [ApprovedQty] decimal(18,2) NULL,
-        [IssuedQty] decimal(18,2) NOT NULL,
-        [Rate] decimal(18,2) NULL,
-        [ExpenseHeadId] uniqueidentifier NULL,
-        [ExpenseSubheadId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_MaterialRequestItems] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_MaterialRequestItems_ExpenseHeads_ExpenseHeadId] FOREIGN KEY ([ExpenseHeadId]) REFERENCES [ExpenseHeads] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_MaterialRequestItems_ExpenseSubheads_ExpenseSubheadId] FOREIGN KEY ([ExpenseSubheadId]) REFERENCES [ExpenseSubheads] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_MaterialRequestItems_MaterialRequests_MaterialRequestId] FOREIGN KEY ([MaterialRequestId]) REFERENCES [MaterialRequests] ([Id]) ON DELETE CASCADE,
-        CONSTRAINT [FK_MaterialRequestItems_Materials_MaterialId] FOREIGN KEY ([MaterialId]) REFERENCES [Materials] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_MaterialRequestItems_Units_UnitId] FOREIGN KEY ([UnitId]) REFERENCES [Units] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE purchase_headers (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        supplier_id uuid NOT NULL,
+        site_id uuid NOT NULL,
+        project_id uuid,
+        material_request_id uuid,
+        invoice_number character varying(512),
+        invoice_date date,
+        date date NOT NULL,
+        sub_total numeric(18,2) NOT NULL,
+        discount numeric(18,2) NOT NULL,
+        tax_amount numeric(18,2) NOT NULL,
+        other_charges numeric(18,2) NOT NULL,
+        total_amount numeric(18,2) NOT NULL,
+        paid_amount numeric(18,2) NOT NULL,
+        balance_amount numeric(18,2) NOT NULL,
+        payment_status integer NOT NULL,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_purchase_headers PRIMARY KEY (id),
+        CONSTRAINT fk_purchase_headers_material_requests_material_request_id FOREIGN KEY (material_request_id) REFERENCES material_requests (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_purchase_headers_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_purchase_headers_sites_site_id FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_purchase_headers_suppliers_supplier_id FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [PurchaseHeaders] (
-        [Id] uniqueidentifier NOT NULL,
-        [TxnNumber] nvarchar(512) NOT NULL,
-        [SupplierId] uniqueidentifier NOT NULL,
-        [SiteId] uniqueidentifier NOT NULL,
-        [ProjectId] uniqueidentifier NULL,
-        [MaterialRequestId] uniqueidentifier NULL,
-        [InvoiceNumber] nvarchar(512) NULL,
-        [InvoiceDate] date NULL,
-        [Date] date NOT NULL,
-        [SubTotal] decimal(18,2) NOT NULL,
-        [Discount] decimal(18,2) NOT NULL,
-        [TaxAmount] decimal(18,2) NOT NULL,
-        [OtherCharges] decimal(18,2) NOT NULL,
-        [TotalAmount] decimal(18,2) NOT NULL,
-        [PaidAmount] decimal(18,2) NOT NULL,
-        [BalanceAmount] decimal(18,2) NOT NULL,
-        [PaymentStatus] int NOT NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        [ModifiedAt] datetimeoffset NULL,
-        [ModifiedBy] uniqueidentifier NULL,
-        [ApprovedAt] datetimeoffset NULL,
-        [ApprovedBy] uniqueidentifier NULL,
-        [Status] int NOT NULL,
-        [Remarks] nvarchar(512) NULL,
-        [ConcurrencyToken] uniqueidentifier NOT NULL,
-        CONSTRAINT [PK_PurchaseHeaders] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_PurchaseHeaders_MaterialRequests_MaterialRequestId] FOREIGN KEY ([MaterialRequestId]) REFERENCES [MaterialRequests] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_PurchaseHeaders_Projects_ProjectId] FOREIGN KEY ([ProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_PurchaseHeaders_Sites_SiteId] FOREIGN KEY ([SiteId]) REFERENCES [Sites] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_PurchaseHeaders_Suppliers_SupplierId] FOREIGN KEY ([SupplierId]) REFERENCES [Suppliers] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE purchase_items (
+        id uuid NOT NULL,
+        purchase_header_id uuid NOT NULL,
+        material_id uuid NOT NULL,
+        unit_id uuid NOT NULL,
+        quantity numeric(18,2) NOT NULL,
+        rate numeric(18,2) NOT NULL,
+        discount numeric(18,2) NOT NULL,
+        tax_amount numeric(18,2) NOT NULL,
+        line_total numeric(18,2) NOT NULL,
+        deliver_to_project_id uuid,
+        expense_head_id uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_purchase_items PRIMARY KEY (id),
+        CONSTRAINT fk_purchase_items_expense_heads_expense_head_id FOREIGN KEY (expense_head_id) REFERENCES expense_heads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_purchase_items_materials_material_id FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_purchase_items_projects_deliver_to_project_id FOREIGN KEY (deliver_to_project_id) REFERENCES projects (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_purchase_items_purchase_headers_purchase_header_id FOREIGN KEY (purchase_header_id) REFERENCES purchase_headers (id) ON DELETE CASCADE,
+        CONSTRAINT fk_purchase_items_units_unit_id FOREIGN KEY (unit_id) REFERENCES units (id) ON DELETE RESTRICT
     );
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE TABLE [PurchaseItems] (
-        [Id] uniqueidentifier NOT NULL,
-        [PurchaseHeaderId] uniqueidentifier NOT NULL,
-        [MaterialId] uniqueidentifier NOT NULL,
-        [UnitId] uniqueidentifier NOT NULL,
-        [Quantity] decimal(18,2) NOT NULL,
-        [Rate] decimal(18,2) NOT NULL,
-        [Discount] decimal(18,2) NOT NULL,
-        [TaxAmount] decimal(18,2) NOT NULL,
-        [LineTotal] decimal(18,2) NOT NULL,
-        [DeliverToProjectId] uniqueidentifier NULL,
-        [ExpenseHeadId] uniqueidentifier NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_PurchaseItems] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_PurchaseItems_ExpenseHeads_ExpenseHeadId] FOREIGN KEY ([ExpenseHeadId]) REFERENCES [ExpenseHeads] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_PurchaseItems_Materials_MaterialId] FOREIGN KEY ([MaterialId]) REFERENCES [Materials] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_PurchaseItems_Projects_DeliverToProjectId] FOREIGN KEY ([DeliverToProjectId]) REFERENCES [Projects] ([Id]) ON DELETE NO ACTION,
-        CONSTRAINT [FK_PurchaseItems_PurchaseHeaders_PurchaseHeaderId] FOREIGN KEY ([PurchaseHeaderId]) REFERENCES [PurchaseHeaders] ([Id]) ON DELETE CASCADE,
-        CONSTRAINT [FK_PurchaseItems_Units_UnitId] FOREIGN KEY ([UnitId]) REFERENCES [Units] ([Id]) ON DELETE NO ACTION
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE TABLE supplier_payments (
+        id uuid NOT NULL,
+        purchase_header_id uuid NOT NULL,
+        date date NOT NULL,
+        amount numeric(18,2) NOT NULL,
+        payment_method_id uuid,
+        reference character varying(512),
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        approved_at timestamp with time zone,
+        approved_by uuid,
+        status integer NOT NULL,
+        remarks character varying(512),
+        concurrency_token uuid NOT NULL,
+        CONSTRAINT pk_supplier_payments PRIMARY KEY (id),
+        CONSTRAINT fk_supplier_payments_payment_methods_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_methods (id),
+        CONSTRAINT fk_supplier_payments_purchase_headers_purchase_header_id FOREIGN KEY (purchase_header_id) REFERENCES purchase_headers (id) ON DELETE CASCADE
     );
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE TABLE [SupplierPayments] (
-        [Id] uniqueidentifier NOT NULL,
-        [PurchaseHeaderId] uniqueidentifier NOT NULL,
-        [Date] date NOT NULL,
-        [Amount] decimal(18,2) NOT NULL,
-        [PaymentMethodId] uniqueidentifier NULL,
-        [Reference] nvarchar(512) NULL,
-        [CompanyId] uniqueidentifier NOT NULL,
-        [CreatedAt] datetimeoffset NOT NULL,
-        [CreatedBy] uniqueidentifier NULL,
-        [IsDemo] bit NOT NULL,
-        CONSTRAINT [PK_SupplierPayments] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_SupplierPayments_PaymentMethods_PaymentMethodId] FOREIGN KEY ([PaymentMethodId]) REFERENCES [PaymentMethods] ([Id]),
-        CONSTRAINT [FK_SupplierPayments_PurchaseHeaders_PurchaseHeaderId] FOREIGN KEY ([PurchaseHeaderId]) REFERENCES [PurchaseHeaders] ([Id]) ON DELETE CASCADE
-    );
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_ApprovalHistories_ApprovalRequestId] ON [ApprovalHistories] ([ApprovalRequestId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_ApprovalHistories_CompanyId] ON [ApprovalHistories] ([CompanyId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_ApprovalRequests_CompanyId] ON [ApprovalRequests] ([CompanyId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_ApprovalRequests_CurrentStatus] ON [ApprovalRequests] ([CurrentStatus]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_ApprovalRequests_EntityType_EntityId] ON [ApprovalRequests] ([EntityType], [EntityId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_Attachments_CompanyId] ON [Attachments] ([CompanyId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_Attachments_EntityType_EntityId] ON [Attachments] ([EntityType], [EntityId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_AuditLogs_CompanyId] ON [AuditLogs] ([CompanyId]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE UNIQUE INDEX [IX_Companies_Code] ON [Companies] ([Code]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
-BEGIN
-    CREATE INDEX [IX_Companies_Name] ON [Companies] ([Name]);
-END;
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractWorks_CompanyId] ON [ContractWorks] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_approval_histories_approval_request_id ON approval_histories (approval_request_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractWorks_ContractorId] ON [ContractWorks] ([ContractorId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_approval_histories_company_id ON approval_histories (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractWorks_ProjectId] ON [ContractWorks] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_approval_requests_company_id ON approval_requests (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractorPayments_CompanyId] ON [ContractorPayments] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_approval_requests_current_status ON approval_requests (current_status);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_ContractorPayments_CompanyId_TxnNumber] ON [ContractorPayments] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_approval_requests_entity_type_entity_id ON approval_requests (entity_type, entity_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractorPayments_ContractWorkId] ON [ContractorPayments] ([ContractWorkId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_attachments_company_id ON attachments (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractorPayments_ContractorId] ON [ContractorPayments] ([ContractorId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_attachments_entity_type_entity_id ON attachments (entity_type, entity_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractorPayments_PaymentMethodId] ON [ContractorPayments] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_audit_logs_company_id ON audit_logs (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ContractorPayments_ProjectId] ON [ContractorPayments] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX "IX_AuditLogs_Entity" ON audit_logs (company_id, entity_type, entity_id, at);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Contractors_CompanyId] ON [Contractors] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX "IX_AuditLogs_When" ON audit_logs (company_id, at);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Contractors_CompanyId_Code] ON [Contractors] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_companies_code ON companies (code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_CustomerPayments_CompanyId] ON [CustomerPayments] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_companies_name ON companies (name);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_CustomerPayments_CompanyId_TxnNumber] ON [CustomerPayments] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contract_works_company_id ON contract_works (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_CustomerPayments_CustomerId] ON [CustomerPayments] ([CustomerId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contract_works_contractor_id ON contract_works (contractor_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_CustomerPayments_PaymentMethodId] ON [CustomerPayments] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contract_works_project_id ON contract_works (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_CustomerPayments_ProjectId] ON [CustomerPayments] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contractor_payments_company_id ON contractor_payments (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Customers_CompanyId] ON [Customers] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_contractor_payments_company_id_txn_number ON contractor_payments (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Customers_CompanyId_Code] ON [Customers] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contractor_payments_contract_work_id ON contractor_payments (contract_work_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_EmployeePayments_CompanyId] ON [EmployeePayments] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contractor_payments_contractor_id ON contractor_payments (contractor_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_EmployeePayments_CompanyId_TxnNumber] ON [EmployeePayments] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contractor_payments_payment_method_id ON contractor_payments (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_EmployeePayments_EmployeeId_Date] ON [EmployeePayments] ([EmployeeId], [Date]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contractor_payments_project_id ON contractor_payments (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_EmployeePayments_PaymentMethodId] ON [EmployeePayments] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_contractors_company_id ON contractors (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_EmployeePayments_ProjectId] ON [EmployeePayments] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_contractors_company_id_code ON contractors (company_id, code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Employees_CompanyId] ON [Employees] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_customer_payments_company_id ON customer_payments (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Employees_CompanyId_Code] ON [Employees] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_customer_payments_company_id_txn_number ON customer_payments (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Employees_CompanyId_Phone] ON [Employees] ([CompanyId], [Phone]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_customer_payments_customer_id ON customer_payments (customer_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Employees_SiteId] ON [Employees] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_customer_payments_payment_method_id ON customer_payments (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ExpenseHeads_CompanyId] ON [ExpenseHeads] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_customer_payments_project_id ON customer_payments (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ExpenseSubheads_CompanyId] ON [ExpenseSubheads] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_customers_company_id ON customers (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_ExpenseSubheads_CompanyId_ExpenseHeadId_Name] ON [ExpenseSubheads] ([CompanyId], [ExpenseHeadId], [Name]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_customers_company_id_code ON customers (company_id, code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ExpenseSubheads_ExpenseHeadId] ON [ExpenseSubheads] ([ExpenseHeadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employee_payments_company_id ON employee_payments (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryBalances_CompanyId] ON [InventoryBalances] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_employee_payments_company_id_txn_number ON employee_payments (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_InventoryBalances_CompanyId_SiteId_MaterialId] ON [InventoryBalances] ([CompanyId], [SiteId], [MaterialId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employee_payments_employee_id_date ON employee_payments (employee_id, date);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryBalances_MaterialId] ON [InventoryBalances] ([MaterialId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employee_payments_payment_method_id ON employee_payments (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryBalances_SiteId] ON [InventoryBalances] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employee_payments_project_id ON employee_payments (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryTransactions_CompanyId] ON [InventoryTransactions] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employees_company_id ON employees (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_InventoryTransactions_CompanyId_TxnNumber] ON [InventoryTransactions] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_employees_company_id_code ON employees (company_id, code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryTransactions_MaterialId] ON [InventoryTransactions] ([MaterialId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employees_company_id_phone ON employees (company_id, phone);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryTransactions_ProjectId] ON [InventoryTransactions] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_employees_site_id ON employees (site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryTransactions_SiteId_MaterialId_Date] ON [InventoryTransactions] ([SiteId], [MaterialId], [Date]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_expense_heads_company_id ON expense_heads (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_InventoryTransactions_UnitId] ON [InventoryTransactions] ([UnitId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_expense_subheads_company_id ON expense_subheads (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_LabourCategories_CompanyId] ON [LabourCategories] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_expense_subheads_company_id_expense_head_id_name ON expense_subheads (company_id, expense_head_id, name);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_LabourEntries_CompanyId] ON [LabourEntries] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_expense_subheads_expense_head_id ON expense_subheads (expense_head_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_LabourEntries_CompanyId_TxnNumber] ON [LabourEntries] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_balances_company_id ON inventory_balances (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_LabourEntries_LabourCategoryId] ON [LabourEntries] ([LabourCategoryId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_inventory_balances_company_id_site_id_material_id ON inventory_balances (company_id, site_id, material_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_LabourEntries_PaymentMethodId] ON [LabourEntries] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_balances_material_id ON inventory_balances (material_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_LabourEntries_ProjectId] ON [LabourEntries] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_balances_site_id ON inventory_balances (site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialCategories_CompanyId] ON [MaterialCategories] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_transactions_company_id ON inventory_transactions (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequestItems_CompanyId] ON [MaterialRequestItems] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_inventory_transactions_company_id_txn_number ON inventory_transactions (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequestItems_ExpenseHeadId] ON [MaterialRequestItems] ([ExpenseHeadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_transactions_material_id ON inventory_transactions (material_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequestItems_ExpenseSubheadId] ON [MaterialRequestItems] ([ExpenseSubheadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_transactions_project_id ON inventory_transactions (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequestItems_MaterialId] ON [MaterialRequestItems] ([MaterialId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_transactions_site_id_material_id_date ON inventory_transactions (site_id, material_id, date);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequestItems_MaterialRequestId] ON [MaterialRequestItems] ([MaterialRequestId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_inventory_transactions_unit_id ON inventory_transactions (unit_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequestItems_UnitId] ON [MaterialRequestItems] ([UnitId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX "IX_InventoryTransactions_CompanyId_SiteId_Type_Date" ON inventory_transactions (company_id, site_id, type, date);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequests_CompanyId] ON [MaterialRequests] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_labour_categories_company_id ON labour_categories (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_MaterialRequests_CompanyId_TxnNumber] ON [MaterialRequests] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_labour_entries_company_id ON labour_entries (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequests_ProjectId] ON [MaterialRequests] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_labour_entries_company_id_txn_number ON labour_entries (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialRequests_SiteId] ON [MaterialRequests] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_labour_entries_labour_category_id ON labour_entries (labour_category_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSpecDefinitions_CompanyId] ON [MaterialSpecDefinitions] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_labour_entries_payment_method_id ON labour_entries (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_MaterialSpecDefinitions_CompanyId_MaterialSubcategoryId_Key] ON [MaterialSpecDefinitions] ([CompanyId], [MaterialSubcategoryId], [Key]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_labour_entries_project_id ON labour_entries (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSpecDefinitions_MaterialSubcategoryId] ON [MaterialSpecDefinitions] ([MaterialSubcategoryId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_categories_company_id ON material_categories (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSpecValues_CompanyId] ON [MaterialSpecValues] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_request_items_company_id ON material_request_items (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_MaterialSpecValues_CompanyId_MaterialId_MaterialSpecDefinitionId] ON [MaterialSpecValues] ([CompanyId], [MaterialId], [MaterialSpecDefinitionId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_request_items_expense_head_id ON material_request_items (expense_head_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSpecValues_MaterialId] ON [MaterialSpecValues] ([MaterialId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_request_items_expense_subhead_id ON material_request_items (expense_subhead_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSpecValues_MaterialSpecDefinitionId] ON [MaterialSpecValues] ([MaterialSpecDefinitionId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_request_items_material_id ON material_request_items (material_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSpecValues_Value] ON [MaterialSpecValues] ([Value]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_request_items_material_request_id ON material_request_items (material_request_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSubcategories_CompanyId] ON [MaterialSubcategories] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_request_items_unit_id ON material_request_items (unit_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_MaterialSubcategories_CompanyId_MaterialCategoryId_Name] ON [MaterialSubcategories] ([CompanyId], [MaterialCategoryId], [Name]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_requests_company_id ON material_requests (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_MaterialSubcategories_MaterialCategoryId] ON [MaterialSubcategories] ([MaterialCategoryId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_material_requests_company_id_txn_number ON material_requests (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Materials_Brand] ON [Materials] ([Brand]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_requests_project_id ON material_requests (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Materials_CompanyId] ON [Materials] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_requests_site_id ON material_requests (site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Materials_CompanyId_Code] ON [Materials] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_spec_definitions_company_id ON material_spec_definitions (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Materials_CompanyId_SpecSignature] ON [Materials] ([CompanyId], [SpecSignature]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_material_spec_definitions_company_id_material_subcategory_i ON material_spec_definitions (company_id, material_subcategory_id, key);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Materials_IsActive] ON [Materials] ([IsActive]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_spec_definitions_material_subcategory_id ON material_spec_definitions (material_subcategory_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Materials_MaterialSubcategoryId] ON [Materials] ([MaterialSubcategoryId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_spec_values_company_id ON material_spec_values (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Materials_SecondaryUnitId] ON [Materials] ([SecondaryUnitId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_material_spec_values_company_id_material_id_material_spec_d ON material_spec_values (company_id, material_id, material_spec_definition_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Materials_UnitId] ON [Materials] ([UnitId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_spec_values_material_id ON material_spec_values (material_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PaymentMethods_CompanyId] ON [PaymentMethods] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_spec_values_material_spec_definition_id ON material_spec_values (material_spec_definition_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_PlatformUsers_Username] ON [PlatformUsers] ([Username]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_spec_values_value ON material_spec_values (value);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ProjectExpenses_CompanyId] ON [ProjectExpenses] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_subcategories_company_id ON material_subcategories (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_ProjectExpenses_CompanyId_TxnNumber] ON [ProjectExpenses] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_material_subcategories_company_id_material_category_id_name ON material_subcategories (company_id, material_category_id, name);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ProjectExpenses_ExpenseHeadId] ON [ProjectExpenses] ([ExpenseHeadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_material_subcategories_material_category_id ON material_subcategories (material_category_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ProjectExpenses_ExpenseSubheadId] ON [ProjectExpenses] ([ExpenseSubheadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_materials_brand ON materials (brand);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ProjectExpenses_PaymentMethodId] ON [ProjectExpenses] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_materials_company_id ON materials (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ProjectExpenses_ProjectId_Date] ON [ProjectExpenses] ([ProjectId], [Date]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_materials_company_id_code ON materials (company_id, code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_ProjectTypes_CompanyId] ON [ProjectTypes] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_materials_company_id_spec_signature ON materials (company_id, spec_signature);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Projects_CompanyId] ON [Projects] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_materials_is_active ON materials (is_active);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Projects_CompanyId_Code] ON [Projects] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_materials_material_subcategory_id ON materials (material_subcategory_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Projects_CustomerId] ON [Projects] ([CustomerId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_materials_secondary_unit_id ON materials (secondary_unit_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Projects_ProjectTypeId] ON [Projects] ([ProjectTypeId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_materials_unit_id ON materials (unit_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Projects_SiteId] ON [Projects] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_payment_methods_company_id ON payment_methods (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseHeaders_CompanyId] ON [PurchaseHeaders] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_platform_users_username ON platform_users (username);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_PurchaseHeaders_CompanyId_TxnNumber] ON [PurchaseHeaders] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_project_expenses_company_id ON project_expenses (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseHeaders_MaterialRequestId] ON [PurchaseHeaders] ([MaterialRequestId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_project_expenses_company_id_txn_number ON project_expenses (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseHeaders_ProjectId] ON [PurchaseHeaders] ([ProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_project_expenses_expense_head_id ON project_expenses (expense_head_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseHeaders_SiteId] ON [PurchaseHeaders] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_project_expenses_expense_subhead_id ON project_expenses (expense_subhead_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseHeaders_SupplierId] ON [PurchaseHeaders] ([SupplierId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_project_expenses_payment_method_id ON project_expenses (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseItems_CompanyId] ON [PurchaseItems] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_project_expenses_project_id_date ON project_expenses (project_id, date);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseItems_DeliverToProjectId] ON [PurchaseItems] ([DeliverToProjectId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX "IX_ProjectExpenses_CompanyId_Status_Covering" ON project_expenses (company_id, status, project_id) INCLUDE (expense_type, amount, date);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseItems_ExpenseHeadId] ON [PurchaseItems] ([ExpenseHeadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_project_types_company_id ON project_types (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseItems_MaterialId] ON [PurchaseItems] ([MaterialId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_projects_company_id ON projects (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseItems_PurchaseHeaderId] ON [PurchaseItems] ([PurchaseHeaderId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_projects_company_id_code ON projects (company_id, code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_PurchaseItems_UnitId] ON [PurchaseItems] ([UnitId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_projects_customer_id ON projects (customer_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Settings_CompanyId] ON [Settings] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_projects_project_type_id ON projects (project_type_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    EXEC(N'CREATE UNIQUE INDEX [IX_Settings_CompanyId_Key_SiteId] ON [Settings] ([CompanyId], [Key], [SiteId]) WHERE [SiteId] IS NOT NULL');
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_projects_site_id ON projects (site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Settings_SiteId] ON [Settings] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_headers_company_id ON purchase_headers (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SiteExpenses_CompanyId] ON [SiteExpenses] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_purchase_headers_company_id_txn_number ON purchase_headers (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_SiteExpenses_CompanyId_TxnNumber] ON [SiteExpenses] ([CompanyId], [TxnNumber]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_headers_material_request_id ON purchase_headers (material_request_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SiteExpenses_ExpenseHeadId] ON [SiteExpenses] ([ExpenseHeadId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_headers_project_id ON purchase_headers (project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SiteExpenses_PaymentMethodId] ON [SiteExpenses] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_headers_site_id ON purchase_headers (site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SiteExpenses_SiteId_Date] ON [SiteExpenses] ([SiteId], [Date]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_headers_supplier_id ON purchase_headers (supplier_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Sites_CompanyId] ON [Sites] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_items_company_id ON purchase_items (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Sites_CompanyId_Code] ON [Sites] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_items_deliver_to_project_id ON purchase_items (deliver_to_project_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Sites_SupervisorUserId] ON [Sites] ([SupervisorUserId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_items_expense_head_id ON purchase_items (expense_head_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SupplierPayments_CompanyId] ON [SupplierPayments] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_items_material_id ON purchase_items (material_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SupplierPayments_PaymentMethodId] ON [SupplierPayments] ([PaymentMethodId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_items_purchase_header_id ON purchase_items (purchase_header_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_SupplierPayments_PurchaseHeaderId] ON [SupplierPayments] ([PurchaseHeaderId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_purchase_items_unit_id ON purchase_items (unit_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Suppliers_CompanyId] ON [Suppliers] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_settings_company_id ON settings (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Suppliers_CompanyId_Code] ON [Suppliers] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_settings_company_id_key_site_id ON settings (company_id, key, site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_TransactionSequences_CompanyId] ON [TransactionSequences] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_settings_site_id ON settings (site_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_TransactionSequences_CompanyId_Prefix_Year] ON [TransactionSequences] ([CompanyId], [Prefix], [Year]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_site_expenses_company_id ON site_expenses (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Units_CompanyId] ON [Units] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_site_expenses_company_id_txn_number ON site_expenses (company_id, txn_number);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Units_CompanyId_Code] ON [Units] ([CompanyId], [Code]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_site_expenses_expense_head_id ON site_expenses (expense_head_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_UserPermissions_CompanyId] ON [UserPermissions] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_site_expenses_payment_method_id ON site_expenses (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_UserPermissions_UserId] ON [UserPermissions] ([UserId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_site_expenses_site_id_date ON site_expenses (site_id, date);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_UserSiteAssignments_CompanyId] ON [UserSiteAssignments] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_sites_company_id ON sites (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_UserSiteAssignments_SiteId] ON [UserSiteAssignments] ([SiteId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_sites_company_id_code ON sites (company_id, code);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_UserSiteAssignments_UserId] ON [UserSiteAssignments] ([UserId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_sites_supervisor_user_id ON sites (supervisor_user_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Users_CompanyId] ON [Users] ([CompanyId]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_supplier_payments_company_id ON supplier_payments (company_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE UNIQUE INDEX [IX_Users_CompanyId_Username] ON [Users] ([CompanyId], [Username]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_supplier_payments_payment_method_id ON supplier_payments (payment_method_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    CREATE INDEX [IX_Users_Mobile] ON [Users] ([Mobile]);
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_supplier_payments_purchase_header_id ON supplier_payments (purchase_header_id);
+    END IF;
+END $EF$;
 
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260903165631_InitialCreate'
-)
+DO $EF$
 BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260903165631_InitialCreate', N'10.0.0');
-END;
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_suppliers_company_id ON suppliers (company_id);
+    END IF;
+END $EF$;
 
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_suppliers_company_id_code ON suppliers (company_id, code);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_transaction_sequences_company_id ON transaction_sequences (company_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_transaction_sequences_company_id_prefix_year ON transaction_sequences (company_id, prefix, year);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_units_company_id ON units (company_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_units_company_id_code ON units (company_id, code);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_user_permissions_company_id ON user_permissions (company_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_user_permissions_user_id ON user_permissions (user_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_user_site_assignments_company_id ON user_site_assignments (company_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_user_site_assignments_site_id ON user_site_assignments (site_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_user_site_assignments_user_id ON user_site_assignments (user_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_users_company_id ON users (company_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE UNIQUE INDEX ix_users_company_id_username ON users (company_id, username);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    CREATE INDEX ix_users_mobile ON users (mobile);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20260919060724_InitialPostgres') THEN
+    INSERT INTO "__EFMigrationsHistory" (migration_id, product_version)
+    VALUES ('20260919060724_InitialPostgres', '10.0.4');
+    END IF;
+END $EF$;
 COMMIT;
-GO
-
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260904091235_PerformanceIndexes'
-)
-BEGIN
-    CREATE INDEX [IX_ProjectExpenses_CompanyId_Status_Covering] ON [ProjectExpenses] ([CompanyId], [Status], [ProjectId]) INCLUDE ([ExpenseType], [Amount], [Date]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260904091235_PerformanceIndexes'
-)
-BEGIN
-    CREATE INDEX [IX_InventoryTransactions_CompanyId_SiteId_Type_Date] ON [InventoryTransactions] ([CompanyId], [SiteId], [Type], [Date]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260904091235_PerformanceIndexes'
-)
-BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260904091235_PerformanceIndexes', N'10.0.0');
-END;
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [ApprovedAt] datetimeoffset NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [ApprovedBy] uniqueidentifier NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [ConcurrencyToken] uniqueidentifier NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [ModifiedAt] datetimeoffset NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [ModifiedBy] uniqueidentifier NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [Remarks] nvarchar(512) NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    ALTER TABLE [SupplierPayments] ADD [Status] int NOT NULL DEFAULT 0;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    EXEC(N'UPDATE [SupplierPayments] SET [Status] = 6');
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    EXEC(N'UPDATE [SupplierPayments] SET [ConcurrencyToken] = NEWID()');
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260905075817_ApprovalGate'
-)
-BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260905075817_ApprovalGate', N'10.0.0');
-END;
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909043949_EngineerRoleAndContractAmountOnly'
-)
-BEGIN
-    DECLARE @var nvarchar(max);
-    SELECT @var = QUOTENAME([d].[name])
-    FROM [sys].[default_constraints] [d]
-    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[ContractWorks]') AND [c].[name] = N'EstimatedCost');
-    IF @var IS NOT NULL EXEC(N'ALTER TABLE [ContractWorks] DROP CONSTRAINT ' + @var + ';');
-    ALTER TABLE [ContractWorks] DROP COLUMN [EstimatedCost];
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909043949_EngineerRoleAndContractAmountOnly'
-)
-BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260909043949_EngineerRoleAndContractAmountOnly', N'10.0.0');
-END;
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    UPDATE [AuditLogs] SET [Action] = LEFT([Action], 400) WHERE LEN([Action]) > 400;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    UPDATE [AuditLogs] SET [EntityType] = LEFT([EntityType], 100) WHERE LEN([EntityType]) > 100;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    DECLARE @var1 nvarchar(max);
-    SELECT @var1 = QUOTENAME([d].[name])
-    FROM [sys].[default_constraints] [d]
-    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[AuditLogs]') AND [c].[name] = N'EntityType');
-    IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [AuditLogs] DROP CONSTRAINT ' + @var1 + ';');
-    ALTER TABLE [AuditLogs] ALTER COLUMN [EntityType] nvarchar(100) NOT NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    DECLARE @var2 nvarchar(max);
-    SELECT @var2 = QUOTENAME([d].[name])
-    FROM [sys].[default_constraints] [d]
-    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[AuditLogs]') AND [c].[name] = N'DataJson');
-    IF @var2 IS NOT NULL EXEC(N'ALTER TABLE [AuditLogs] DROP CONSTRAINT ' + @var2 + ';');
-    ALTER TABLE [AuditLogs] ALTER COLUMN [DataJson] nvarchar(max) NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    DECLARE @var3 nvarchar(max);
-    SELECT @var3 = QUOTENAME([d].[name])
-    FROM [sys].[default_constraints] [d]
-    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[AuditLogs]') AND [c].[name] = N'Action');
-    IF @var3 IS NOT NULL EXEC(N'ALTER TABLE [AuditLogs] DROP CONSTRAINT ' + @var3 + ';');
-    ALTER TABLE [AuditLogs] ALTER COLUMN [Action] nvarchar(400) NOT NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    CREATE INDEX [IX_AuditLogs_Entity] ON [AuditLogs] ([CompanyId], [EntityType], [EntityId], [At]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    CREATE INDEX [IX_AuditLogs_When] ON [AuditLogs] ([CompanyId], [At]);
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260909134423_AuditTrail'
-)
-BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260909134423_AuditTrail', N'10.0.0');
-END;
-
-COMMIT;
-GO
 
 

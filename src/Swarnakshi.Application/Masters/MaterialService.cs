@@ -234,7 +234,7 @@ public class MaterialService(
                 ?? throw new NotFoundException("Material", id);
 
             // An edit that omits the code keeps the one it already has — the form no longer shows it.
-            code = string.IsNullOrWhiteSpace(req.Code) ? material.Code : req.Code.Trim();
+            code = string.IsNullOrWhiteSpace(req.Code) ? material.Code : CodeGenerator.Canonical(req.Code);
 
             // Code is immutable once any transaction references the material, so history stays unambiguous.
             if (!string.Equals(material.Code, code, StringComparison.Ordinal)

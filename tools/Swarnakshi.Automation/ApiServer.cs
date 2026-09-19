@@ -18,14 +18,38 @@ public sealed class ApiServer : IAsyncDisposable
     private readonly Process? _ownedProcess;
     private readonly string? _databaseName;
 
-    /// <summary>Where UAT databases are created. Overridable for a machine whose instance is named
-    /// something else, or for a build agent with SQL Server somewhere other than localhost.</summary>
-    private static string SqlInstance =>
-        Environment.GetEnvironmentVariable("SWARNAKSHI_UAT_SQL_SERVER") ?? @".\SQLEXPRESS";
+    /// <summary>
+    /// The PostgreSQL server UAT databases are created on, as a connection string without a
+    /// database. Read from testsettings.json at the repository root — the same file the unit
+    /// tests use, so one password lives in one place — with an environment variable as the
+    /// fallback for a build agent.
+    /// </summary>
+    private static string Server
+    {
+        get
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir is not null)
+            {
+                var file = Path.Combine(dir.FullName, "testsettings.json");
+                if (File.Exists(file))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
+                    if (doc.RootElement.TryGetProperty("Postgres", out var v) && v.GetString() is { Length: > 0 } cs)
+                        return cs;
+                }
+                dir = dir.Parent;
+            }
+            return Environment.GetEnvironmentVariable("SWARNAKSHI_UAT_POSTGRES")
+                ?? throw new InvalidOperationException(
+                    "No testsettings.json found in any parent folder and SWARNAKSHI_UAT_POSTGRES is not set. "
+                    + "Copy testsettings.template.json to testsettings.json at the repository root and fill it in.");
+        }
+    }
 
     private static string ConnectionFor(string database) =>
-        $"Server={SqlInstance};Database={database};Trusted_Connection=True;" +
-        "TrustServerCertificate=True;MultipleActiveResultSets=False;Application Name=Swarnakshi.Uat";
+        new Npgsql.NpgsqlConnectionStringBuilder(Server) { Database = database, ApplicationName = "Swarnakshi.Uat" }
+            .ConnectionString;
 
     private ApiServer(Process? ownedProcess, string? databaseName)
     {
@@ -74,7 +98,7 @@ public sealed class ApiServer : IAsyncDisposable
 
         // A name unique to this run, so two runs on one machine cannot collide and a leftover
         // database from a crashed run is never picked up by the next one.
-        var databaseName = $"SwarnakshiUat_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}"[..40];
+        var databaseName = $"swarnakshi_uat_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}"[..40];
 
         log?.Invoke($"Starting the API on {apiBase} against a throwaway database");
 
@@ -166,20 +190,14 @@ public sealed class ApiServer : IAsyncDisposable
 
         if (_databaseName is null) return;
 
-        // SINGLE_USER WITH ROLLBACK IMMEDIATE first: the API's connection pool can outlive the
-        // process by a moment, and DROP fails outright while any session is still attached.
+        // WITH (FORCE): the API's connection pool can outlive the process by a moment, and DROP
+        // fails outright while any session is still attached.
         try
         {
-            await using var connection = new Microsoft.Data.SqlClient.SqlConnection(ConnectionFor("master"));
+            await using var connection = new Npgsql.NpgsqlConnection(ConnectionFor("postgres"));
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
-            command.CommandText = $"""
-                IF DB_ID(N'{_databaseName}') IS NOT NULL
-                BEGIN
-                    ALTER DATABASE [{_databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                    DROP DATABASE [{_databaseName}];
-                END
-                """;
+            command.CommandText = $"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE);";
             await command.ExecuteNonQueryAsync();
         }
         catch

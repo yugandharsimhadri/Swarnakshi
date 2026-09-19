@@ -86,7 +86,7 @@ public sealed class TestHost : IAsyncDisposable
         var connectionString = ownDatabase is null
             ? TestDatabase.ConnectionString
             : TestDatabase.ConnectionStringFor(ownDatabase);
-        svc.AddDbContext<AppDbContext>(o => o.UseSqlServer(connectionString));
+        svc.AddDbContext<AppDbContext>(o => Swarnakshi.Infrastructure.DependencyInjection.Configure(o, connectionString));
         svc.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         svc.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         svc.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();

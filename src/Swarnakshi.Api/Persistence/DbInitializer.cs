@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Infrastructure.Persistence;
 using Swarnakshi.Infrastructure.Persistence.Seed;
@@ -46,40 +47,51 @@ public static class DbInitializer
     private const int DefaultStartupWaitSeconds = 60;
 
     /// <summary>
-    /// SqlClient's way of saying "there was nothing at that address to talk to" — as opposed to
-    /// "the server answered and refused you", which is a different problem and never worth a retry.
-    /// -2 and -1 are timeouts; 53, 10060, 10061 and 11001 are the socket and name-resolution
-    /// failures; 26 arrives as one of these with the provider detail in the message.
+    /// PostgreSQL's ways of saying "the server answered, and this is your problem, not a timing
+    /// one" — waiting changes nothing, so these stop immediately with the fix in the message.
     /// </summary>
-    private static readonly int[] ServerUnreachable =
-        [-2, -1, 2, 20, 53, 64, 233, 258, 10053, 10054, 10060, 10061, 11001];
+    private static bool IsRefusal(PostgresException ex) => ex.SqlState is
+        PostgresErrorCodes.InvalidCatalogName          // 3D000  database does not exist
+        or PostgresErrorCodes.InvalidPassword          // 28P01
+        or PostgresErrorCodes.InvalidAuthorizationSpecification   // 28000  no such role, or pg_hba refused it
+        or PostgresErrorCodes.InsufficientPrivilege;   // 42501  can connect, cannot CREATE DATABASE / CREATE TABLE
+
+    /// <summary>
+    /// "There was nothing at that address to talk to yet." 57P03 is PostgreSQL itself saying it is
+    /// still starting up — the exact shape of a reboot race — and the rest are the socket layer:
+    /// connection refused, host unreachable, timed out.
+    /// </summary>
+    private static bool IsUnreachable(NpgsqlException ex) =>
+        ex is PostgresException pg
+            ? pg.SqlState is PostgresErrorCodes.CannotConnectNow
+                or PostgresErrorCodes.SqlClientUnableToEstablishSqlConnection
+                or PostgresErrorCodes.ConnectionFailure
+            : ex.IsTransient || ex.InnerException is System.Net.Sockets.SocketException or TimeoutException or IOException;
 
     /// <summary>
     /// Applies migrations, waiting for the server to appear, and turning the ways this fails on a
     /// real deployment into sentences that name the fix.
     ///
     /// <para><b>Waiting matters more than it sounds.</b> The app pool runs AlwaysRunning, so on a
-    /// Windows reboot IIS starts this process as soon as it can — which can be before SQL Server
-    /// Express is accepting connections. Failing on the first refusal turned a few seconds of boot
+    /// Windows reboot IIS starts this process as soon as it can — which can be before PostgreSQL
+    /// is accepting connections. Failing on the first refusal turned a few seconds of boot
     /// ordering into an outage that lasted until somebody ran iisreset, because the process died,
-    /// and a process that has died cannot notice the database arriving a moment later. It now
-    /// retries for a minute, which costs a misconfigured server one minute before it fails just as
+    /// and a process that has died cannot notice the database arriving a moment later. It retries
+    /// for a minute, which costs a misconfigured server one minute before it fails just as
     /// loudly, and costs a correctly configured one nothing at all.</para>
     ///
-    /// <para>EF decides whether a database exists by opening a connection to it. A database that
-    /// exists but whose login has no user inside it therefore looks exactly like one that is not
-    /// there — so EF tries to CREATE it, the application's login is deliberately not dbcreator, and
-    /// the process dies on "CREATE DATABASE permission denied in database 'master'". That message
-    /// sends whoever reads it looking for a permissions problem in master, when what is actually
-    /// wrong is one missing CREATE USER in a database that was sitting there the whole time.</para>
+    /// <para>EF decides whether a database exists by opening a connection to it, and if that fails
+    /// it tries to CREATE it. The application's role is deliberately not allowed to, so a database
+    /// that was never created, a role that cannot log in, and a role that can log in but owns
+    /// nothing all end the same way: "permission denied". The message below names all three and
+    /// the one script that fixes any of them.</para>
     /// </summary>
     private static async Task MigrateOrExplainAsync(AppDbContext db, ILogger log, TimeSpan wait)
     {
-        var connection = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(
-            db.Database.GetConnectionString() ?? "");
-        var database = connection.InitialCatalog;
-        var server = string.IsNullOrWhiteSpace(connection.DataSource) ? "(unset)" : connection.DataSource;
-        var login = connection.IntegratedSecurity ? "the service account" : connection.UserID;
+        var connection = new NpgsqlConnectionStringBuilder(db.Database.GetConnectionString() ?? "");
+        var database = connection.Database ?? "(unset)";
+        var server = string.IsNullOrWhiteSpace(connection.Host) ? "(unset)" : $"{connection.Host}:{connection.Port}";
+        var login = connection.Username ?? "(unset)";
 
         var deadline = DateTimeOffset.UtcNow + wait;
         var attempt = 0;
@@ -92,64 +104,58 @@ public static class DbInitializer
                 await db.Database.MigrateAsync();
                 if (attempt > 1)
                     log.LogInformation(
-                        "SQL Server at {Server} became reachable on attempt {Attempt}; the schema is up to date.",
+                        "PostgreSQL at {Server} became reachable on attempt {Attempt}; the schema is up to date.",
                         server, attempt);
                 return;
             }
-            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 262 or 5011 or 4060 or 916)
+            catch (PostgresException ex) when (IsRefusal(ex))
             {
-                // 262  CREATE DATABASE permission denied
-                // 4060 / 916  cannot open the database requested by the login
-                // The server answered, so waiting changes nothing — say what is wrong and stop.
                 throw new InvalidOperationException(
                     $"""
-                     Cannot open the database '{database}' as '{login}', and this application is not
-                     permitted to create one.
+                     PostgreSQL at '{server}' refused to open database '{database}' as role '{login}'
+                     ({ex.SqlState}: {FirstLine(ex.MessageText)}).
 
-                     If '{database}' does not exist yet, create it. If it does exist, then '{login}' has
-                     no user inside it — which looks identical to a missing database from here, and is
-                     the more common of the two.
+                     Depending on which of these it is, the database was never created, the role
+                     cannot log in (wrong password, or pg_hba.conf does not allow it from here), or
+                     the role can log in but is not the owner of the database. One script fixes all
+                     three and is safe to re-run:
 
-                     Either way, one command fixes both:
+                       psql -U postgres -h localhost -v DbName="{database}" -v AppRole="{login}" -v AppPassword="<password>" -f 01-create-database.sql
 
-                       sqlcmd -S <server> -E -C -b -i 01-create-database.sql -v DbName="{database}" -v AppLogin="{login}" -v AppPassword="<password>"
-
-                     It is idempotent, so running it against a database that already exists only adds
-                     what is missing. See docs/06b-deployment-split.md, step 2.
+                     See docs/11-postgresql.md, step 2.
                      """, ex);
             }
-            catch (Microsoft.Data.SqlClient.SqlException ex)
-                when (ServerUnreachable.Contains(ex.Number) && DateTimeOffset.UtcNow + RetryPause < deadline)
+            catch (NpgsqlException ex)
+                when (IsUnreachable(ex) && DateTimeOffset.UtcNow + RetryPause < deadline)
             {
                 // Warning, not Error: this is the expected shape of a boot, and logging it as a
                 // failure would train whoever reads the log to ignore the line that matters.
                 log.LogWarning(
-                    "SQL Server at {Server} is not reachable yet (attempt {Attempt}: {Reason}). "
+                    "PostgreSQL at {Server} is not reachable yet (attempt {Attempt}: {Reason}). "
                     + "Retrying for up to {Remaining:N0} more seconds.",
                     server, attempt, FirstLine(ex.Message), (deadline - DateTimeOffset.UtcNow).TotalSeconds);
                 await Task.Delay(RetryPause);
             }
-            catch (Microsoft.Data.SqlClient.SqlException ex) when (ServerUnreachable.Contains(ex.Number))
+            catch (NpgsqlException ex) when (IsUnreachable(ex))
             {
                 throw new InvalidOperationException(
                     $"""
-                     SQL Server at '{server}' did not answer within {wait.TotalSeconds:N0} seconds, over
+                     PostgreSQL at '{server}' did not answer within {wait.TotalSeconds:N0} seconds, over
                      {attempt} attempt(s), so this application cannot start.
 
                      Nothing answered at that address — this is not a password or a permissions
                      problem. The usual causes, in order:
 
-                       1. The SQL Server service is not running. Check it:
-                            Get-Service 'MSSQL$SQLEXPRESS'
-                          If this happened at boot, SQL was simply slower than IIS. Set the service
-                          to Automatic (not Automatic (Delayed Start)) so it wins that race, and
-                          raise Database:StartupWaitSeconds if this machine is slow to come up.
+                       1. The PostgreSQL service is not running. Check it:
+                            Get-Service postgresql*
+                          If this happened at boot, PostgreSQL was simply slower than IIS. Raise
+                          Database:StartupWaitSeconds if this machine is slow to come up.
 
-                       2. The instance name is wrong. '{server}' must match what is installed;
-                          a default instance is '.' or the machine name, not '.\SQLEXPRESS'.
+                       2. The host or port is wrong. '{server}' must be where PostgreSQL listens;
+                          the default port is 5432, and 'localhost' is this machine.
 
-                       3. TCP/IP is disabled for the instance, or the SQL Server Browser service is
-                          stopped, if anything connects to it over the network.
+                       3. PostgreSQL is not listening on that address. listen_addresses in
+                          postgresql.conf decides, and pg_hba.conf decides who may connect.
 
                      Last error: {FirstLine(ex.Message)}
                      """, ex);
@@ -159,7 +165,7 @@ public static class DbInitializer
 
     private static readonly TimeSpan RetryPause = TimeSpan.FromSeconds(3);
 
-    /// <summary>SqlClient's messages run to several lines; the first one carries the diagnosis.</summary>
+    /// <summary>Driver messages can run to several lines; the first one carries the diagnosis.</summary>
     private static string FirstLine(string message) =>
         message.Split('\n')[0].Trim();
 

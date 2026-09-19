@@ -18,7 +18,7 @@
 .PARAMETER From
     The last migration the live database has. Get it from the server:
 
-        sqlcmd -S .\SQLEXPRESS -E -C -d COPS -Q "SELECT TOP 1 MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId DESC"
+        psql -U cops_app -h localhost -d cops -t -A -c "SELECT migration_id FROM \"__EFMigrationsHistory\" ORDER BY migration_id DESC LIMIT 1"
 
 .EXAMPLE
     powershell -File deploy\scripts\New-UpgradeScript.ps1 -From 20260904091235_PerformanceIndexes
@@ -36,9 +36,10 @@ $body = Join-Path ([System.IO.Path]::GetTempPath()) "swk-upgrade-$([guid]::NewGu
 
 Push-Location $repo
 try {
-    $env:Database__Provider = 'SqlServer'
+    # A connection string has to be present for the design-time factory to build the context, but
+    # generating a script works from the migrations in the assembly and never connects to it.
     if (-not $env:ConnectionStrings__Default) {
-        $env:ConnectionStrings__Default = 'Server=.\SQLEXPRESS;Database=SCOPS;Trusted_Connection=True;TrustServerCertificate=True'
+        $env:ConnectionStrings__Default = 'Host=localhost;Port=5432;Database=swarnakshi_design;Username=postgres;Password=postgres'
     }
 
     # 'dotnet ef' writes progress to stderr, which Windows PowerShell turns into a terminating error
@@ -81,12 +82,14 @@ try {
     From: $From
     To:   $target
 
-    Run it against the LIVE database, before or during the deployment of the matching build:
+    Run it against the LIVE database, as the application's role, before or during the deployment
+    of the matching build:
 
-        sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i $(Split-Path -Leaf $Output)
+        psql -U cops_app -h localhost -d cops -v ON_ERROR_STOP=1 -1 -f $(Split-Path -Leaf $Output)
 
-    -b matters: without it sqlcmd returns success even when a batch failed, and a half-applied
-    upgrade looks like a clean run.
+    ON_ERROR_STOP matters: without it psql carries on past a failed statement and a half-applied
+    upgrade looks like a clean run. -1 wraps the whole file in one transaction, so it is all or
+    nothing.
 
     Idempotent, and it agrees with the application. Every statement is wrapped in a check against
     __EFMigrationsHistory, so running it twice does nothing the second time - and if the API has
@@ -98,13 +101,6 @@ try {
 
     Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') from commit $((git rev-parse --short HEAD).Trim())
 */
-
--- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server refuses to create this schema's
--- indexes under that setting. SSMS defaults it ON, so without these two lines the script works in
--- SSMS and fails on the command line - which is where a DBA would actually run it.
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-GO
 
 "@
 

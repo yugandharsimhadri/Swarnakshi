@@ -199,21 +199,29 @@ public static class PlatformSeeder
         // delimiters are the provider's business, not this seeder's.
         var sql = db.GetService<ISqlGenerationHelper>();
 
-        foreach (var (schema, table) in TenantTables(db))
+        foreach (var (schema, table, column) in TenantTables(db))
         {
             var name = sql.DelimitIdentifier(table, schema);
-            var column = sql.DelimitIdentifier(nameof(Domain.Common.ITenantOwned.CompanyId));
+            var col = sql.DelimitIdentifier(column);
             await db.Database.ExecuteSqlRawAsync(
-                $"UPDATE {name} SET {column} = {{0}} WHERE {column} = {{1}}",
+                $"UPDATE {name} SET {col} = {{0}} WHERE {col} = {{1}}",
                 [companyId, empty], ct);
         }
     }
 
-    private static IEnumerable<(string? Schema, string Table)> TenantTables(AppDbContext db) =>
+    /// <summary>
+    /// Every tenant table with the name of its tenant column — asked of the model, not assumed
+    /// from the property. The property is <c>CompanyId</c>; under the snake_case convention the
+    /// column is <c>company_id</c>, and the first run against PostgreSQL failed on exactly that.
+    /// </summary>
+    private static IEnumerable<(string? Schema, string Table, string Column)> TenantTables(AppDbContext db) =>
         db.Model.GetEntityTypes()
             .Where(t => typeof(Domain.Common.ITenantOwned).IsAssignableFrom(t.ClrType))
-            .Select(t => (t.GetSchema(), Table: t.GetTableName()))
-            .Where(x => !string.IsNullOrEmpty(x.Table))
+            .Select(t => (
+                Schema: t.GetSchema(),
+                Table: t.GetTableName(),
+                Column: t.FindProperty(nameof(Domain.Common.ITenantOwned.CompanyId))?.GetColumnName()))
+            .Where(x => !string.IsNullOrEmpty(x.Table) && !string.IsNullOrEmpty(x.Column))
             .Distinct()
-            .Select(x => (x.Item1, x.Table!));
+            .Select(x => (x.Schema, x.Table!, x.Column!));
 }

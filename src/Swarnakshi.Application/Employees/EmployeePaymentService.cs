@@ -69,7 +69,10 @@ public class EmployeePaymentService(
         if (status is not null) q = q.Where(p => p.Status == status);
         var term = page.Q?.Trim();
         if (!string.IsNullOrWhiteSpace(term))
-            q = q.Where(p => p.TxnNumber.Contains(term) || p.Employee.Name.Contains(term));
+        {
+            var t = term.ToLowerInvariant();
+            q = q.Where(p => p.TxnNumber.ToLower().Contains(t) || p.Employee.Name.ToLower().Contains(t));
+        }
 
         return await q.OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
             .Select(Projection).ToPagedAsync(page, ct);

@@ -1,6 +1,12 @@
 # 06 — Build & Deployment
 
-Swarnakshi runs as **one Windows service** talking to **one SQL Server Express database**. The
+> **The database is PostgreSQL since 19 September 2026.** The database-specific parts of this page —
+> `sqlcmd`, `.\SQLEXPRESS`, `.bak` backups, `db_owner` grants — describe the SQL Server era and are
+> superseded by **[11-postgresql.md](11-postgresql.md)** (the move and the day-to-day) and
+> **[06b](06b-deployment-split.md) step 2** (creating the database). The service, tunnel, settings-file
+> and deployment-script sections are current. The scripts themselves have all been updated.
+
+Swarnakshi runs as **one Windows service** talking to **one PostgreSQL database**. The
 service is the API and it also serves the built React UI out of its own `wwwroot`, so a browser on
 the site's hostname makes only same-origin calls. Cloudflare Tunnel publishes it: `cloudflared` runs
 beside the service and connects outward, so the machine needs no inbound firewall rule, no public IP
@@ -8,8 +14,8 @@ and no certificate of its own.
 
 | | |
 |---|---|
-| Database | SQL Server Express, instance `.\SQLEXPRESS`, database **SCOPS** |
-| Database login | `SivayaanHMS` (SQL authentication) |
+| Database | PostgreSQL on `localhost:5432`, database **cops** — see [11-postgresql.md](11-postgresql.md) |
+| Database role | `cops_app`, owner of the database |
 | Service | `Swarnakshi`, automatic start, runs as LocalSystem |
 | Listens on | `http://localhost:6061` — loopback only; the tunnel reaches it from this machine |
 | Public UI | `https://cops.sivayaantechnologies.com` |

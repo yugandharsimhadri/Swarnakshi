@@ -1,0 +1,12 @@
+{
+  "//": [
+    "Copy this file to  migration.json  in the same folder and fill in both connection strings.",
+    "migration.json is git-ignored: it holds two passwords and must never be committed.",
+    "",
+    "Source - the SQL Server database being left behind. Read only; nothing is written to it.",
+    "Target - the PostgreSQL database, created with 01-create-database.sql and otherwise EMPTY.",
+    "         The migrator applies the schema itself, then loads the data, then verifies it."
+  ],
+  "Source": "Server=.\SQLEXPRESS;Database=COPS;User ID=SivayaanHMS;Password=CHANGE_ME;TrustServerCertificate=True",
+  "Target": "Host=localhost;Port=5432;Database=cops;Username=cops_app;Password=CHANGE_ME"
+}

@@ -100,7 +100,10 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         if (status is not null) q = q.Where(p => p.Status == status);
         if (customerId is not null) q = q.Where(p => p.CustomerId == customerId);
         if (!string.IsNullOrWhiteSpace(page.Q))
-            q = q.Where(p => p.Name.Contains(page.Q) || p.Code.Contains(page.Q) || (p.VillaNumber != null && p.VillaNumber.Contains(page.Q)));
+        {
+            var t = page.Q.ToLowerInvariant();
+            q = q.Where(p => p.Name.ToLower().Contains(t) || p.Code.ToLower().Contains(t) || (p.VillaNumber != null && p.VillaNumber.ToLower().Contains(t)));
+        }
         var paged = await q.OrderBy(p => p.Name).Select(Projection).ToPagedAsync(page, ct);
         return new PagedResult<ProjectDto>
         {
@@ -166,7 +169,7 @@ public class ProjectService(IAppDbContext db, IValidator<SaveProjectRequest> val
         var p = await db.Projects.FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new NotFoundException("Project", id);
         // An edit that omits the code keeps the one the project already has — the screens no longer show it.
-        var code = string.IsNullOrWhiteSpace(req.Code) ? p.Code : req.Code.Trim();
+        var code = string.IsNullOrWhiteSpace(req.Code) ? p.Code : CodeGenerator.Canonical(req.Code);
         if (await db.Projects.AnyAsync(x => x.Code == code && x.Id != id, ct))
             throw new AppException($"Project code '{code}' already exists.", 409);
 

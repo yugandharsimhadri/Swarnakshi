@@ -40,7 +40,10 @@ public class SiteService(IAppDbContext db, IValidator<SaveSiteRequest> validator
         var q = db.Sites.AsNoTracking();
         if (status is not null) q = q.Where(s => s.Status == status);
         if (!string.IsNullOrWhiteSpace(page.Q))
-            q = q.Where(s => s.Name.Contains(page.Q) || s.Code.Contains(page.Q));
+        {
+            var t = page.Q.ToLowerInvariant();
+            q = q.Where(s => s.Name.ToLower().Contains(t) || s.Code.ToLower().Contains(t));
+        }
         return await q.OrderBy(s => s.Name).Select(Projection).ToPagedAsync(page, ct);
     }
 
@@ -72,7 +75,7 @@ public class SiteService(IAppDbContext db, IValidator<SaveSiteRequest> validator
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == id, ct)
                    ?? throw new NotFoundException("Site", id);
         // An edit that omits the code keeps the one the site already has — the screens no longer show it.
-        var code = string.IsNullOrWhiteSpace(req.Code) ? site.Code : req.Code.Trim();
+        var code = string.IsNullOrWhiteSpace(req.Code) ? site.Code : CodeGenerator.Canonical(req.Code);
         if (await db.Sites.AnyAsync(s => s.Code == code && s.Id != id, ct))
             throw new AppException($"Site code '{code}' already exists.", 409);
 

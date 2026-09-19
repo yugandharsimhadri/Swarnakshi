@@ -8,7 +8,7 @@ management system for construction businesses (multi-site, multi-villa).
 | Layer    | Choice |
 |----------|--------|
 | Backend  | ASP.NET Core (.NET 10) Web API, Clean Architecture |
-| ORM / DB | EF Core 10 + SQLite (swappable to SQL Server) |
+| ORM / DB | EF Core 10 + PostgreSQL (Npgsql), snake_case schema |
 | Auth     | JWT bearer, role-based |
 | Frontend | React + Vite + TypeScript + Tailwind (mobile-first PWA-style SPA) |
 

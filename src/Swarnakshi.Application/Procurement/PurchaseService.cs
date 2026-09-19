@@ -142,7 +142,10 @@ public class PurchaseService(
         if (siteId is not null) q = q.Where(p => p.SiteId == siteId);
         if (status is not null) q = q.Where(p => p.Status == status);
         if (!string.IsNullOrWhiteSpace(page.Q))
-            q = q.Where(p => p.TxnNumber.Contains(page.Q) || p.Supplier.Name.Contains(page.Q) || (p.InvoiceNumber != null && p.InvoiceNumber.Contains(page.Q)));
+        {
+            var t = page.Q.ToLowerInvariant();
+            q = q.Where(p => p.TxnNumber.ToLower().Contains(t) || p.Supplier.Name.ToLower().Contains(t) || (p.InvoiceNumber != null && p.InvoiceNumber.ToLower().Contains(t)));
+        }
         return await q.OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
             .Select(Projection).ToPagedAsync(page, ct);
     }

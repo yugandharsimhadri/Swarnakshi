@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Swarnakshi.DataMigrator</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The EF model is the authority on what the target looks like: every table, every column,
+         every foreign key, and the snake_case names the PostgreSQL schema was generated with.
+         Reading it from here means the migrator can never disagree with the application. -->
+    <ProjectReference Include="..\..\src\Swarnakshi.Infrastructure\Swarnakshi.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one place SqlClient survives: reading the old database, once. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.1" />
+  </ItemGroup>
+
+</Project>

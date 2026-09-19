@@ -15,10 +15,12 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
     public AppDbContext CreateDbContext(string[] args)
     {
         var conn = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-            ?? @"Server=.\SQLEXPRESS;Database=SCOPS;Trusted_Connection=True;TrustServerCertificate=True";
+            ?? "Host=localhost;Port=5432;Database=swarnakshi_design;Username=postgres;Password=postgres";
 
         var options = new DbContextOptionsBuilder<AppDbContext>();
-        options.UseSqlServer(conn);
+        // Through the same method the application uses, so the migrations `dotnet ef` generates
+        // are for the provider and naming convention the application will actually run against.
+        DependencyInjection.Configure(options, conn);
         return new AppDbContext(options.Options);
     }
 }

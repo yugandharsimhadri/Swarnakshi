@@ -52,8 +52,11 @@ public class EmployeeService(IAppDbContext db, IValidator<SaveEmployeeRequest> v
         if (siteId is not null) q = q.Where(e => e.SiteId == siteId);
         var term = page.Q?.Trim();
         if (!string.IsNullOrWhiteSpace(term))
-            q = q.Where(e => e.Name.Contains(term) || e.Code.Contains(term) || e.Phone.Contains(term)
-                             || (e.Designation != null && e.Designation.Contains(term)));
+        {
+            var t = term.ToLowerInvariant();
+            q = q.Where(e => e.Name.ToLower().Contains(t) || e.Code.ToLower().Contains(t) || e.Phone.Contains(t)
+                             || (e.Designation != null && e.Designation.ToLower().Contains(t)));
+        }
 
         return await q.OrderBy(e => e.Name).Select(Projection).ToPagedAsync(page, ct);
     }
@@ -83,7 +86,7 @@ public class EmployeeService(IAppDbContext db, IValidator<SaveEmployeeRequest> v
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct)
                        ?? throw new NotFoundException("Employee", id);
         // An edit that omits the code keeps the one the employee already has.
-        var code = string.IsNullOrWhiteSpace(req.Code) ? employee.Code : req.Code.Trim();
+        var code = string.IsNullOrWhiteSpace(req.Code) ? employee.Code : CodeGenerator.Canonical(req.Code);
         if (await db.Employees.AnyAsync(e => e.Code == code && e.Id != id, ct))
             throw new AppException($"Employee code '{code}' already exists.", 409);
         await EnsureSiteAsync(req.SiteId, ct);

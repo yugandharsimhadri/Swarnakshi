@@ -10,7 +10,7 @@
     tables stay - which is usually fine, because migrations here are additive and the old binaries
     ignore what they do not know about. When it is not fine, restore the backup:
 
-        .\Restore-Database.ps1 -BackupFile C:\Swarnakshi\backups\SCOPS-<stamp>-pre-<version>.bak
+        .\Restore-Database.ps1 -BackupFile C:\Swarnakshi\backups\cops-<stamp>-pre-<version>.dump -Confirm
 
     That loses everything entered since the backup was taken, so it is the second choice, not the
     first. Read docs/06-deployment.md before running it.

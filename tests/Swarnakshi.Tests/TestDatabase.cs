@@ -1,9 +1,11 @@
-using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using Swarnakshi.Infrastructure.Persistence;
 
 namespace Swarnakshi.Tests;
 
 /// <summary>
-/// The SQL Server database the whole test assembly runs against.
+/// The PostgreSQL database the whole test assembly runs against.
 ///
 /// <para>One database, created once, holding the schema and nothing else. Each <see cref="TestHost"/>
 /// then gets its own <em>tenant</em> inside it, which is the isolation the product itself relies on:
@@ -11,7 +13,7 @@ namespace Swarnakshi.Tests;
 /// stamps writes. A test that could see another test's rows would be a tenancy bug worth failing
 /// over, so running them together is a check rather than a compromise.</para>
 ///
-/// <para>Why not a database per test: creating one, building 43 tables in it and dropping it again
+/// <para>Why not a database per test: creating one, building 44 tables in it and dropping it again
 /// costs seconds, and there are over two hundred hosts. That is the difference between a suite
 /// people run and one they skip.</para>
 ///
@@ -24,9 +26,11 @@ public static class TestDatabase
     private static readonly Lock Gate = new();
     private static string? _name;
 
-    /// <summary>Where test databases are created. Overridable for an agent whose instance differs.</summary>
-    private static string Instance =>
-        Environment.GetEnvironmentVariable("SWARNAKSHI_TEST_SQL_SERVER") ?? @".\SQLEXPRESS";
+    /// <summary>
+    /// How to reach the server, as a connection string WITHOUT a database — the run picks its own.
+    /// From testsettings.json at the repository root; see <see cref="TestSettings"/>.
+    /// </summary>
+    private static string Server => TestSettings.Postgres;
 
     public static string Name
     {
@@ -34,7 +38,9 @@ public static class TestDatabase
         {
             lock (Gate)
             {
-                return _name ??= $"SwarnakshiTest_{Environment.ProcessId}_{DateTime.Now:HHmmss}";
+                // Lower-case, because PostgreSQL folds unquoted identifiers and a mixed-case name
+                // would need quoting in every psql command anybody ever typed against it.
+                return _name ??= $"swarnakshi_test_{Environment.ProcessId}_{DateTime.Now:HHmmss}";
             }
         }
     }
@@ -44,59 +50,61 @@ public static class TestDatabase
     /// <summary>A database of this run's own, for a test that needs the whole database to itself.</summary>
     public static async Task<string> CreateOwnAsync()
     {
-        // Math.Min, not a bare [..60]: the name is only about 59 characters when the process id is
-        // four digits, and slicing past the end threw. It failed on some runs and not others for no
-        // reason a reader could see, because what varied was the width of the pid.
-        var candidate = $"{Name}_{Guid.NewGuid():N}";
-        var name = candidate[..Math.Min(candidate.Length, 100)];   // sysname allows 128
-        await using var connection = new SqlConnection(For("master"));
+        // PostgreSQL identifiers are capped at 63 bytes; the guid is trimmed to fit under it.
+        var name = $"{Name}_{Guid.NewGuid():N}"[..Math.Min(63, Name.Length + 33)];
+        await using var connection = new NpgsqlConnection(For("postgres"));
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = $"CREATE DATABASE [{name}];";
+        command.CommandText = $"CREATE DATABASE \"{name}\";";
         await command.ExecuteNonQueryAsync();
         return name;
     }
 
     public static async Task DropOwnAsync(string name)
     {
-        try
-        {
-            await using var connection = new SqlConnection(For("master"));
-            await connection.OpenAsync();
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"""
-                IF DB_ID(N'{name}') IS NOT NULL
-                BEGIN
-                    ALTER DATABASE [{name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                    DROP DATABASE [{name}];
-                END
-                """;
-            await command.ExecuteNonQueryAsync();
-        }
+        try { await DropDatabaseAsync(name); }
         catch { /* swept up by the next run; see CreateAsync */ }
     }
 
     public static string ConnectionStringFor(string database) => For(database);
 
-    private static string For(string database) =>
-        $"Server={Instance};Database={database};Trusted_Connection=True;" +
-        "TrustServerCertificate=True;MultipleActiveResultSets=False;Application Name=Swarnakshi.Tests";
+    /// <summary>Context options for a database of this run, configured exactly as the application configures its own.</summary>
+    public static DbContextOptions<AppDbContext> Options(string connectionString)
+    {
+        var builder = new DbContextOptionsBuilder<AppDbContext>();
+        Swarnakshi.Infrastructure.DependencyInjection.Configure(builder, connectionString);
+        return builder.Options;
+    }
+
+    private static string For(string database)
+    {
+        var b = new NpgsqlConnectionStringBuilder(Server)
+        {
+            Database = database,
+            ApplicationName = "Swarnakshi.Tests",
+            // Pooled connections outlive the test that opened them and block DROP DATABASE. The
+            // suite opens thousands of short-lived connections; the pool stays, but is cleared
+            // before every drop.
+            Pooling = true,
+        };
+        return b.ConnectionString;
+    }
 
     /// <summary>
     /// Creates this run's database, and sweeps up any left by a run that was killed before it could
     /// tidy up after itself. The sweep is what makes teardown a matter of tidiness rather than
     /// correctness: stopping a run mid-way costs a few megabytes until the next one, not a
-    /// gradually filling instance.
+    /// gradually filling server.
     /// </summary>
     public static async Task CreateAsync()
     {
-        await using var connection = new SqlConnection(For("master"));
+        await using var connection = new NpgsqlConnection(For("postgres"));
         await connection.OpenAsync();
 
         await SweepAsync(connection);
 
         await using var create = connection.CreateCommand();
-        create.CommandText = $"CREATE DATABASE [{Name}];";
+        create.CommandText = $"CREATE DATABASE \"{Name}\";";
         await create.ExecuteNonQueryAsync();
     }
 
@@ -111,12 +119,12 @@ public static class TestDatabase
     /// <para>A test runner does not always let the process exit cleanly, so teardown cannot be the
     /// only cleanup. This is the one that actually holds.</para>
     /// </summary>
-    private static async Task SweepAsync(SqlConnection connection)
+    private static async Task SweepAsync(NpgsqlConnection connection)
     {
         var stale = new List<string>();
         await using (var list = connection.CreateCommand())
         {
-            list.CommandText = "SELECT name FROM sys.databases WHERE name LIKE 'SwarnakshiTest[_]%';";
+            list.CommandText = "SELECT datname FROM pg_database WHERE datname LIKE 'swarnakshi\\_test\\_%';";
             await using var reader = await list.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -127,24 +135,16 @@ public static class TestDatabase
 
         foreach (var name in stale)
         {
-            try
-            {
-                await using var drop = connection.CreateCommand();
-                drop.CommandText = $"""
-                    ALTER DATABASE [{name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                    DROP DATABASE [{name}];
-                    """;
-                await drop.ExecuteNonQueryAsync();
-            }
+            try { await DropDatabaseAsync(name, connection); }
             catch { /* in use after all, or already gone; the next run tries again */ }
         }
     }
 
-    /// <summary>SwarnakshiTest_&lt;pid&gt;_&lt;time&gt;[_&lt;guid&gt;] — true when that pid is gone.</summary>
+    /// <summary>swarnakshi_test_&lt;pid&gt;_&lt;time&gt;[_&lt;guid&gt;] — true when that pid is gone.</summary>
     private static bool IsFromADeadRun(string databaseName)
     {
         var parts = databaseName.Split('_');
-        if (parts.Length < 3 || !int.TryParse(parts[1], out var pid)) return false;
+        if (parts.Length < 4 || !int.TryParse(parts[2], out var pid)) return false;
         if (pid == Environment.ProcessId) return false;
         try { using var _ = System.Diagnostics.Process.GetProcessById(pid); return false; }
         catch (ArgumentException) { return true; }      // no such process: the run is over
@@ -153,25 +153,35 @@ public static class TestDatabase
 
     public static async Task DropAsync()
     {
-        try
-        {
-            SqlConnection.ClearAllPools();      // else our own pooled connections block the DROP
-            await using var connection = new SqlConnection(For("master"));
-            await connection.OpenAsync();
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"""
-                IF DB_ID(N'{Name}') IS NOT NULL
-                BEGIN
-                    ALTER DATABASE [{Name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                    DROP DATABASE [{Name}];
-                END
-                """;
-            await command.ExecuteNonQueryAsync();
-        }
+        try { await DropDatabaseAsync(Name); }
         catch
         {
             // A leftover test database is a few megabytes named for the process that made it.
             // Not worth failing a green run over.
+        }
+    }
+
+    /// <summary>
+    /// PostgreSQL will not drop a database anyone is connected to, and there is no SINGLE_USER to
+    /// force it. So: our own pool is cleared, every other session on it is terminated, and only
+    /// then is it dropped. FORCE does the last two in one on PostgreSQL 13+, and is used because
+    /// the terminate-then-drop dance still races with a reconnecting pool.
+    /// </summary>
+    private static async Task DropDatabaseAsync(string name, NpgsqlConnection? existing = null)
+    {
+        NpgsqlConnection.ClearAllPools();
+
+        var connection = existing ?? new NpgsqlConnection(For("postgres"));
+        try
+        {
+            if (existing is null) await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE);";
+            await command.ExecuteNonQueryAsync();
+        }
+        finally
+        {
+            if (existing is null) await connection.DisposeAsync();
         }
     }
 }

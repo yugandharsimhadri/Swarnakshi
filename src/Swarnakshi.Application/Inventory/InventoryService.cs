@@ -166,7 +166,10 @@ public class InventoryService(
         if (categoryId is not null)
             query = query.Where(b => b.Material.Subcategory.MaterialCategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(q))
-            query = query.Where(b => b.Material.Name.Contains(q) || b.Material.Code.Contains(q));
+        {
+            var t = q.ToLowerInvariant();
+            query = query.Where(b => b.Material.Name.ToLower().Contains(t) || b.Material.Code.ToLower().Contains(t));
+        }
 
         var rows = await query
             .OrderBy(b => b.Material.Name)

@@ -57,5 +57,14 @@ public sealed class CodeGenerator(IAppDbContext db) : ICodeGenerator
     }
 
     public async Task<string> ResolveAsync(string? supplied, string prefix, CancellationToken ct = default)
-        => string.IsNullOrWhiteSpace(supplied) ? await NextAsync(prefix, ct) : supplied.Trim();
+        => string.IsNullOrWhiteSpace(supplied) ? await NextAsync(prefix, ct) : Canonical(supplied);
+
+    /// <summary>
+    /// A code as it is stored: trimmed and upper-cased. Two codes that differ only in case are the
+    /// same code — nobody means a different villa by typing "gv-101" instead of "GV-101" — and on
+    /// SQL Server the default collation quietly enforced that for free. PostgreSQL compares
+    /// case-sensitively, so the rule has to be spelled out where the value is written, or the
+    /// unique index would happily hold both.
+    /// </summary>
+    public static string Canonical(string code) => code.Trim().ToUpperInvariant();
 }

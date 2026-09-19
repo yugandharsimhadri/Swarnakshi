@@ -15,10 +15,8 @@
         powershell -File deploy\scripts\New-SchemaScript.ps1
 
 .NOTES
-    The header this prepends is not decoration. `sqlcmd` connects with QUOTED_IDENTIFIER OFF, and
-    the schema has indexes that SQL Server refuses to create under that setting - without the SET
-    the script dies on the first CREATE INDEX having built exactly one table. SSMS defaults it ON,
-    so the failure only shows up on the command line, which is where a DBA would actually run this.
+    Run the output with psql as the application role, with ON_ERROR_STOP set: without it psql
+    carries on past a failed statement and a half-built schema looks like a clean run.
 #>
 [CmdletBinding()]
 param(
@@ -33,9 +31,8 @@ Push-Location $repo
 try {
     # A connection string has to be present for the design-time factory to build the context, but
     # --idempotent generates from the migrations in the assembly and never connects to it.
-    $env:Database__Provider = 'SqlServer'
     if (-not $env:ConnectionStrings__Default) {
-        $env:ConnectionStrings__Default = 'Server=.\SQLEXPRESS;Database=SCOPS;Trusted_Connection=True;TrustServerCertificate=True'
+        $env:ConnectionStrings__Default = 'Host=localhost;Port=5432;Database=swarnakshi_design;Username=postgres;Password=postgres'
     }
 
     # 'dotnet ef' prints its progress to stderr, which Windows PowerShell turns into a terminating
@@ -59,7 +56,7 @@ try {
 
     Run it against a database that already exists (create it with 01-create-database.sql):
 
-        sqlcmd -S .\SQLEXPRESS -E -C -b -d SCOPS -i 03-schema.sql
+        psql -U cops_app -h localhost -d cops -v ON_ERROR_STOP=1 -1 -f 03-schema.sql
 
     Idempotent. Every migration is wrapped in a check against __EFMigrationsHistory, so running
     this twice does nothing the second time, and running it against a partly-migrated database
@@ -76,13 +73,6 @@ try {
 
     Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') from commit $((git rev-parse --short HEAD).Trim())
 */
-
--- sqlcmd connects with QUOTED_IDENTIFIER OFF and SQL Server will not create this schema's indexes
--- under that setting. SSMS defaults it ON, so without these two lines the script works in SSMS and
--- dies on the command line after one table - which is the worst way for it to fail.
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-GO
 
 "@
 

@@ -68,12 +68,25 @@ public static class DependencyInjection
         // user-initiated transaction while a retrying execution strategy is configured — the app
         // would throw on its most important write path. Turning retries on means first routing all
         // six of those units of work through CreateExecutionStrategy().ExecuteAsync, and making
-        // each safe to run twice. On one box talking to its own SQL Express instance there is
-        // little to retry.
-        services.AddDbContext<AppDbContext>(opt =>
-            opt.UseSqlServer(conn, sql => sql.CommandTimeout(commandTimeout)));
+        // each safe to run twice. That decision is worth revisiting once the database is in the
+        // cloud and the network between them is real.
+        services.AddDbContext<AppDbContext>(opt => Configure(opt, conn, commandTimeout));
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
     }
+
+    /// <summary>
+    /// The one place the provider is named. The design-time factory and the test harness call this
+    /// too, so "which database, and how" cannot drift between the app, `dotnet ef` and the tests.
+    ///
+    /// <para><b>snake_case</b> is the PostgreSQL convention, and this is the one moment it is free:
+    /// the schema is being created from scratch, and the data migrator maps names from the model
+    /// rather than by hand. Keeping EF's PascalCase would have meant quoting every identifier in
+    /// every ad-hoc query for the life of the system — <c>"PurchaseHeaders"."TotalAmount"</c> —
+    /// which is exactly the kind of friction that stops people looking at their own data.</para>
+    /// </summary>
+    public static DbContextOptionsBuilder Configure(DbContextOptionsBuilder opt, string connectionString, int commandTimeout = 60)
+        => opt.UseNpgsql(connectionString, pg => pg.CommandTimeout(commandTimeout))
+              .UseSnakeCaseNamingConvention();
 
     /// <summary>
     /// Binds "Platform", then lets a "PlatformAdmin" section override the operator's credentials.

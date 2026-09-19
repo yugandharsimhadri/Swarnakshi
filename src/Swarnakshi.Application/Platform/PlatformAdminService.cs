@@ -47,7 +47,10 @@ public class PlatformAdminService(
         var q = db.Companies.AsNoTracking();
         var term = search?.Trim();
         if (!string.IsNullOrWhiteSpace(term))
-            q = q.Where(c => c.Name.Contains(term) || c.Code.Contains(term));
+        {
+            var t = term.ToLowerInvariant();
+            q = q.Where(c => c.Name.ToLower().Contains(t) || c.Code.Contains(t));
+        }
 
         var companies = await q.OrderBy(c => c.Name).ThenBy(c => c.Code).ToListAsync(ct);
         var ids = companies.Select(c => c.Id).ToList();

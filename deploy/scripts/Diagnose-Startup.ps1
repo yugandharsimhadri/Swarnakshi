@@ -200,69 +200,78 @@ if (-not $settings -or [string]::IsNullOrWhiteSpace($settings.ConnectionStrings.
     Info "skipped - no connection string to test"
 } else {
     $cs = $settings.ConnectionStrings.Default
-    $b = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $cs
-    Info "server=$($b['Data Source'])  database=$($b['Initial Catalog'])  login=$(if ($b['Integrated Security']) { 'integrated' } else { $b['User ID'] })"
+    $parts = @{}
+    foreach ($pair in ($cs -split ';')) { if ($pair -match '=') { $k, $v = $pair -split '=', 2; $parts[$k.Trim().ToLowerInvariant()] = $v.Trim() } }
+    $dbHost = if ($parts['host']) { $parts['host'] } else { $parts['server'] }
+    $dbPort = if ($parts['port']) { $parts['port'] } else { '5432' }
+    $dbName = $parts['database']
+    $dbUser = if ($parts['username']) { $parts['username'] } else { $parts['user id'] }
+    $dbPass = $parts['password']
+    Info "server=${dbHost}:$dbPort  database=$dbName  role=$dbUser"
 
-    # Is the engine even running? "Cannot connect" and "the service is stopped" get the same
-    # SqlException, and only one of them is fixed by starting a service.
-    $instance = "$($b['Data Source'])" -replace '^.*\\', ''
-    $svcName = if ($instance -and $instance -ne "$($b['Data Source'])") { "MSSQL`$$instance" } else { 'MSSQLSERVER' }
-    $sql = Get-Service $svcName -ErrorAction SilentlyContinue
-    if (-not $sql) { Info "no local service named $svcName - the server may be on another machine" }
+    # Is the engine even running? "Cannot connect" and "the service is stopped" arrive as the same
+    # error from the driver, and only one of them is fixed by starting a service.
+    $pgSvc = Get-Service -Name 'postgresql*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $pgSvc) { Info "no local postgresql* service - the server may be on another machine" }
     else {
-        Info "$svcName is $($sql.Status), start type $($sql.StartType)"
-        if ($sql.Status -ne 'Running') { Bad "$svcName is $($sql.Status). Start it: Start-Service '$svcName'" }
-        # Delayed start is the classic cause of a boot-time outage: IIS is up and asking before SQL
-        # is listening, and a process that died cannot notice the database arriving a moment later.
-        if ($sql.StartType -eq 'Automatic' -and (Get-CimInstance Win32_Service -Filter "Name='$($svcName.Replace('$','\$'))'" -ErrorAction SilentlyContinue).DelayedAutoStart) {
-            Bad "$svcName is set to Automatic (Delayed Start), so IIS starts before it at boot. Set it to plain Automatic."
-        }
+        Info "$($pgSvc.Name) is $($pgSvc.Status), start type $($pgSvc.StartType)"
+        if ($pgSvc.Status -ne 'Running') { Bad "$($pgSvc.Name) is $($pgSvc.Status). Start it: Start-Service '$($pgSvc.Name)'" }
     }
 
-    $conn = New-Object System.Data.SqlClient.SqlConnection $cs
-    try {
-        $conn.Open()
-        Ok "the application's own connection string opens the database"
+    $psql = $null
+    foreach ($c in @((Get-Command psql -ErrorAction SilentlyContinue).Source),
+                    (Get-ChildItem 'C:\Program Files\PostgreSQL' -Directory -ErrorAction SilentlyContinue |
+                        Sort-Object { [int]($_.Name -replace '\D','0') } -Descending |
+                        ForEach-Object { Join-Path $_.FullName 'bin\psql.exe' })) {
+        if ($c -and (Test-Path $c)) { $psql = $c; break }
+    }
+    if (-not $psql) {
+        Info "psql.exe not found - cannot test the connection from here (install the PostgreSQL client tools)"
+    } else {
+        $env:PGPASSWORD = $dbPass
+        try {
+            $probe = & $psql --host $dbHost --port $dbPort --username $dbUser --dbname $dbName -w -t -A `
+                        -c "SELECT migration_id FROM ""__EFMigrationsHistory"" ORDER BY migration_id;" 2>&1
+            $connected = ($LASTEXITCODE -eq 0)
+        } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
 
-        $cmd = $conn.CreateCommand()
-        $cmd.CommandText = "SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId"
-        $applied = @()
-        $r = $cmd.ExecuteReader()
-        while ($r.Read()) { $applied += $r.GetString(0) }
-        $r.Close()
-        Info "migrations applied: $($applied.Count)"
-        $applied | ForEach-Object { Info "  $_" }
+        if ($connected) {
+            Ok "the application's own connection string opens the database"
+            $applied = @($probe | Where-Object { $_ -match '^\d{14}_' })
+            Info "migrations applied: $($applied.Count)"
+            $applied | ForEach-Object { Info "  $_" }
 
-        # What the binaries sitting in the app folder expect. A mismatch here is a deployment that
-        # copied the build but never ran the schema step.
-        $expected = @()
-        $migDll = Join-Path $app 'Swarnakshi.Infrastructure.dll'
-        if (Test-Path $migDll) {
-            # The id lives in a [Migration("...")] attribute, so it sits in the metadata as UTF-8
-            # while ordinary user strings are UTF-16. Read the bytes and look for both rather than
-            # guessing which heap it landed in.
-            $bytes = [System.IO.File]::ReadAllBytes($migDll)
-            $utf8 = [System.Text.Encoding]::UTF8.GetString($bytes)
-            $utf16 = [System.Text.Encoding]::Unicode.GetString($bytes)
-            $expected = @([regex]::Matches("$utf8`n$utf16", '\d{14}_[A-Za-z][A-Za-z0-9]*') |
-                ForEach-Object { $_.Value }) | Sort-Object -Unique
-        }
-        if ($expected.Count -gt 0) {
-            $missing = $expected | Where-Object { $applied -notcontains $_ }
-            if ($missing) {
-                Bad "The deployed build carries migrations the database has not got: $($missing -join ', ')  Run the upgrade script, or Swarnakshi.Api.exe --migrate."
-            } else {
-                Ok "the schema matches the deployed build"
+            # What the binaries sitting in the app folder expect. A mismatch here is a deployment
+            # that copied the build but never ran the schema step.
+            $expected = @()
+            $migDll = Join-Path $app 'Swarnakshi.Infrastructure.dll'
+            if (Test-Path $migDll) {
+                $bytes = [System.IO.File]::ReadAllBytes($migDll)
+                $utf8 = [System.Text.Encoding]::UTF8.GetString($bytes)
+                $utf16 = [System.Text.Encoding]::Unicode.GetString($bytes)
+                $expected = @([regex]::Matches("$utf8`n$utf16", '\d{14}_[A-Za-z][A-Za-z0-9]*') |
+                    ForEach-Object { $_.Value }) | Sort-Object -Unique
+            }
+            if ($expected.Count -gt 0) {
+                $missing = $expected | Where-Object { $applied -notcontains $_ }
+                if ($missing) {
+                    Bad "The deployed build carries migrations the database has not got: $($missing -join ', ')  Run the upgrade script, or Swarnakshi.Api.exe --migrate."
+                } else {
+                    Ok "the schema matches the deployed build"
+                }
+            }
+        } else {
+            $m = ($probe | Out-String).Trim()
+            Bad "Cannot open the database: $m"
+            if ($m -match 'does not exist') {
+                Info "Create it:  psql -U postgres -h $dbHost -v DbName=`"$dbName`" -v AppRole=`"$dbUser`" -v AppPassword=`"<password>`" -f 01-create-database.sql"
+            } elseif ($m -match 'password authentication failed|no pg_hba.conf entry') {
+                Info "The role cannot log in from here: wrong password in the settings file, or pg_hba.conf does not allow $dbUser from this address."
+            } elseif ($m -match 'refused|could not connect|Connection timed out') {
+                Info "Nothing is listening at ${dbHost}:$dbPort. Is the service running, and does listen_addresses in postgresql.conf include this address?"
             }
         }
-    } catch {
-        $m = $_.Exception.Message
-        Bad "Cannot open the database: $m"
-        if ($m -match 'Cannot open database|Login failed') {
-            Info "If the database exists, the login most likely has no USER inside it - which looks identical to a missing database from the app's side."
-            Info "Fix:  sqlcmd -S <server> -E -C -b -i 01-create-database.sql -v DbName=`"$($b['Initial Catalog'])`" -v AppLogin=`"$($b['User ID'])`" -v AppPassword=`"<password>`""
-        }
-    } finally { $conn.Dispose() }
+    }
 }
 
 # ---- 7. the actual exception -------------------------------------------------

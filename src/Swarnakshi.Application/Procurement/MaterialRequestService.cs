@@ -129,7 +129,7 @@ public class MaterialRequestService(
         if (projectId is not null) q = q.Where(r => r.ProjectId == projectId);
         if (siteId is not null) q = q.Where(r => r.SiteId == siteId);
         if (status is not null) q = q.Where(r => r.RequestStatus == status);
-        if (!string.IsNullOrWhiteSpace(page.Q)) q = q.Where(r => r.TxnNumber.Contains(page.Q));
+        if (!string.IsNullOrWhiteSpace(page.Q)) { var t = page.Q.ToLowerInvariant(); q = q.Where(r => r.TxnNumber.ToLower().Contains(t)); }
         return await q.OrderByDescending(r => r.Date).ThenByDescending(r => r.CreatedAt)
             .Select(Projection).ToPagedAsync(page, ct);
     }

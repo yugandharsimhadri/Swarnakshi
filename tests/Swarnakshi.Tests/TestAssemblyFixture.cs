@@ -10,12 +10,12 @@ using Xunit.Sdk;
 namespace Swarnakshi.Tests;
 
 /// <summary>
-/// Creates the assembly's SQL Server database and builds its schema once, before any test runs,
+/// Creates the assembly's PostgreSQL database and builds its schema once, before any test runs,
 /// then drops it when the last one finishes.
 ///
 /// <para>xUnit v2 has no assembly-level fixture, so this is the hook it does offer: a test
 /// framework the runner constructs once and disposes at the end. Everything about that is
-/// incidental — what matters is that CREATE DATABASE and 43 CREATE TABLEs happen once per run
+/// incidental — what matters is that CREATE DATABASE and 44 CREATE TABLEs happen once per run
 /// rather than once per <see cref="TestHost"/>. There are over two hundred hosts; paying seconds
 /// for each would turn a forty-second suite into a coffee break, and a suite people skip catches
 /// nothing.</para>
@@ -37,7 +37,7 @@ public sealed class TestFrameworkWithDatabase : XunitTestFramework
     {
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentUser>(new FakeCurrentUser());
-        services.AddDbContext<AppDbContext>(o => o.UseSqlServer(TestDatabase.ConnectionString));
+        services.AddDbContext<AppDbContext>(o => Swarnakshi.Infrastructure.DependencyInjection.Configure(o, TestDatabase.ConnectionString));
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

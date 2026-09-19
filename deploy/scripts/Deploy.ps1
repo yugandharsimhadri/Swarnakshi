@@ -32,7 +32,7 @@
     .\scripts\Deploy.ps1
 .EXAMPLE
     # first run, letting the script create the settings file
-    .\scripts\Deploy.ps1 -InitSettings -ConnectionString 'Server=.\SQLEXPRESS;Database=SCOPS;User ID=SivayaanHMS;Password=...;TrustServerCertificate=True'
+    .\scripts\Deploy.ps1 -InitSettings -ConnectionString 'Host=localhost;Port=5432;Database=cops;Username=cops_app;Password=...'
 .EXAMPLE
     .\scripts\Deploy.ps1 -SkipBackup
 #>
@@ -133,43 +133,46 @@ function Get-ConnPart([string]$c, [string[]]$keys) {
     }
     $null
 }
-$dbServer = Get-ConnPart $conn @('Server', 'Data Source', 'Addr', 'Address')
-$dbName   = Get-ConnPart $conn @('Database', 'Initial Catalog')
-$dbUser   = Get-ConnPart $conn @('User ID', 'UserId', 'Uid')
+$dbServer = Get-ConnPart $conn @('Host', 'Server')
+$dbPort   = Get-ConnPart $conn @('Port'); if (-not $dbPort) { $dbPort = '5432' }
+$dbName   = Get-ConnPart $conn @('Database')
+$dbUser   = Get-ConnPart $conn @('Username', 'User ID', 'UserId')
 $dbPass   = Get-ConnPart $conn @('Password', 'Pwd')
-$trusted  = (Get-ConnPart $conn @('Trusted_Connection', 'Integrated Security')) -match '(?i)true|sspi|yes'
 
 $listenUrl = if ($cfg.Urls) { $cfg.Urls } else { "http://localhost:$Port" }
 if ($listenUrl -match ':(\d+)\s*$') { $Port = [int]$Matches[1] }
 $health = "http://localhost:$Port/health"
 
-Write-Host "    Database : $dbName on $dbServer as $(if ($trusted) { 'the service account' } else { $dbUser })"
+Write-Host "    Database : $dbName on ${dbServer}:$dbPort as $dbUser"
 Write-Host "    Listening: $listenUrl"
 
 # ---------------------------------------------------------------- 3. is the database reachable
 if ($SkipDbCheck) {
     Step 3 'Skipping the database check (-SkipDbCheck)'
 } else {
-    Step 3 "Checking [$dbName] on [$dbServer]"
+    Step 3 "Checking $dbName on ${dbServer}:$dbPort"
     # Prove the credentials in the settings file actually work, rather than assuming a service
-    # named MSSQL$SQLEXPRESS exists locally - the instance may be named differently or live on
-    # another host, and a running service says nothing about whether the login can get in.
-    $args = @('-S', $dbServer, '-d', $dbName, '-C', '-b', '-h-1', '-W', '-l', '10',
-              '-Q', "SET NOCOUNT ON; SELECT 'reachable';")
-    if ($trusted) { $args = @('-E') + $args } else { $args = @('-U', $dbUser, '-P', $dbPass) + $args }
-
-    $probe = & sqlcmd @args 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    # is running - PostgreSQL may live on another host, and a running service says nothing about
+    # whether this role can get in. The password goes through the environment, not the command
+    # line, so it is not in the process list.
+    . (Join-Path $PSScriptRoot 'PostgresSettings.ps1')
+    $psql = Find-PgTool -Name 'psql'
+    $env:PGPASSWORD = $dbPass
+    try {
+        $probe = & $psql --host $dbServer --port $dbPort --username $dbUser --dbname $dbName -w -t -A -c "SELECT 'reachable';" 2>&1
+        $reachable = ($LASTEXITCODE -eq 0)
+    } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+    if (-not $reachable) {
         throw @"
-Cannot reach [$dbName] on [$dbServer] with the credentials in the settings file.
+Cannot reach $dbName on ${dbServer}:$dbPort as $dbUser with the credentials in the settings file.
 
     $probe
 
 Fix the connection string in
     $settings
-or create the database and grant the login. It needs db_datareader, db_datawriter, EXECUTE, and
-enough DDL rights for EF Core migrations - CREATE TABLE and ALTER on schema dbo. Then re-run.
-(-SkipDbCheck bypasses this check, but step 6 will fail anyway if the login cannot connect.)
+or create the database and role with deploy\sql\01-create-database.sql, which makes the role the
+database's owner - enough to run the app and to migrate it. Then re-run.
+(-SkipDbCheck bypasses this check, but step 6 will fail anyway if the role cannot connect.)
 "@
     }
     Write-Host "    Reachable." -ForegroundColor Green
@@ -186,15 +189,12 @@ Write-Host "`n    Deploying $build to $appDir  ($(if ($installed) { 'upgrade' } 
 if (-not $SkipBackup -and $installed) {
     Step 4 'Backing up the database'
     try {
-        & (Join-Path $PSScriptRoot 'Backup-Database.ps1') -Server $dbServer -Database $dbName `
-            -BackupPath (Join-Path $AppRoot 'backups') -Label "pre-$build" | Out-Host
+        & (Join-Path $PSScriptRoot 'Backup-Database.ps1') -AppRoot $AppRoot -Label "pre-$build" | Out-Host
     } catch {
-        # BACKUP DATABASE needs db_backupoperator or sysadmin, and the account running a deployment
-        # does not always have it. Stopping here is deliberate: upgrading the schema with no restore
-        # point behind it should be a decision, not an accident.
+        # Stopping here is deliberate: upgrading the schema with no restore point behind it should
+        # be a decision, not an accident.
         throw ("The backup failed: $($_.Exception.Message)`n" +
-               "Grant the deploying account db_backupoperator on [$dbName], take a backup yourself " +
-               "first, or re-run with -SkipBackup to proceed deliberately without one.")
+               "Take a backup yourself first, or re-run with -SkipBackup to proceed deliberately without one.")
     }
 } elseif (-not $installed) {
     Step 4 'Skipping the backup (first deployment - there is nothing to lose yet)'

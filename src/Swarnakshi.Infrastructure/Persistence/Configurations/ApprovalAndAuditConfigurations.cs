@@ -48,7 +48,8 @@ public class AuditLogConfig : IEntityTypeConfiguration<AuditLog>
         // Deliberately unbounded: this holds a field-level diff, or the whole of a row that is
         // being deleted. The 512-character convention every other string gets would silently
         // truncate exactly the rows worth keeping. SaveChangesAsync caps it at a sane size instead.
-        e.Property(x => x.DataJson).HasColumnType("nvarchar(max)");
+        // Plain text rather than jsonb, because the cap appends a marker that is not JSON.
+        e.Property(x => x.DataJson).HasColumnType("text");
 
         // The two questions this table is ever asked. Both are covered rather than one, because a
         // trail that is slow to search is a trail nobody searches.

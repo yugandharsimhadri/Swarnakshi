@@ -20,10 +20,10 @@ For a **brand-new** server, none of this applies — run `01-create-database.sql
 
 ## 1. Find out what the live database is on
 
-Before anything else, on the SQL Server:
+Before anything else, on the database server:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -d COPS -Q "SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId"
+psql -U cops_app -h localhost -d cops -c "SELECT migration_id FROM \"__EFMigrationsHistory\" ORDER BY migration_id"
 ```
 
 The last row is the release the database is on. As of the deployment on the night of **4 September
@@ -39,7 +39,16 @@ not match, you have the wrong script — stop and get the right one rather than 
 
 ---
 
-## 2. The current upgrade — 9 September 2026
+## 2. The upgrades of September 2026 — historical
+
+> Sections 2 and 2a describe upgrades applied while the database was **SQL Server**. The database
+> moved to PostgreSQL on 19 September 2026 ([11-postgresql.md](11-postgresql.md)) with a fresh
+> initial migration, so the scripts named here no longer exist in the repository and their
+> migration ids no longer appear in the history table. They are kept as a record of what was done
+> and why — the batch-compilation lesson in section 4 in particular. The procedure in sections 1,
+> 3, 5 and 6 is current, with `psql` in place of `sqlcmd`.
+
+### 2. The upgrade of 9 September 2026
 
 **File:** `deploy\sql\upgrades\2026-09-09-engineer-role-and-contract-amount-only.sql`
 **From:** `20260904091235_PerformanceIndexes` → `20260909043949_EngineerRoleAndContractAmountOnly`
@@ -64,7 +73,7 @@ Rehearsed against a copy of the 4 September schema: ran clean twice, `EstimatedC
 
 ---
 
-## 2a. The upgrade for the 5 September release
+### 2a. The upgrade of 5 September 2026
 
 **File:** `deploy\sql\upgrades\2026-09-05-approval-gate.sql`
 **From:** `20260904091235_PerformanceIndexes` → `20260905075817_ApprovalGate`
@@ -148,7 +157,7 @@ a `WHERE` clause.
 ```
 1. Back up.          Backup-Database.ps1, or a plain BACKUP DATABASE. Verify it wrote a file.
 2. Stop the API.     Stop-Service Swarnakshi   (or stop the IIS app pool)
-3. Upgrade the DB.   sqlcmd ... -i 2026-09-05-approval-gate.sql        ← route A
+3. Upgrade the DB.   psql -U cops_app -d cops -v ON_ERROR_STOP=1 -1 -f <upgrade>.sql   ← route A
 4. Copy the build.   deploy\out\app\  over the app folder
 5. Migrate.          Swarnakshi.Api.exe --migrate                      ← route B; exits 0
 6. Start the API.    Start-Service Swarnakshi
@@ -215,15 +224,21 @@ servers already running.
 Dry-run it before it goes anywhere near production. The whole rehearsal is four commands:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -b -Q "CREATE DATABASE [COPS_Rehearsal]"
+psql -U postgres -h localhost -c "CREATE DATABASE cops_rehearsal OWNER cops_app"
 dotnet ef migrations script 0 <the migration the live DB is on> --idempotent --project src\Swarnakshi.Infrastructure --startup-project src\Swarnakshi.Api --output baseline.sql
-sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS_Rehearsal -i baseline.sql
-sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS_Rehearsal -i deploy\sql\upgrades\<the new script>.sql
+psql -U cops_app -h localhost -d cops_rehearsal -v ON_ERROR_STOP=1 -1 -f baseline.sql
+psql -U cops_app -h localhost -d cops_rehearsal -v ON_ERROR_STOP=1 -1 -f deploy\sql\upgrades\<the new script>.sql
 ```
 
-Better still, restore last night's backup into `COPS_Rehearsal` instead of building the baseline from
-migrations: then the rehearsal runs against the real data, which is where the surprises live. Drop
-the rehearsal database afterwards.
+Better still, restore last night's backup into `cops_rehearsal` instead of building the baseline
+from migrations — `Restore-Database.ps1` against a settings file that names it — then the rehearsal
+runs against the real data, which is where the surprises live. Drop the rehearsal database
+afterwards: `psql -U postgres -c "DROP DATABASE cops_rehearsal"`.
+
+`-1` puts the whole file in one transaction, so on PostgreSQL a data statement that follows an
+`ALTER TABLE` in the same file sees the new column — the batch-compilation problem section 4
+describes was specific to `sqlcmd` and does not arise here. Rehearse anyway; that is not the only
+kind of surprise.
 
 ---
 
@@ -244,26 +259,27 @@ database and its service, and finally the exe itself.
 
 ### Three failures, and how to tell them apart
 
-**The database is not reachable yet.** Event log: `hit unexpected managed exception ... SqlException
-... error: 26 - Error Locating Server/Instance Specified`. Nothing is wrong with the configuration —
-the app pool runs `AlwaysRunning`, so on a reboot IIS starts the app before SQL Server Express is
-listening. The app now waits `Database:StartupWaitSeconds` (default 60) for the server to appear
-instead of dying on the first refusal, so this should no longer take the site down. Two things worth
-checking anyway:
+**The database is not reachable yet.** Event log: `hit unexpected managed exception ... NpgsqlException
+... Connection refused` or `57P03: the database system is starting up`. Nothing is wrong with the
+configuration — the app pool runs `AlwaysRunning`, so on a reboot IIS starts the app before
+PostgreSQL is listening. The app waits `Database:StartupWaitSeconds` (default 60) for the server to
+appear instead of dying on the first refusal, so this should no longer take the site down. Two
+things worth checking anyway:
 
 ```bash
-Get-Service 'MSSQL$SQLEXPRESS' | Select-Object Status, StartType
+Get-Service postgresql* | Select-Object Name, Status, StartType
 ```
 
 It must be **Automatic**, not *Automatic (Delayed Start)* — delayed start guarantees IIS wins the
 race. And if the machine is slow to boot, raise `Database:StartupWaitSeconds`; it has to stay under
 the app pool's `startupTimeLimit`, which defaults to 120.
 
-**The database is reachable but will not open.** `CREATE DATABASE permission denied in database
-'master'`, or *cannot open database ... requested by the login*. The database exists but the login
-has no user inside it — indistinguishable from a missing database from the app's side. Re-run
-`01-create-database.sql` with the right `-v DbName`. The startup error now says this in full,
-including the command.
+**The database is reachable but will not open.** `3D000: database "cops" does not exist`,
+`28P01: password authentication failed`, `28000: no pg_hba.conf entry`, or `42501: permission
+denied`. The database was never created, the role cannot log in, or the role can log in but does
+not own the database — and from the app's side the last looks like the first, because EF tries to
+create what it cannot open. Re-run `01-create-database.sql` with the right `-v DbName` and
+`-v AppRole`. The startup error says this in full, including the command.
 
 **Nothing in the log at all, and the event log says `failed to load coreclr` or `CLR worker thread
 exited prematurely`.** The failure is before managed code, so there is nothing for the app to have

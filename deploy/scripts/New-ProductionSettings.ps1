@@ -15,7 +15,7 @@
     Deploy.ps1 never calls this except with -InitSettings, and never overwrites the file otherwise.
 
 .EXAMPLE
-    .\New-ProductionSettings.ps1 -ConnectionString 'Server=.\SQLEXPRESS;Database=SCOPS;User ID=SivayaanHMS;Password=...;TrustServerCertificate=True'
+    .\New-ProductionSettings.ps1 -ConnectionString 'Host=localhost;Port=5432;Database=cops;Username=cops_app;Password=...'
 
 .EXAMPLE
     # Changing the password or the server, keeping everyone signed in:

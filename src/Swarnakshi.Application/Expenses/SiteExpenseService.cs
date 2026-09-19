@@ -58,7 +58,10 @@ public class SiteExpenseService(
         if (from is not null) q = q.Where(e => e.Date >= from);
         if (to is not null) q = q.Where(e => e.Date <= to);
         if (!string.IsNullOrWhiteSpace(page.Q))
-            q = q.Where(e => e.TxnNumber.Contains(page.Q) || (e.Description != null && e.Description.Contains(page.Q)));
+        {
+            var t = page.Q.ToLowerInvariant();
+            q = q.Where(e => e.TxnNumber.ToLower().Contains(t) || (e.Description != null && e.Description.ToLower().Contains(t)));
+        }
 
         return await q.OrderByDescending(e => e.Date).ThenByDescending(e => e.CreatedAt)
             .Select(Projection).ToPagedAsync(page, ct);

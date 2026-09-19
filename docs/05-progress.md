@@ -4,6 +4,84 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-19 — PostgreSQL, and a way to get the data there
+
+Asked for: move to PostgreSQL, keep every setting in a config file, migrate the existing SQL Server
+data, and a step-by-step guide. The cloud comes later; for now the database stays on the local
+server beside the API. The guide is [11-postgresql.md](11-postgresql.md).
+
+**One provider, again.** `Npgsql.EntityFrameworkCore.PostgreSQL` replaces the SQL Server provider
+outright. No switch, no second provider — two is two sets of behaviour to test, and one of them is
+always the one nobody runs. `DependencyInjection.Configure` is now the single place the provider is
+named; the design-time factory and the test harness call it too, so "which database, and how"
+cannot drift between the app, `dotnet ef` and the tests.
+
+**snake_case, because this was the one free moment.** PostgreSQL folds unquoted identifiers to
+lower case, so EF's PascalCase would have meant `"PurchaseHeaders"."TotalAmount"` — every
+identifier quoted, in every query anyone ever typed by hand, for the life of the system. That is
+the kind of friction that stops people looking at their own data. The schema was being created from
+scratch and the migrator maps names from the model, so `purchase_headers.total_amount` cost nothing
+now and would have cost a rename of forty-four tables at any later date. One package for it
+(`EFCore.NamingConventions`, by the Npgsql author), justified above.
+
+**The migrations are gone, and one `InitialPostgres` replaces them.** They were provider-specific
+SQL — `datetimeoffset`, `nvarchar(max)`, `EXEC(N'…')` — for a schema that no longer exists. Data
+does not travel by migration; it travels by the migrator below.
+
+**Two things SQL Server's collation gave away.** Its default compares text case-insensitively;
+PostgreSQL does not. So every search now lower-cases both sides — nine services did not, and
+`cement` would have stopped finding `OPC 53 Grade Cement` — and every user-typed code is stored
+upper-case through `CodeGenerator.Canonical`, so `gv-101` and `GV-101` stay the same villa rather
+than becoming two rows the unique index is happy to hold. Both were rules the database used to
+enforce silently; they are spelled out in code now, which is where a rule should be.
+
+**The migrator.** `tools/Swarnakshi.DataMigrator`: applies the application's migrations to the
+empty target, refuses if it holds any data, reads the EF model for the tables and their foreign
+keys, orders them parent-first, and streams every row across with binary COPY inside one
+transaction — a failure on the last table leaves the target as empty as it found it. Then it
+verifies: every table's row count, and the `SUM` of every numeric column. A migration that
+"completed" but moved the wrong money is worse than one that failed, and that is the check that
+tells them apart.
+
+No table or column name is typed in it. Source names are the DbSet property names and CLR property
+names — what the SQL Server schema was generated from; target names come from the model with
+snake_case applied — what the PostgreSQL schema was generated from. The one conversion that
+matters is `datetimeoffset` to `timestamptz`: Npgsql refuses any offset but zero, the application
+always wrote UTC, and a row touched by hand in SSMS might not have been, so everything is
+normalised on the way across. An instant is an instant whatever offset it was spelled with.
+
+Run against this repository's own development database: **42 tables, 21,525 rows, 8.5 seconds,
+verified.** The application then started against it, signed in with a migrated password hash,
+searched case-insensitively, and a spot check of a setting and a purchase total matched SQL Server
+to the rupee.
+
+**Everything in a config file.** The instruction was explicit, and it now holds everywhere: the
+app's connection string in `appsettings.Production.json` and `dotnet user-secrets` as before; the
+tests' server in `testsettings.json` at the repository root, read by the unit suite and the UAT
+tool alike; the migrator's two connection strings in `migration.json`. Each of the last two is
+git-ignored with a committed `.template.json` beside it, and each falls back to an environment
+variable only for a build agent with no repository root to speak of.
+
+**Every script rewritten.** `01-create-database.sql` creates a role that owns its database and
+nothing else (`\gexec` for the idempotent conditional DDL; verified idempotent, password untouched
+on re-run, exit 3 on a missing argument — `\quit 1` is not valid psql and the first version exited 0
+with a message, which is the worst of both). Backup is `pg_dump -Fc`, restore is `pg_restore
+--single-transaction` with the safety backup first; both read the connection string from the
+application's own settings file, so there is one place to change it and no way to back up the
+wrong database. Round-tripped: 1.1 MB out, restored over the top, 44 purchases and ₹1,83,39,353
+still there. `05-purge-audit.sql` is PL/pgSQL. `Diagnose-Startup.ps1` probes with `psql` and reads
+`pg_hba` failures for what they are. `DbInitializer` classifies `PostgresException` by SqlState —
+`57P03` is PostgreSQL itself saying it is still starting up, which is precisely the reboot race —
+and names the fix as before.
+
+**One real bug from the first test run.** The seeder's raw SQL used the property name `CompanyId`
+where the column is now `company_id`. It asks the model for the column name now, which is the only
+place that can be right. Everything else in the suite passed unchanged.
+
+292 tests pass on PostgreSQL 18.
+
+---
+
 ## 2026-09-09 — An audit trail nobody looks at, which is the point
 
 Asked for: a record of every action — edit, delete — with no screen, purely so the actions *can* be

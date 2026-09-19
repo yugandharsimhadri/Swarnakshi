@@ -9,7 +9,7 @@ on your own machine, published through a Cloudflare tunnel.
 | UI | `https://cops.sivayaantechnologies.com` — Cloudflare Pages, static files |
 | API | `https://copsapi.sivayaantechnologies.com` — IIS on your server, via a Cloudflare tunnel |
 | API locally | `http://localhost:6061` |
-| Database | SQL Server, database **SCOPS**, login `SivayaanHMS` |
+| Database | PostgreSQL, database **cops**, role `cops_app` — see [11-postgresql.md](11-postgresql.md) |
 
 Two hosts means two things must agree, and if either is wrong the site loads and every request
 fails:
@@ -59,47 +59,53 @@ findstr /C:"copsapi.sivayaantechnologies.com" deploy\out\frontend\assets\*.js
 
 ## Step 2 — The database
 
-On the SQL Server, as a sysadmin. Creates the database, the login, and its rights:
+PostgreSQL, on the server. Install it first if it is not there — [11-postgresql.md](11-postgresql.md)
+section 2.1 covers that, and everything on this page assumes it is running on port 5432.
+
+As the `postgres` superuser, create the database and the role that owns it:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -b -i deploy\out\sql\01-create-database.sql -v DbName="SCOPS" -v AppLogin="SivayaanHMS" -v AppPassword="<password>"
+psql -U postgres -h localhost -v DbName="cops" -v AppRole="cops_app" -v AppPassword="<password>" -f deploy\out\sql\01-create-database.sql
 ```
 
 All three `-v` values are required and none has a default. **`DbName` must match the database named
-in your connection string**, and `AppLogin` the user in it.
+in your connection string**, and `AppRole` the username in it. Lower-case, both of them: PostgreSQL
+folds unquoted names to lower case, and a mixed-case name would need quoting in every command you
+ever typed against it.
 
-Then the schema — all 43 tables, 184 indexes, 64 foreign keys:
+Then the schema — all 44 tables, as the application's role:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -b -d SCOPS -i deploy\out\sql\03-schema.sql
+psql -U cops_app -h localhost -d cops -v ON_ERROR_STOP=1 -1 -f deploy\out\sql\03-schema.sql
 ```
 
-Both are idempotent: run them twice and the second run changes nothing. `-b` matters — without it
-`sqlcmd` reports success even when a batch failed, and a half-applied schema looks like a clean run.
+Both are idempotent: run them twice and the second run changes nothing. `ON_ERROR_STOP` matters —
+without it `psql` carries on past a failed statement and a half-applied schema looks like a clean
+run — and `-1` makes the whole file one transaction.
 
-> **If the API later dies at startup with `CREATE DATABASE permission denied in database 'master'`,
-> re-run the first command with the right `DbName`.** EF decides whether a database exists by
-> opening a connection to it, so a database that *exists* but has no user for your login looks
-> exactly like one that is not there — EF tries to create it, the login is deliberately not
-> `dbcreator`, and the process exits. The database being visible in SSMS does not rule this out; it
-> is the more common of the two causes. Re-running the script fixes either, and changes nothing if
-> neither applies.
+> **If the API later dies at startup with `permission denied`**, the database was never created, the
+> role cannot log in, or the role can log in but does not own the database. From the application's
+> side all three end identically: EF cannot open the database, tries to create it, and the role is
+> deliberately not allowed to. Re-running the first command fixes any of them and changes nothing if
+> none applies. The error message the application logs says the same, with the command filled in.
 
 Check what you got:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -d SCOPS -Q "SELECT COUNT(*) AS Tables FROM sys.tables;"
+psql -U cops_app -h localhost -d cops -c "SELECT COUNT(*) AS tables FROM information_schema.tables WHERE table_schema = 'public';"
 ```
 
-43 is right (42 plus `__EFMigrationsHistory`).
+44 is right (43 plus `__EFMigrationsHistory`).
 
 **The schema is not the data.** The platform operator, the founding company, the expense heads,
 units and the material taxonomy are seeded by the application the first time it starts — there is no
 SQL for them. An empty-looking database after step 2 is expected.
 
 If you would rather the application create the schema itself, skip `03-schema.sql`; it does the same
-work on first start, provided the login has `CREATE TABLE` and `ALTER ON SCHEMA::dbo`. Running the
-script by hand means it never needs either.
+work on first start. The role owns the database, so it needs no further grant for that.
+
+**Moving an existing SQL Server database here** is not this step. It is [11-postgresql.md](11-postgresql.md),
+which carries the data across and verifies it.
 
 ---
 

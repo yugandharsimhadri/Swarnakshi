@@ -110,7 +110,7 @@ public class TransactionRollbackTests
         // A fresh context, because the failed one still holds the tracked changes in memory. What
         // matters is what reached the database.
         await using var check = new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(TestDatabase.ConnectionString).Options,
+            TestDatabase.Options(TestDatabase.ConnectionString),
             host.CurrentUser);
 
         using var tenant = check.BeginTenantScope(host.CompanyId);
@@ -158,7 +158,7 @@ public class TransactionRollbackTests
         await requests.IssueAsync(created.Id, new IssueRequest(null));
 
         await using var check = new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(TestDatabase.ConnectionString).Options,
+            TestDatabase.Options(TestDatabase.ConnectionString),
             host.CurrentUser);
         using var tenant = check.BeginTenantScope(host.CompanyId);
 

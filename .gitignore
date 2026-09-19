@@ -516,3 +516,7 @@ appsettings.*.Local.json
 # Build output: Publish.ps1 compiles the React app into the API's wwwroot so the published
 # service can serve it. It is generated, never edited, and must not be committed.
 src/Swarnakshi.Api/wwwroot/
+
+# Local settings that hold passwords. Templates for each are committed beside them.
+testsettings.json
+tools/Swarnakshi.DataMigrator/migration.json
