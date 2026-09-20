@@ -5,8 +5,11 @@
     "",
     "Source - the SQL Server database being left behind. Read only; nothing is written to it.",
     "Target - the PostgreSQL database, created with 01-create-database.sql and otherwise EMPTY.",
-    "         The migrator applies the schema itself, then loads the data, then verifies it."
+    "         The migrator applies the schema itself, then loads the data, then verifies it.",
+    "",
+    "This is JSON, so a backslash is written twice: .\\SQLEXPRESS in this file is .\\SQLEXPRESS",
+    "with one backslash when read. A single backslash is a JSON error and the migrator says so."
   ],
-  "Source": "Server=.\SQLEXPRESS;Database=COPS;User ID=SivayaanHMS;Password=CHANGE_ME;TrustServerCertificate=True",
+  "Source": "Server=.\\SQLEXPRESS;Database=COPS;User ID=SivayaanHMS;Password=CHANGE_ME;TrustServerCertificate=True",
   "Target": "Host=localhost;Port=5432;Database=cops;Username=cops_app;Password=CHANGE_ME"
 }

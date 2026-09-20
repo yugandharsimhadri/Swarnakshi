@@ -314,7 +314,20 @@ static (string Source, string Target, bool VerifyOnly) ParseArgs(string[] args)
         Fail("No migration.json found. Copy tools/Swarnakshi.DataMigrator/migration.template.json to "
            + "migration.json in the same folder and fill in the two connection strings, or pass --config <path>.");
 
-    using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(configPath!));
+    System.Text.Json.JsonDocument doc;
+    try
+    {
+        doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(configPath!));
+    }
+    catch (System.Text.Json.JsonException ex)
+    {
+        // The usual cause is a single backslash in the SQL Server instance name - .\SQLEXPRESS -
+        // which JSON reads as an escape sequence. Say so, rather than leave a stack trace.
+        Fail($"{configPath} is not valid JSON (line {ex.LineNumber + 1}, position {ex.BytePositionInLine}): {ex.Message}\n"
+           + "In JSON a backslash is written twice, so the instance name is  Server=.\\\\SQLEXPRESS  in the file.");
+        return default;
+    }
+    using var _ = doc;
     var root = doc.RootElement;
     var source = root.TryGetProperty("Source", out var s) ? s.GetString() : null;
     var target = root.TryGetProperty("Target", out var t) ? t.GetString() : null;
