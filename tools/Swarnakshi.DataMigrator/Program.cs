@@ -47,6 +47,29 @@ var options = new DbContextOptionsBuilder<AppDbContext>();
 DependencyInjection.Configure(options, target);
 await using var db = new AppDbContext(options.Options);
 
+// Both connections first, before anything is changed anywhere: a SQL Server that cannot be
+// reached should be found out in a second, not after the schema has been applied to the target.
+Console.WriteLine("0. Connecting…");
+await using var sql = new SqlConnection(source);
+try { await sql.OpenAsync(); }
+catch (SqlException ex)
+{
+    Fail($"Cannot reach SQL Server with the Source connection string: {FirstLine(ex.Message)}\n"
+       + "   The live application's appsettings.Production.json holds a string that is known to work - use that "
+       + "one (with each backslash doubled for JSON, and TrustServerCertificate=True). A named instance such as "
+       + @".\SQLEXPRESS also needs the SQL Browser service running:  Get-Service SQLBrowser");
+}
+Console.WriteLine($"   SQL Server: {sql.DataSource} / {sql.Database}");
+
+await using var pg = new NpgsqlConnection(target);
+try { await pg.OpenAsync(); }
+catch (Exception ex) when (ex is NpgsqlException or System.Net.Sockets.SocketException)
+{
+    Fail($"Cannot reach PostgreSQL with the Target connection string: {FirstLine(ex.Message)}\n"
+       + "   Create the database and role first with 01-create-database.sql, and check the password here matches.");
+}
+Console.WriteLine($"   PostgreSQL: {pg.Host}:{pg.Port} / {pg.Database}");
+
 if (!verifyOnly)
 {
     Console.WriteLine("1. Schema: applying the application's migrations to the target…");
@@ -55,11 +78,6 @@ if (!verifyOnly)
 
 var tables = Plan(db);
 Console.WriteLine($"   {tables.Count} tables, ordered parent-first.");
-
-await using var pg = new NpgsqlConnection(target);
-await pg.OpenAsync();
-await using var sql = new SqlConnection(source);
-await sql.OpenAsync();
 
 if (!verifyOnly)
 {
@@ -281,6 +299,8 @@ static async Task<decimal> SumAsync(System.Data.Common.DbConnection cn, string s
     cmd.CommandText = sqlText;
     return Convert.ToDecimal(await cmd.ExecuteScalarAsync());
 }
+
+static string FirstLine(string s) => s.Split('\n')[0].TrimEnd('\r');
 
 static void Fail(string message)
 {
