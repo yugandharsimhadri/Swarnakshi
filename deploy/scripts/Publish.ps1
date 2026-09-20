@@ -203,7 +203,7 @@ try {
     Write-Host "    frontend\   $(& $mb $frontendOut)   -> upload to Cloudflare Pages"
     Write-Host "    app\        $(& $mb $appOut)   -> copy into the IIS site"
     Write-Host "    sql\        NEW server: 01-create-database.sql then 03-schema.sql (psql)"
-    Write-Host "    sql\upgrades\  LIVE server: the one script for this release -- see docs/06c-db-upgrades.md"
+    Write-Host "                LIVE server: New-UpgradeScript.ps1 -From <migration> -- see docs/06c-db-upgrades.md"
     Write-Host "    scripts\    Backup / Restore / Diagnose, and Deploy.ps1 for the Windows-service shape"
     Write-Host "    tools\DataMigrator\  SQL Server -> PostgreSQL, once -- see docs/11-postgresql.md"
     Write-Host "`n  The UI in frontend\ calls: $(if ($ApiBaseUrl) { $ApiBaseUrl } else { 'its own origin' })"
