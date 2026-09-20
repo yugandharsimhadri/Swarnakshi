@@ -4,6 +4,38 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-09-20 — The rehearsal on the real server, and the three things it found
+
+The package went to `F:\sivayaan\release` and the guide was followed from 3.3. Three stops before
+the migrator reached the data, each now fixed in the package rather than remembered:
+
+**The template was not JSON.** `migration.template.json` shipped `Server=.\SQLEXPRESS` with one
+backslash. Copied faithfully it fails to parse — `'S' is an invalid escapable character` — as a
+stack trace. The template writes it doubled and says why; the migrator names the file, the line
+and the fix.
+
+**The migrator changed the target before it knew it could read the source.** It applied the
+schema to PostgreSQL, then found SQL Server unreachable (error 26 — the named instance not
+resolving, the same fault as the outage of the 8th). Nothing was lost, but the order was wrong.
+Step 0 now opens both connections first and, for each, says what to check: the live
+`appsettings.Production.json` for the string that is known to work; `Get-Service SQLBrowser` for
+a named instance.
+
+**The live SQL Server database is at the build of the 4th.** The approval-gate, Engineer-role and
+audit-trail changes of the 5th–9th were never deployed to it, and the migrator reads the source
+through the current model: `Invalid column name 'ApprovedAt'`. The upgrade script written for
+those changes on the 9th — deleted when the repository moved to PostgreSQL — is back as
+`deploy/sql/sqlserver/2026-09-09-last-sqlserver-upgrade.sql`, the one SQL Server script the
+repository keeps, frozen. The migrator now compares every column the model reads against
+`INFORMATION_SCHEMA.COLUMNS` at the source before touching anything, and names the missing ones
+with that script as the fix. A column check rather than a migration-history check, because the
+local rehearsal copy never had `AuditTrail` (it only widened columns) and migrated fine. Guide
+step 4.2a, after the last backup and before the copy.
+
+Exercised: the packaged migrator against a scratch SQL Server database with one table (604
+columns reported missing, stopped, nothing changed), against the rehearsal copy (passes the
+check, verifies), and against an unreachable instance (stops at step 0).
+
 ## 2026-09-19 — The migration guide, written for the server as it actually is
 
 The first draft of [11-postgresql.md](11-postgresql.md) was written for a generic install:

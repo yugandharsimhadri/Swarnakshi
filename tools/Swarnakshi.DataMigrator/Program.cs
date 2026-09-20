@@ -78,6 +78,7 @@ if (!verifyOnly)
 
 var tables = Plan(db);
 Console.WriteLine($"   {tables.Count} tables, ordered parent-first.");
+await EnsureSourceHasEveryColumnAsync(sql, tables);
 
 if (!verifyOnly)
 {
@@ -142,6 +143,31 @@ Console.WriteLine($"   Every table's row count and every money column's total ma
 Console.WriteLine();
 Console.WriteLine("Done. The application can now be started against the target.");
 return 0;
+
+// The source is read through the current model, so its schema has to be the one the model was
+// last generated against on SQL Server (migration 20260909134423_AuditTrail). A database deployed
+// before then is missing columns, and the copy would stop on the first of them with "Invalid
+// column name" - after the schema had already gone to the target. Better to look first, and to
+// name every missing column at once with the script that adds them.
+static async Task EnsureSourceHasEveryColumnAsync(SqlConnection sql, List<TablePlan> tables)
+{
+    var have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    await using (var cmd = new SqlCommand("SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS", sql))
+    await using (var r = await cmd.ExecuteReaderAsync())
+        while (await r.ReadAsync()) have.Add(r.GetString(0) + "." + r.GetString(1));
+
+    var missing = tables
+        .SelectMany(t => t.Columns.Select(c => t.SourceTable + "." + c.SourceName))
+        .Where(name => !have.Contains(name))
+        .ToList();
+    if (missing.Count == 0) return;
+
+    Fail($"The SQL Server database is behind the application: {missing.Count} column(s) the model reads are not there -\n"
+       + "       " + string.Join(", ", missing) + "\n"
+       + "   Run the last SQL Server upgrade first, with the API stopped:\n"
+       + @"       sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i sql\sqlserver\2026-09-09-last-sqlserver-upgrade.sql" + "\n"
+       + "   then run this tool again. Nothing has been changed on either side.");
+}
 
 // ---- planning ------------------------------------------------------------------------------
 

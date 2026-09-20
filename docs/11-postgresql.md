@@ -143,8 +143,10 @@ JWT key**: that signs every user out and they will tell you about it.
 F:\sivayaan\release\tools\DataMigrator\Swarnakshi.DataMigrator.exe --verify-only
 ```
 
-With an empty target this reports every table as differing — that is expected, and not the point.
-The point is that it starts, reads `migration.json`, and reaches both databases. A password or
+It will stop at `The SQL Server database is behind the application` — expected, because the live
+database has not had the 9 September upgrade yet; that is step 4.2a, on the day. The point here is
+that it starts, reads `migration.json`, and prints both `SQL Server: …` and `PostgreSQL: …` lines
+before it stops, which proves it reaches both databases. A password or
 firewall problem shows up here, days before it matters. (It needs the same .NET 10 runtime IIS
 already uses; `Publish.ps1 -SelfContained` bundles it if the server has none.)
 
@@ -179,6 +181,25 @@ The rollback point, and once SQL Server is decommissioned the only copy of it th
 ```bash
 sqlcmd -S .\SQLEXPRESS -E -C -b -Q "BACKUP DATABASE [COPS] TO DISK='F:\sivayaan\backups\COPS-before-postgres.bak'"
 ```
+
+### 4.2a Bring SQL Server up to the last build it was ever going to get
+
+The migrator reads the SQL Server database through the current application model, so the SQL
+Server schema has to be the one that model was last generated against — the build of 9 September
+(migration `20260909134423_AuditTrail`). The live database was deployed from the build of the 4th
+and never got the approval-gate, Engineer-role and audit-trail changes. Against it the migrator
+stops with `The SQL Server database is behind the application` and lists the missing columns
+(`SupplierPayments.ApprovedAt`, `Status`, …). The last SQL Server upgrade script is in the
+package for exactly this:
+
+```bash
+sqlcmd -S .\SQLEXPRESS -E -C -b -d COPS -i F:\sivayaan\release\sql\sqlserver\2026-09-09-last-sqlserver-upgrade.sql
+```
+
+Idempotent — a database that already has some of the migrations gets only the ones it lacks, and a
+database that has all of them is untouched. Existing supplier payments become *Approved* (they were
+paid before approval existed) and `ContractWorks.EstimatedCost` is dropped, which is why this runs
+**after** the 4.2 backup, not before. Takes seconds.
 
 ### 4.3 Move the data
 

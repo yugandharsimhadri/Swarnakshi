@@ -205,6 +205,7 @@ try {
     Write-Host "    sql\        NEW server: 01-create-database.sql then 03-schema.sql (psql)"
     Write-Host "                LIVE server: New-UpgradeScript.ps1 -From <migration> -- see docs/06c-db-upgrades.md"
     Write-Host "    scripts\    Backup / Restore / Diagnose, and Deploy.ps1 for the Windows-service shape"
+    Write-Host "    sql\sqlserver\  the last SQL Server upgrade, to run once before the migrator (11-postgresql.md 4.2a)"
     Write-Host "    tools\DataMigrator\  SQL Server -> PostgreSQL, once -- see docs/11-postgresql.md"
     Write-Host "`n  The UI in frontend\ calls: $(if ($ApiBaseUrl) { $ApiBaseUrl } else { 'its own origin' })"
     Write-Host "  That origin must appear in the API's Cors:Origins, or the browser will block it."
