@@ -4,6 +4,37 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-03 — A replacement server, and the one script a restore needs
+
+The server died of a hardware fault. The machine that was the build machine is the server now:
+PostgreSQL 18 with `cops` restored into it, IIS serving the API from `C:\Server\copsapi` on port
+6061, both Cloudflare tunnels running, the UI on Pages untouched and still fine.
+
+Two things were wrong, and the second is the one worth keeping.
+
+`appsettings.Production.json` had not been copied across, so the API died at startup on every
+request — `No connection string. Set ConnectionStrings:Default`, which IIS shows as a bare 500.30
+with no body and nothing in the log folder, because the log folder is configured in the file that
+is missing. Written back with the JWT key from the old server, so sessions survive, and the
+`Cors.Origins` key spelled the way the application reads it: the copy that was being carried
+around said `AllowedOrigins`, which binds to nothing, falls back to localhost, and shows up in a
+browser as a CORS failure against an API that is running perfectly well.
+
+`pg_restore` had made `postgres` the owner of all 43 tables, and `cops_app` did not exist. An
+application role that owns nothing can log in and do nothing: every query is "permission denied
+for table", and the next deployment's migration is "must be owner of table".
+`deploy/sql/04-take-ownership.sql` hands a restored database to the application role — the
+database, the public schema, and every table, sequence and view in it, one generated statement
+each, skipping what is already owned. Not `REASSIGN OWNED BY postgres`, which looks like the
+one-liner for this and would also hand over every other database `postgres` owns on the same
+server; this one walks the current database only. Dry-run against `cops`: 45 statements, nothing
+outside it.
+
+Also: psql does not substitute `:variables` inside dollar-quoted strings, so the generated-SQL
+plus `\gexec` shape is not a style choice. A `DO $$ ... :'AppRole' ... $$` block takes the role
+name literally and fails at run time, in a script whose whole job is to run once, under pressure,
+on a server someone is waiting for.
+
 ## 2026-09-20 — The rehearsal on the real server, and the three things it found
 
 The package went to `F:\sivayaan\release` and the guide was followed from 3.3. Three stops before
