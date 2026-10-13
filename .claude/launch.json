@@ -1,5 +1,12 @@
 {
   "version": "0.0.1",
+  "//": [
+    "Dev servers: the UI on 6050, the API on 6051, and the UI proxies /api to it.",
+    "",
+    "Deliberately not 6061 or 6041. On the machine this is checked out on those belong to IIS,",
+    "serving the live site behind the Cloudflare tunnel, and a dev run must not go near them.",
+    "The dev API takes its connection string from dotnet user-secrets, never from a server file."
+  ],
   "configurations": [
     {
       "name": "web",

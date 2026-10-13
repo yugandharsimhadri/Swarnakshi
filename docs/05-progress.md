@@ -50,6 +50,14 @@ Also fixed, because this feature rides on it: `AttachmentPanel` built the downlo
 relative `/api/...`, which cannot work from Cloudflare Pages — the one request in the app that went
 out by hand instead of through `apiUrl()`. Every bill the Owner tried to open would have 404'd.
 
+Walked on the dev database afterwards, through the running app rather than only the tests: the
+claim saved as a draft, a PDF renamed .jpg was refused by its first bytes, submitting without a
+photo was refused, and with one attached it reached the Owner's queue. The dev connection string
+still named a database the machine lost in the hardware failure - the restore renamed scops to
+scops_mymachine - so dotnet run had been dead for a week without anyone noticing; the pointer in
+user-secrets is corrected, and .claude/launch.json now says why the dev ports are 6050 and 6051
+and must not become the live ones.
+
 304 tests pass (12 new). Schema: `20261013124900_OwnPocketExpenses`, with
 `deploy/sql/upgrades/2026-10-13-own-pocket-expenses.sql` for the live database.
 
