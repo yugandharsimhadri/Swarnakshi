@@ -5,8 +5,8 @@ import { useTheme } from "@/store/theme";
 import { RoleName } from "@/lib/types";
 import { Button, Card, PageHeader } from "@/components/ui";
 import {
-  IconAccess, IconChevron, IconContractor, IconCustomer, IconEmployees, IconMaterials, IconPurchase,
-  IconMoon, IconReports, IconSettings, IconSite, IconSun,
+  IconAccess, IconChevron, IconContractor, IconCustomer, IconEmployees, IconExpense, IconMaterials,
+  IconPurchase, IconMoon, IconReports, IconSettings, IconSite, IconSun,
 } from "@/components/icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
@@ -22,6 +22,7 @@ export default function More() {
   const canManageUsers = useAuth((s) => s.can("users.manage"));
   const canReports = useAuth((s) => s.can("reports.view"));
   const canSettings = useAuth((s) => s.can("settings.manage"));
+  const canSettle = useAuth((s) => s.can("expense.settle"));
   const { theme, toggle } = useTheme();
 
   const setup: [string, IconComponent, string, boolean][] = [
@@ -53,6 +54,12 @@ export default function More() {
           <Row to="/settings" Icon={IconSettings} label="Approvals" />
         </Section>
       )}
+
+      {/* Above the set-up list, not inside it: for the office this is a weekly job with money
+          attached, and for everyone else it is the answer to "what am I owed?". */}
+      <Section title={canSettle ? "Money owed to staff" : "Your money"}>
+        <Row to="/reimbursements" Icon={IconExpense} label={canSettle ? "Reimbursements" : "My claims"} />
+      </Section>
 
       <Section title="Set up">
         {setup.filter(([, , , show]) => show).map(([to, Icon, label]) => (

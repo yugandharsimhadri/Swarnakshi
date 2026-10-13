@@ -442,6 +442,34 @@ export interface ProjectExpense {
   expenseHeadId: string; expenseHeadName: string; expenseSubheadName?: string | null;
   description?: string | null; amount: number; expenseType: number; paymentStatus: number;
   sourceType?: string | null; status: number;
+  /** Set when somebody spent their own money on this and the company owes them. */
+  paidByUserId?: string | null;
+  paidByUserName?: string | null;
+  reimbursementStatus: number;
+}
+
+/** 0 None, 1 Due, 2 Settled — see ReimbursementStatus in the domain. */
+export const ReimbursementStatusName: Record<number, string> = {
+  0: "—", 1: "Due", 2: "Settled",
+};
+
+/** One own-pocket claim, as the reimbursements screen sees it. */
+export interface Claim {
+  id: string; txnNumber: string; projectId: string; projectName: string; date: string;
+  expenseHeadName: string; description?: string | null; amount: number;
+  reimbursementStatus: number; paidByUserId: string; paidByUserName: string;
+  approvedAt?: string | null;
+}
+
+export interface ClaimsOwed {
+  userId: string; userName: string; due: number; claims: number;
+}
+
+export interface Settlement {
+  id: string; txnNumber: string; paidToUserId: string; paidToUserName: string;
+  date: string; amount: number; paymentMethodName?: string | null; reference?: string | null;
+  status: number;
+  lines: { projectExpenseId: string; txnNumber: string; projectName: string; amount: number }[];
 }
 export const ExpenseTypeName: Record<number, string> = {
   1: "Material", 2: "Labour", 3: "Contractor", 4: "Direct", 5: "Transport", 6: "Machinery", 7: "Other",

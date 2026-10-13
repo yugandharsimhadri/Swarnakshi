@@ -15,7 +15,7 @@
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 /** Absolute or relative, depending on how the bundle was built. Always ends up rooted at /api. */
-function apiUrl(path: string): string {
+export function apiUrl(path: string): string {
   return API_ORIGIN + (path.startsWith("/api") ? path : `/api${path}`);
 }
 

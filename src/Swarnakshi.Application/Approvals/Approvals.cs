@@ -43,8 +43,15 @@ public record ApprovalHistoryItem(ApprovalAction Action, TransactionStatus Previ
 
 public interface IApprovalService
 {
+    /// <param name="allowAutoApprove">
+    /// False puts the request in front of a person whatever the auto-approve limit says. For money
+    /// leaving the company to one of its own staff — an out-of-pocket claim — the limit is the
+    /// wrong rule: its purpose is to save the Owner from rubber-stamping small supplier invoices,
+    /// and a claim nobody looked at is a bill nobody checked.
+    /// </param>
     Task<ApprovalRequest> SubmitAsync(string entityType, Guid entityId, string? entityRef,
-        Guid? siteId, Guid? projectId, decimal? amount, CancellationToken ct = default);
+        Guid? siteId, Guid? projectId, decimal? amount, CancellationToken ct = default,
+        bool allowAutoApprove = true);
     Task<ApprovalListItem> DecideAsync(Guid approvalRequestId, ApprovalDecision decision, CancellationToken ct = default);
     Task<PagedResult<ApprovalListItem>> ListAsync(PageQuery page, string? entityType, bool pendingOnly, CancellationToken ct = default);
     Task<IReadOnlyList<ApprovalHistoryItem>> HistoryAsync(Guid approvalRequestId, CancellationToken ct = default);
@@ -72,7 +79,8 @@ public class ApprovalService(
     /// copied into nine services, is a rule that holds until someone writes the tenth.</para>
     /// </summary>
     public async Task<ApprovalRequest> SubmitAsync(string entityType, Guid entityId, string? entityRef,
-        Guid? siteId, Guid? projectId, decimal? amount, CancellationToken ct = default)
+        Guid? siteId, Guid? projectId, decimal? amount, CancellationToken ct = default,
+        bool allowAutoApprove = true)
     {
         var handler = Handler(entityType);
 
@@ -115,6 +123,8 @@ public class ApprovalService(
         // roll the request away too, leaving a document marked PendingApproval that appears in
         // nobody's list and can never be approved.
         await db.SaveChangesAsync(ct);
+
+        if (!allowAutoApprove) return req;
 
         var limit = await settings.AutoApproveLimitAsync(siteId, ct);
         if (limit <= 0m || amount is not { } value || value >= limit) return req;

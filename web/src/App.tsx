@@ -38,6 +38,7 @@ const Suppliers = lazy(() => import("@/pages/Suppliers"));
 const Customers = lazy(() => import("@/pages/Customers"));
 const Users = lazy(() => import("@/pages/Users"));
 const Employees = lazy(() => import("@/pages/Employees"));
+const Reimbursements = lazy(() => import("@/pages/Reimbursements"));
 
 const InventoryList = named(() => import("@/pages/Inventory"), "InventoryList");
 const MaterialInventory = named(() => import("@/pages/Inventory"), "MaterialInventory");
@@ -113,6 +114,7 @@ export default function App() {
             <Route path="reports/:slug" element={canReports ? <ReportView /> : <Navigate to="/" replace />} />
             <Route path="users" element={<Users />} />
             <Route path="employees" element={<Employees />} />
+            <Route path="reimbursements" element={<Reimbursements />} />
             <Route path="settings" element={canSettings ? <Settings /> : <Navigate to="/more" replace />} />
             <Route path="more" element={<More />} />
             <Route path="*" element={<Navigate to="/" replace />} />

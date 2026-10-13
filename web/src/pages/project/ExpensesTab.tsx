@@ -7,6 +7,7 @@ import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, Select, Sheet,
   Spinner
 } from "@/components/ui";
+import { AttachmentPanel } from "@/components/AttachmentPanel";
 import {
   ExpenseTypeName, TxnStatusName, type LabourEntry, type Lookup, type Paged,
   type ProjectExpense
@@ -19,6 +20,7 @@ export default function Expenses({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
   const [labourOpen, setLabourOpen] = useState(false);
   const [sentForApproval, setSentForApproval] = useState(false);
+  const [savedDraft, setSavedDraft] = useState(false);
   const { data, loading, error, reload } = useAsync(
     () => api<Paged<ProjectExpense>>("/expenses", { query: { projectId, pageSize: 100 } }),
     [projectId],
@@ -27,6 +29,12 @@ export default function Expenses({ projectId }: { projectId: string }) {
     () => api<Paged<LabourEntry>>("/labour", { query: { projectId, pageSize: 100 } }),
     [projectId],
   );
+
+  // 0 is Draft, and the only drafts here are own-pocket claims waiting for their bill. They are
+  // pulled out of the list and shown in their own card below, so each appears exactly once.
+  const isUnsentClaim = (e: ProjectExpense) => e.status === 0 && !!e.paidByUserId;
+  const drafts = (data?.items ?? []).filter(isUnsentClaim);
+  const entries = (data?.items ?? []).filter((e) => !isUnsentClaim(e));
 
   return (
     <div className="space-y-2">
@@ -41,6 +49,11 @@ export default function Expenses({ projectId }: { projectId: string }) {
       {sentForApproval && (
         <div role="status" className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn">
           Sent to the owner for approval. It counts towards this villa's cost once approved.
+        </div>
+      )}
+      {savedDraft && (
+        <div role="status" className="rounded-xl bg-brand/10 px-3 py-2 text-xs text-brand-ink">
+          Saved. Attach the bill photo below, then send it to the owner.
         </div>
       )}
 
@@ -74,7 +87,7 @@ export default function Expenses({ projectId }: { projectId: string }) {
       <AddLabourSheet projectId={projectId} open={labourOpen} onClose={() => setLabourOpen(false)}
         onSaved={() => { setLabourOpen(false); reloadLabour(); }} />
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
-        (data?.items.length ?? 0) === 0 ? <EmptyState title="No expenses" /> : data!.items.map((e) => (
+        entries.length === 0 && drafts.length === 0 ? <EmptyState title="No expenses" /> : entries.map((e) => (
           <Card key={e.id} className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -86,29 +99,99 @@ export default function Expenses({ projectId }: { projectId: string }) {
                     {TxnStatusName[e.status]}
                   </Chip>
                 )}
+                {/* Whether the company still owes somebody for this is worth a chip of its own:
+                    the row is a cost either way, but only one of them is also a debt. */}
+                {e.reimbursementStatus === 1 && <Chip tone="brand">Owed</Chip>}
+                {e.reimbursementStatus === 2 && <Chip tone="ok">Repaid</Chip>}
               </div>
               <div className="truncate text-xs text-text-dim">
                 {dateStr(e.date)} · {ExpenseTypeName[e.expenseType]} · {e.description || e.txnNumber}
+                {e.paidByUserName ? ` · ${e.paidByUserName} paid` : ""}
               </div>
             </div>
             <div className={`text-right text-sm tabular-nums ${e.status === 5 || e.status === 4 ? "text-text-dim line-through" : e.status === 2 ? "text-text-dim" : ""}`}>{money(e.amount)}</div>
           </Card>
         ))
       )}
+
+      {/* A claim the engineer saved but has not sent up yet. It sits apart from the list above
+          because it is the one row on this screen that still needs something doing to it, and
+          what it needs — the bill photo — only fits in a card of its own. */}
+      {drafts.map((e) => (
+        <ClaimDraftCard key={e.id} expense={e} onSent={() => { setSentForApproval(true); reload(); }} />
+      ))}
       <AddExpenseSheet
         projectId={projectId}
         open={open}
         onClose={() => setOpen(false)}
-        onSaved={(pending) => { setOpen(false); setSentForApproval(pending); reload(); }}
+        onSaved={(status) => {
+          setOpen(false);
+          setSentForApproval(status === 2);
+          setSavedDraft(status === 0);
+          reload();
+        }}
       />
     </div>
   );
 }
 
-function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: (sentForApproval: boolean) => void }) {
+/**
+ * An own-pocket claim that still needs its bill. Two steps rather than one because a photo cannot
+ * be attached to a row that does not exist yet — and the Send button stays out of reach until
+ * there is something for the owner to look at, which is the same rule the server enforces.
+ */
+function ClaimDraftCard({ expense, onSent }: { expense: ProjectExpense; onSent: () => void }) {
+  const [bills, setBills] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<ApiError | null>(null);
+
+  async function send() {
+    setBusy(true); setErr(null);
+    try {
+      await api(`/expenses/${expense.id}/submit`, { method: "POST" });
+      onSent();
+    } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
+  }
+
+  return (
+    <Card className="space-y-3 border-brand/40">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold">{expense.expenseHeadName}</span>
+            <Chip tone="neutral">Draft</Chip>
+          </div>
+          <div className="truncate text-xs text-text-dim">
+            You paid · {dateStr(expense.date)} · {expense.description || expense.txnNumber}
+          </div>
+        </div>
+        <span className="text-sm tabular-nums">{money(expense.amount)}</span>
+      </div>
+
+      <AttachmentPanel
+        entityType="ProjectExpense"
+        entityId={expense.id}
+        canEdit
+        photosOnly
+        onChange={setBills}
+      />
+
+      <ErrorText error={err} />
+      <Button className="w-full" disabled={busy || bills === 0} onClick={send}>
+        {bills === 0 ? "Attach the bill first" : busy ? "Sending…" : "Send for approval"}
+      </Button>
+      <div className="text-xs text-text-dim">
+        Claims you paid for always go to the owner, whatever the auto-approve limit is.
+      </div>
+    </Card>
+  );
+}
+
+function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: (status: number) => void }) {
   const { data: heads } = useAsync(() => api<Lookup[]>("/expense-heads"), []);
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
   const [form, setForm] = useState({ headId: "", amount: "", description: "", type: "4", methodId: "" });
+  const [paidByMe, setPaidByMe] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -120,18 +203,40 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
         body: {
           projectId, date: new Date().toISOString().slice(0, 10), expenseHeadId: form.headId,
           description: form.description || null, amount: Number(form.amount), expenseType: Number(form.type),
-          paymentStatus: 2, paymentMethodId: form.methodId || null,
+          paymentStatus: 2, paymentMethodId: paidByMe ? null : form.methodId || null,
+          paidByMe,
         },
       });
-      // 2 is Pending Approval. Whether it waits depends on the owner's limit, so the screen has to
-      // read the answer off the saved row rather than assume either way.
-      onSaved(created.status === 2);
+      // The saved row says what happened: 0 Draft (a claim awaiting its bill), 2 Pending Approval,
+      // or 6 Posted when the owner's limit approved it on the spot. Reading it off the response
+      // rather than guessing is what keeps the message on screen true.
+      onSaved(created.status);
     } catch (e) { setErr(e as ApiError); } finally { setBusy(false); }
   }
 
   return (
     <Sheet open={open} onClose={onClose} title="Add expense">
       <div className="space-y-3">
+        {/* First question on the form, because it changes what the rest of it means: the payment
+            method is the company's if the company paid, and irrelevant if he paid himself. */}
+        <Field label="Paid by">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPaidByMe(false)}
+              className={`rounded-xl border px-3 py-2 text-xs ${!paidByMe ? "border-brand text-brand-ink" : "border-border text-text-dim"}`}
+            >
+              Company
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaidByMe(true)}
+              className={`rounded-xl border px-3 py-2 text-xs ${paidByMe ? "border-brand text-brand-ink" : "border-border text-text-dim"}`}
+            >
+              I paid — reimburse me
+            </button>
+          </div>
+        </Field>
         <Field label="Expense head">
           <Select value={form.headId} onChange={(e) => setForm({ ...form, headId: e.target.value })}>
             <option value="">Select…</option>
@@ -146,14 +251,18 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
         </Field>
         <Field label="Amount"><Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
         <Field label="Description"><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
-        <Field label="Paid via">
-          <Select value={form.methodId} onChange={(e) => setForm({ ...form, methodId: e.target.value })}>
-            <option value="">—</option>
-            {methods?.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </Select>
-        </Field>
+        {!paidByMe && (
+          <Field label="Paid via">
+            <Select value={form.methodId} onChange={(e) => setForm({ ...form, methodId: e.target.value })}>
+              <option value="">—</option>
+              {methods?.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </Select>
+          </Field>
+        )}
         <ErrorText error={err} />
-        <Button className="w-full" onClick={save} disabled={busy || !form.headId || !Number(form.amount)}>Save expense</Button>
+        <Button className="w-full" onClick={save} disabled={busy || !form.headId || !Number(form.amount)}>
+          {paidByMe ? "Save — then attach the bill" : "Save expense"}
+        </Button>
       </div>
     </Sheet>
   );

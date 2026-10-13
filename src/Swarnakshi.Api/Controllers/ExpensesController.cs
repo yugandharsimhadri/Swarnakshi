@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swarnakshi.Api.Common;
+using Swarnakshi.Application.Abstractions;
 using Swarnakshi.Application.Common;
 using Swarnakshi.Application.Expenses;
 using Swarnakshi.Application.Security;
@@ -29,6 +30,12 @@ public class ExpensesController(IProjectExpenseService expenses) : ControllerBas
     public async Task<IActionResult> Create(SaveProjectExpenseRequest req, CancellationToken ct)
         => this.EnvelopeCreated(await expenses.CreateAsync(req, ct));
 
+    /// <summary>Sends an own-pocket claim, saved as a draft so the bill could be attached, to the Owner.</summary>
+    [HttpPost("{id:guid}/submit")]
+    [RequiresPermission(Permissions.ExpenseCreate)]
+    public async Task<IActionResult> Submit(Guid id, CancellationToken ct)
+        => this.Envelope(await expenses.SubmitAsync(id, ct));
+
     [HttpPost("{id:guid}/cancel")]
     [RequiresPermission(Permissions.ExpenseCreate)]
     public async Task<IActionResult> Cancel(Guid id, [FromBody] CancelBody body, CancellationToken ct)
@@ -36,6 +43,49 @@ public class ExpensesController(IProjectExpenseService expenses) : ControllerBas
 }
 
 public record CancelBody(string Reason);
+
+/// <summary>
+/// Money the company owes its own people, and the payments that clear it.
+///
+/// <para>Reading is open to anyone signed in, because an engineer asking "what am I owed?" is the
+/// commonest question this screen answers and the service scopes a non-settler to their own
+/// claims. Paying out needs <see cref="Permissions.ExpenseSettle"/>.</para>
+/// </summary>
+[ApiController]
+[Route("api/reimbursements")]
+[Authorize]
+[TenantOnly]
+public class ReimbursementsController(IExpenseSettlementService settlements, ICurrentUser currentUser)
+    : ControllerBase
+{
+    private bool CanSettle => currentUser.Has(Permissions.ExpenseSettle);
+
+    /// <summary>The claims themselves. Without expense.settle this answers only your own.</summary>
+    [HttpGet("claims")]
+    public async Task<IActionResult> Claims([FromQuery] ReimbursementStatus? status,
+        [FromQuery] Guid? userId, CancellationToken ct)
+        => this.Envelope(await settlements.ClaimsAsync(status, CanSettle ? userId : currentUser.UserId, ct));
+
+    /// <summary>What is owed, per person. The office's view of the whole liability.</summary>
+    [HttpGet("owed")]
+    [RequiresPermission(Permissions.ExpenseSettle)]
+    public async Task<IActionResult> Owed(CancellationToken ct) => this.Envelope(await settlements.OwedAsync(ct));
+
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] PageQuery paging, [FromQuery] Guid? paidToUserId,
+        CancellationToken ct)
+        => this.Envelope(await settlements.ListAsync(paging, CanSettle ? paidToUserId : currentUser.UserId, ct));
+
+    [HttpPost]
+    [RequiresPermission(Permissions.ExpenseSettle)]
+    public async Task<IActionResult> Create(SaveSettlementRequest req, CancellationToken ct)
+        => this.EnvelopeCreated(await settlements.CreateAsync(req, ct));
+
+    [HttpPost("{id:guid}/void")]
+    [RequiresPermission(Permissions.ExpenseSettle)]
+    public async Task<IActionResult> Void(Guid id, [FromBody] CancelBody body, CancellationToken ct)
+        => this.Envelope(await settlements.VoidAsync(id, body.Reason, ct));
+}
 
 /// <summary>
 /// Costs that belong to a site rather than to one villa — the watchman, temporary power, the site

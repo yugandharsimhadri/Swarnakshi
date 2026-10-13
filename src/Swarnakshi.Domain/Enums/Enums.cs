@@ -47,6 +47,16 @@ public enum InventoryTransactionType
 
 public enum PaymentStatus { Unpaid = 0, PartiallyPaid = 1, Paid = 2 }
 
+/// <summary>
+/// Where an expense stands with the person who paid for it out of their own pocket.
+///
+/// <para><see cref="None"/> for the ordinary case — the company paid, there is nobody to pay back.
+/// <see cref="Due"/> from the moment the Owner approves the claim until the money is handed over;
+/// the sum of Due is what the company owes its own people. <see cref="Settled"/> once a settlement
+/// covers it.</para>
+/// </summary>
+public enum ReimbursementStatus { None = 0, Due = 1, Settled = 2 }
+
 public enum ProjectExpenseType
 {
     Material = 1,

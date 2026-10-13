@@ -61,6 +61,12 @@ public class TxnNumberConfigs :
         e.HasOne(x => x.Head).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Subhead).WithMany().HasForeignKey(x => x.ExpenseSubheadId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.PaymentMethod).WithMany().HasForeignKey(x => x.PaymentMethodId).OnDelete(DeleteBehavior.Restrict);
+
+        // "What do we owe our own people?" — filtered, never scanned, and almost every row in the
+        // table answers None, so the index earns its keep on how little of it is Due.
+        e.HasIndex(x => new { x.CompanyId, x.ReimbursementStatus, x.PaidByUserId })
+            .HasDatabaseName("IX_ProjectExpenses_Reimbursement");
+        e.HasOne(x => x.PaidByUser).WithMany().HasForeignKey(x => x.PaidByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<SiteExpense> e)
@@ -95,6 +101,38 @@ public class TxnNumberConfigs :
         e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.PaymentMethod).WithMany().HasForeignKey(x => x.PaymentMethodId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>
+/// The settlement and its lines. Restrict on the expense deliberately: a claim that has been paid
+/// cannot have the row recording that it was paid quietly removed from under it.
+/// </summary>
+public class ExpenseSettlementConfig : IEntityTypeConfiguration<ExpenseSettlement>
+{
+    public void Configure(EntityTypeBuilder<ExpenseSettlement> e)
+    {
+        e.HasIndex(x => new { x.CompanyId, x.TxnNumber }).IsUnique();
+        e.HasIndex(x => new { x.CompanyId, x.PaidToUserId, x.Date });
+        e.Property(x => x.Reference).HasMaxLength(100);
+        e.HasMany(x => x.Lines).WithOne(x => x.Settlement)
+            .HasForeignKey(x => x.ExpenseSettlementId).OnDelete(DeleteBehavior.Cascade);
+        e.HasOne(x => x.PaidToUser).WithMany().HasForeignKey(x => x.PaidToUserId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.PaymentMethod).WithMany().HasForeignKey(x => x.PaymentMethodId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class ExpenseSettlementLineConfig : IEntityTypeConfiguration<ExpenseSettlementLine>
+{
+    public void Configure(EntityTypeBuilder<ExpenseSettlementLine> e)
+    {
+        // Not unique on the expense, though a claim is only ever settled once. A voided settlement
+        // keeps its lines — financial detail is never deleted here — so the second, valid
+        // settlement of a claim whose first one was voided would collide with a unique index. What
+        // actually enforces "once" is the status transition: only a Due claim can be settled, and
+        // settling it makes it Settled inside the same transaction.
+        e.HasIndex(x => new { x.CompanyId, x.ProjectExpenseId });
+        e.HasOne(x => x.ProjectExpense).WithMany().HasForeignKey(x => x.ProjectExpenseId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

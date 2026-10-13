@@ -4,6 +4,55 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-13 — The engineer pays, the owner approves, the company pays him back
+
+A man on site buys a bag of cement on a Sunday with his own money. Until today the system had no
+way to hear about it: an Engineer could not record an expense at all, and an expense could not say
+who paid for it. The villa was never charged, and the man was repaid out of somebody's memory.
+
+`ProjectExpense` gains `PaidByUserId` and a `ReimbursementStatus` of None, Due or Settled, and
+`ExpenseSettlement` with lines is the payment that clears however many approved claims it covers —
+five bills over a fortnight, one transfer on Saturday. The settlement writes no cost row and
+carries no ProjectId: the claims were charged to the villa when the Owner approved them, and
+charging again when the money moves would overstate every villa an engineer ever bought anything
+for. A test asserts the villa's total is unchanged across a settlement, which is the only way that
+stays true a year from now.
+
+Three rules that are each a decision rather than a detail:
+
+**Own-pocket claims ignore the auto-approve limit.** `IApprovalService.SubmitAsync` takes
+`allowAutoApprove`, and this is the first caller to pass false. The limit exists to save the Owner
+from rubber-stamping small supplier invoices; money leaving the company to one of its own staff is
+a different thing, and a claim nobody looked at is a bill nobody checked.
+
+**The bill photo is mandatory, so the claim starts as a draft.** A file cannot hang off a row that
+does not exist, so it is save, attach, send — and `SubmitAsync` refuses without an image. The Owner
+now sees the photo in the approval queue, which is what makes the queue decidable: every request he
+opens can be answered from what is in front of him.
+
+**Attachment rules are per entity type.** A purchase still takes the supplier's PDF at 15 MB; an
+expense takes JPG, PNG or WebP at 2.5 MB, and the first bytes are checked, not the extension. The
+browser checks the size before uploading too, because a phone photo is 6-8 MB and a site has one
+bar of signal — refusing after the upload wastes a minute of a man standing at a shop counter.
+
+Settling is permission-gated rather than approval-gated: `expense.settle` for Owner, Sub-Owner and
+Accountant. Asking the Owner to approve paying out a debt he approved ten seconds ago adds a step
+and no information. Voiding a settlement is a void — the lines stay, which is the record that money
+went out and came back — and it puts the claims back to Due, so the index on the line is not unique
+and the status transition is what enforces "settled once".
+
+`ExpenseCreate` joins the on-site set, so Supervisor and Engineer can record what they spend. One
+screen, `/reimbursements`, serves both readers: with `expense.settle` it is everybody's claims and
+a Settle button, without it it is "My claims" and a figure. Two readers, one number, no second
+place for it to disagree.
+
+Also fixed, because this feature rides on it: `AttachmentPanel` built the download URL as a
+relative `/api/...`, which cannot work from Cloudflare Pages — the one request in the app that went
+out by hand instead of through `apiUrl()`. Every bill the Owner tried to open would have 404'd.
+
+304 tests pass (12 new). Schema: `20261013124900_OwnPocketExpenses`, with
+`deploy/sql/upgrades/2026-10-13-own-pocket-expenses.sql` for the live database.
+
 ## 2026-10-03 — A replacement server, and the one script a restore needs
 
 The server died of a hardware fault. The machine that was the build machine is the server now:

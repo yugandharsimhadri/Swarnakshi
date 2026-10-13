@@ -49,6 +49,8 @@ public interface IAppDbContext
     DbSet<ProjectExpense> ProjectExpenses { get; }
     DbSet<SiteExpense> SiteExpenses { get; }
     DbSet<LabourEntry> LabourEntries { get; }
+    DbSet<ExpenseSettlement> ExpenseSettlements { get; }
+    DbSet<ExpenseSettlementLine> ExpenseSettlementLines { get; }
 
     DbSet<ContractWork> ContractWorks { get; }
     DbSet<ContractorPayment> ContractorPayments { get; }

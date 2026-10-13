@@ -27,6 +27,68 @@ public class ProjectExpense : AuditableEntity
     /// <summary>Traceability to the source doc (InventoryTransaction, ContractorPayment, LabourEntry, manual).</summary>
     public string? SourceType { get; set; }
     public Guid? SourceId { get; set; }
+
+    /// <summary>
+    /// Set when a person spent their own money and the company owes them it — the engineer who
+    /// bought a bag of cement on a Sunday. Null is the ordinary case: the company paid, and there
+    /// is nobody to pay back.
+    ///
+    /// <para>A user rather than an employee, because the claim is made by whoever is signed in, and
+    /// not every person with a login is on the payroll.</para>
+    /// </summary>
+    public Guid? PaidByUserId { get; set; }
+    public User? PaidByUser { get; set; }
+
+    public ReimbursementStatus ReimbursementStatus { get; set; } = ReimbursementStatus.None;
+}
+
+/// <summary>
+/// One payment that pays a person back for money they spent out of their own pocket, covering as
+/// many approved claims as it likes — which is how it actually happens: five bills over a fortnight,
+/// one transfer on Saturday.
+///
+/// <para><b>This is not a cost.</b> The <see cref="ProjectExpense"/> rows are the cost, counted once
+/// when each was approved. A settlement is cash leaving the company against a debt already
+/// recorded, and nothing here may ever reach a villa's total — that is why there is no ProjectId on
+/// it and no expense row written when one is made.</para>
+/// </summary>
+public class ExpenseSettlement : AuditableEntity
+{
+    public string TxnNumber { get; set; } = null!;
+
+    /// <summary>The person being paid back.</summary>
+    public Guid PaidToUserId { get; set; }
+    public User PaidToUser { get; set; } = null!;
+
+    public DateOnly Date { get; set; }
+
+    /// <summary>Checked against the sum of the lines rather than trusted.</summary>
+    public decimal Amount { get; set; }
+
+    public Guid? PaymentMethodId { get; set; }
+    public PaymentMethod? PaymentMethod { get; set; }
+
+    /// <summary>UPI reference, cheque number — whatever proves the money moved.</summary>
+    public string? Reference { get; set; }
+
+    public ICollection<ExpenseSettlementLine> Lines { get; set; } = new List<ExpenseSettlementLine>();
+}
+
+/// <summary>
+/// One claim cleared by one settlement, in full. Paying a man part of what he spent is not a thing
+/// anyone does, and allowing it would mean every roll-up of "what we still owe" had to subtract
+/// part-payments — so a line carries the claim's whole amount and the settlement covers however
+/// many claims it needs to.
+/// </summary>
+public class ExpenseSettlementLine : BaseEntity
+{
+    public Guid ExpenseSettlementId { get; set; }
+    public ExpenseSettlement Settlement { get; set; } = null!;
+
+    public Guid ProjectExpenseId { get; set; }
+    public ProjectExpense ProjectExpense { get; set; } = null!;
+
+    public decimal Amount { get; set; }
 }
 
 /// <summary>

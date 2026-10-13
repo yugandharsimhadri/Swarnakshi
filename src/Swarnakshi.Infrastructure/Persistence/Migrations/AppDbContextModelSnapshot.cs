@@ -1177,6 +1177,163 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.ToTable("expense_heads", (string)null);
                 });
 
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_demo");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_at");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modified_by");
+
+                    b.Property<Guid>("PaidToUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("paid_to_user_id");
+
+                    b.Property<Guid?>("PaymentMethodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_method_id");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("reference");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("remarks");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TxnNumber")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("txn_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expense_settlements");
+
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_expense_settlements_company_id");
+
+                    b.HasIndex("PaidToUserId")
+                        .HasDatabaseName("ix_expense_settlements_paid_to_user_id");
+
+                    b.HasIndex("PaymentMethodId")
+                        .HasDatabaseName("ix_expense_settlements_payment_method_id");
+
+                    b.HasIndex("CompanyId", "TxnNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_expense_settlements_company_id_txn_number");
+
+                    b.HasIndex("CompanyId", "PaidToUserId", "Date")
+                        .HasDatabaseName("ix_expense_settlements_company_id_paid_to_user_id_date");
+
+                    b.ToTable("expense_settlements", (string)null);
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSettlementLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("ExpenseSettlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expense_settlement_id");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_demo");
+
+                    b.Property<Guid>("ProjectExpenseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_expense_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expense_settlement_lines");
+
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_expense_settlement_lines_company_id");
+
+                    b.HasIndex("ExpenseSettlementId")
+                        .HasDatabaseName("ix_expense_settlement_lines_expense_settlement_id");
+
+                    b.HasIndex("ProjectExpenseId")
+                        .HasDatabaseName("ix_expense_settlement_lines_project_expense_id");
+
+                    b.HasIndex("CompanyId", "ProjectExpenseId")
+                        .HasDatabaseName("ix_expense_settlement_lines_company_id_project_expense_id");
+
+                    b.ToTable("expense_settlement_lines", (string)null);
+                });
+
             modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSubhead", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2454,6 +2611,10 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("modified_by");
 
+                    b.Property<Guid?>("PaidByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("paid_by_user_id");
+
                     b.Property<Guid?>("PaymentMethodId")
                         .HasColumnType("uuid")
                         .HasColumnName("payment_method_id");
@@ -2465,6 +2626,10 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid")
                         .HasColumnName("project_id");
+
+                    b.Property<int>("ReimbursementStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("reimbursement_status");
 
                     b.Property<string>("Remarks")
                         .HasMaxLength(512)
@@ -2502,6 +2667,9 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExpenseSubheadId")
                         .HasDatabaseName("ix_project_expenses_expense_subhead_id");
 
+                    b.HasIndex("PaidByUserId")
+                        .HasDatabaseName("ix_project_expenses_paid_by_user_id");
+
                     b.HasIndex("PaymentMethodId")
                         .HasDatabaseName("ix_project_expenses_payment_method_id");
 
@@ -2511,6 +2679,9 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProjectId", "Date")
                         .HasDatabaseName("ix_project_expenses_project_id_date");
+
+                    b.HasIndex("CompanyId", "ReimbursementStatus", "PaidByUserId")
+                        .HasDatabaseName("IX_ProjectExpenses_Reimbursement");
 
                     b.HasIndex("CompanyId", "Status", "ProjectId")
                         .HasDatabaseName("IX_ProjectExpenses_CompanyId_Status_Covering");
@@ -3670,6 +3841,47 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSettlement", b =>
+                {
+                    b.HasOne("Swarnakshi.Domain.Entities.User", "PaidToUser")
+                        .WithMany()
+                        .HasForeignKey("PaidToUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_settlements_users_paid_to_user_id");
+
+                    b.HasOne("Swarnakshi.Domain.Entities.PaymentMethod", "PaymentMethod")
+                        .WithMany()
+                        .HasForeignKey("PaymentMethodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_expense_settlements_payment_methods_payment_method_id");
+
+                    b.Navigation("PaidToUser");
+
+                    b.Navigation("PaymentMethod");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSettlementLine", b =>
+                {
+                    b.HasOne("Swarnakshi.Domain.Entities.ExpenseSettlement", "Settlement")
+                        .WithMany("Lines")
+                        .HasForeignKey("ExpenseSettlementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_settlement_lines_expense_settlements_expense_settle");
+
+                    b.HasOne("Swarnakshi.Domain.Entities.ProjectExpense", "ProjectExpense")
+                        .WithMany()
+                        .HasForeignKey("ProjectExpenseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_settlement_lines_project_expenses_project_expense_id");
+
+                    b.Navigation("ProjectExpense");
+
+                    b.Navigation("Settlement");
+                });
+
             modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSubhead", b =>
                 {
                     b.HasOne("Swarnakshi.Domain.Entities.ExpenseHead", "Head")
@@ -3954,6 +4166,12 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_project_expenses_expense_subheads_expense_subhead_id");
 
+                    b.HasOne("Swarnakshi.Domain.Entities.User", "PaidByUser")
+                        .WithMany()
+                        .HasForeignKey("PaidByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_project_expenses_users_paid_by_user_id");
+
                     b.HasOne("Swarnakshi.Domain.Entities.PaymentMethod", "PaymentMethod")
                         .WithMany()
                         .HasForeignKey("PaymentMethodId")
@@ -3968,6 +4186,8 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_project_expenses_projects_project_id");
 
                     b.Navigation("Head");
+
+                    b.Navigation("PaidByUser");
 
                     b.Navigation("PaymentMethod");
 
@@ -4180,6 +4400,11 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseHead", b =>
                 {
                     b.Navigation("Subheads");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ExpenseSettlement", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Swarnakshi.Domain.Entities.Material", b =>

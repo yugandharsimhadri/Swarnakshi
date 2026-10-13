@@ -21,6 +21,11 @@ public static class Permissions
     public const string ContractorPaymentCreate = "contractor_payment.create";
     public const string CustomerPaymentCreate = "customer_payment.create";
 
+    /// <summary>Paying a person back for money they spent out of their own pocket. Separate from
+    /// <see cref="ExpenseCreate"/>: recording what was spent and handing over the cash to settle it
+    /// are different jobs, and the second one is the office's.</summary>
+    public const string ExpenseSettle = "expense.settle";
+
     public const string ApprovalsDecide = "approvals.decide";
     public const string UsersManage = "users.manage";
     public const string SettingsManage = "settings.manage";
@@ -34,7 +39,7 @@ public static class Permissions
     [
         MastersManage, SitesManage, ProjectsManage, InventoryView, InventoryAdjust,
         MaterialRequestCreate, PurchaseCreate, ExpenseCreate, LabourCreate, ContractManage,
-        ContractorPaymentCreate, CustomerPaymentCreate, ApprovalsDecide, UsersManage,
+        ContractorPaymentCreate, CustomerPaymentCreate, ExpenseSettle, ApprovalsDecide, UsersManage,
         SettingsManage, ReportsView, DashboardView
     ];
 
@@ -46,8 +51,12 @@ public static class Permissions
     /// drift apart by accident — if they are ever meant to differ, that will be a deliberate edit
     /// splitting this list, not a permission somebody forgot to add to the second one.</para>
     /// </summary>
+    /// <para>ExpenseCreate is here because the man on site is the one who spends the money — the
+    /// autorickshaw, the bag of cement fetched at nine on a Sunday, the plumber's half-day. He
+    /// often pays out of his own pocket, and an expense he cannot record is one the villa is never
+    /// charged for. What he cannot do is settle it: see <see cref="ExpenseSettle"/>.</para>
     private static readonly string[] OnSite =
-        [InventoryView, MaterialRequestCreate, PurchaseCreate, ProjectsManage];
+        [InventoryView, MaterialRequestCreate, PurchaseCreate, ProjectsManage, ExpenseCreate];
 
     public static IReadOnlyCollection<string> ForRole(UserRole role) => role switch
     {
@@ -65,7 +74,7 @@ public static class Permissions
         UserRole.Accountant =>
         [
             ExpenseCreate, LabourCreate, ContractManage, ContractorPaymentCreate,
-            CustomerPaymentCreate, InventoryView, ReportsView, DashboardView
+            CustomerPaymentCreate, ExpenseSettle, InventoryView, ReportsView, DashboardView
         ],
         _ => Array.Empty<string>()
     };
