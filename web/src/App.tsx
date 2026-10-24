@@ -58,6 +58,7 @@ export default function App() {
   const canDashboard = useAuth((s) => s.can("dashboard.view"));
   const canReports = useAuth((s) => s.can("reports.view"));
   const canSettings = useAuth((s) => s.can("settings.manage"));
+  const canEmployees = useAuth((s) => s.can("employees.manage"));
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
 
@@ -113,7 +114,7 @@ export default function App() {
             <Route path="reports" element={canReports ? <ReportsHub /> : <Navigate to="/" replace />} />
             <Route path="reports/:slug" element={canReports ? <ReportView /> : <Navigate to="/" replace />} />
             <Route path="users" element={<Users />} />
-            <Route path="employees" element={<Employees />} />
+            <Route path="employees" element={canEmployees ? <Employees /> : <Navigate to="/more" replace />} />
             <Route path="reimbursements" element={<Reimbursements />} />
             <Route path="settings" element={canSettings ? <Settings /> : <Navigate to="/more" replace />} />
             <Route path="more" element={<More />} />

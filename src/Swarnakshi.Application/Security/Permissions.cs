@@ -15,6 +15,16 @@ public static class Permissions
     public const string MaterialRequestCreate = "material_request.create";
     public const string PurchaseCreate = "purchase.create";
 
+    /// <summary>
+    /// The staff register: who works here, what they are paid, and their ledger.
+    ///
+    /// <para>Split out of <see cref="MastersManage"/> because the two are only alike on paper. A
+    /// contractor or a supplier is a name the man on site needs to type at six in the evening; an
+    /// employee record carries what his colleagues earn. One key could not grant the first without
+    /// the second.</para>
+    /// </summary>
+    public const string EmployeesManage = "employees.manage";
+
     public const string ExpenseCreate = "expense.create";
     public const string LabourCreate = "labour.create";
     public const string ContractManage = "contract.manage";
@@ -37,26 +47,40 @@ public static class Permissions
 
     public static readonly IReadOnlyList<string> All =
     [
-        MastersManage, SitesManage, ProjectsManage, InventoryView, InventoryAdjust,
+        MastersManage, SitesManage, ProjectsManage, EmployeesManage, InventoryView, InventoryAdjust,
         MaterialRequestCreate, PurchaseCreate, ExpenseCreate, LabourCreate, ContractManage,
         ContractorPaymentCreate, CustomerPaymentCreate, ExpenseSettle, ApprovalsDecide, UsersManage,
         SettingsManage, ReportsView, DashboardView
     ];
 
     /// <summary>
-    /// What someone who runs the work on site can do: raise requests, record purchases, keep
-    /// projects moving. The company dashboard and the reports are the office's view, not theirs.
+    /// What a Supervisor can do: raise requests, record purchases, keep projects moving. The
+    /// company dashboard and the reports are the office's view, not theirs.
     ///
-    /// <para>Shared by Supervisor and Engineer rather than written out twice, so the two cannot
-    /// drift apart by accident — if they are ever meant to differ, that will be a deliberate edit
-    /// splitting this list, not a permission somebody forgot to add to the second one.</para>
-    /// </summary>
     /// <para>ExpenseCreate is here because the man on site is the one who spends the money — the
     /// autorickshaw, the bag of cement fetched at nine on a Sunday, the plumber's half-day. He
     /// often pays out of his own pocket, and an expense he cannot record is one the villa is never
     /// charged for. What he cannot do is settle it: see <see cref="ExpenseSettle"/>.</para>
-    private static readonly string[] OnSite =
+    /// </summary>
+    private static readonly string[] Supervisor =
         [InventoryView, MaterialRequestCreate, PurchaseCreate, ProjectsManage, ExpenseCreate];
+
+    /// <summary>
+    /// What an Engineer can do. This was the Supervisor's list until the two were asked to differ,
+    /// and they differ in both directions.
+    ///
+    /// <para>He gets <see cref="MastersManage"/>: a supplier who is not in the system yet is a
+    /// purchase that cannot be recorded, and on a site at six in the evening there is nobody in the
+    /// office to add it for him. Contractors, suppliers, materials, customers — he types them as he
+    /// meets them.</para>
+    ///
+    /// <para>He does not get <see cref="ProjectsManage"/> or <see cref="SitesManage"/>. Which
+    /// villas exist, and on which site, is the shape of the business rather than a day's work on
+    /// it; he records against them and does not create them. Nor <see cref="EmployeesManage"/> —
+    /// that register carries what his colleagues are paid.</para>
+    /// </summary>
+    private static readonly string[] Engineer =
+        [InventoryView, MaterialRequestCreate, PurchaseCreate, ExpenseCreate, MastersManage];
 
     public static IReadOnlyCollection<string> ForRole(UserRole role) => role switch
     {
@@ -70,11 +94,13 @@ public static class Permissions
         // UserService.SetPermissionsAsync, which records those as explicit denials precisely
         // because the base set is now everything.
         UserRole.Owner or UserRole.SubOwner => All,
-        UserRole.Supervisor or UserRole.Engineer => OnSite,
+        UserRole.Supervisor => Supervisor,
+        UserRole.Engineer => Engineer,
         UserRole.Accountant =>
         [
             ExpenseCreate, LabourCreate, ContractManage, ContractorPaymentCreate,
-            CustomerPaymentCreate, ExpenseSettle, InventoryView, ReportsView, DashboardView
+            CustomerPaymentCreate, ExpenseSettle, EmployeesManage, InventoryView, ReportsView,
+            DashboardView
         ],
         _ => Array.Empty<string>()
     };

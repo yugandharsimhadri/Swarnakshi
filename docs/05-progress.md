@@ -4,6 +4,32 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-24 — The Engineer types the masters, and never sees the payroll
+
+Two requests that turned out to be one problem: an Engineer should be able to add contractors,
+suppliers and materials, and should not be able to see employees. Both were governed by
+`masters.manage`, so granting the first would have granted the second.
+
+`employees.manage` is now its own key. A contractor or a supplier is a name the man on site needs
+to type at six in the evening; an employee record carries what his colleagues earn, and no single
+key could hand over the first without the second. `EmployeesController` is gated at the class,
+reads included — gating only the write path would have left the list readable by anyone with a
+login, which is the thing that was actually being asked for.
+
+The on-site set is split. Supervisor keeps what it had. Engineer gets `masters.manage` and loses
+`projects.manage`: which villas exist, and on which site, is the shape of the business rather than
+a day's work on it, so he records against them and does not create them. The comment on the shared
+list said that if the two roles were ever meant to differ it would be a deliberate edit splitting
+it rather than a permission somebody forgot — this is that edit.
+
+Checked against the running API as a real Engineer rather than only against the lookup table:
+employees 403, suppliers 201, contractors 201, projects 403, sites 403, and the project list still
+200 — because he still has to open the villa he is recording an expense against. The permission
+screen picks the new key up on its own; it reads /users/permission-keys rather than a list in the
+client.
+
+306 tests pass. No schema change.
+
 ## 2026-10-13 — The engineer pays, the owner approves, the company pays him back
 
 A man on site buys a bag of cement on a Sunday with his own money. Until today the system had no

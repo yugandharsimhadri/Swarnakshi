@@ -23,6 +23,7 @@ export default function More() {
   const canReports = useAuth((s) => s.can("reports.view"));
   const canSettings = useAuth((s) => s.can("settings.manage"));
   const canSettle = useAuth((s) => s.can("expense.settle"));
+  const canEmployees = useAuth((s) => s.can("employees.manage"));
   const { theme, toggle } = useTheme();
 
   const setup: [string, IconComponent, string, boolean][] = [
@@ -31,7 +32,7 @@ export default function More() {
     ["/contractors", IconContractor, "Contractors", true],
     ["/suppliers", IconPurchase, "Suppliers", true],
     ["/customers", IconCustomer, "Customers", true],
-    ["/employees", IconEmployees, "Employees", true],
+    ["/employees", IconEmployees, "Employees", canEmployees],
     ["/users", IconAccess, "Users & access", canManageUsers],
   ];
 

@@ -31,10 +31,43 @@ public class RolePermissionTests
     }
 
     [Fact]
-    public void An_engineer_gets_the_same_permissions_as_a_supervisor()
+    public void An_engineer_and_a_supervisor_differ_in_both_directions()
     {
-        Permissions.ForRole(UserRole.Engineer)
-            .Should().BeEquivalentTo(Permissions.ForRole(UserRole.Supervisor));
+        var engineer = Permissions.ForRole(UserRole.Engineer);
+        var supervisor = Permissions.ForRole(UserRole.Supervisor);
+
+        // The Engineer types the masters he meets on site: a supplier who is not in the system is
+        // a purchase he cannot record, and at six in the evening the office is shut.
+        engineer.Should().Contain(Permissions.MastersManage);
+        supervisor.Should().NotContain(Permissions.MastersManage);
+
+        // Which villas exist is the shape of the business, not a day's work on it.
+        engineer.Should().NotContain(Permissions.ProjectsManage);
+        supervisor.Should().Contain(Permissions.ProjectsManage);
+    }
+
+    [Fact]
+    public void An_engineer_can_add_the_parties_he_buys_from_but_not_the_villas_he_builds()
+    {
+        var engineer = Permissions.ForRole(UserRole.Engineer);
+
+        engineer.Should().Contain(Permissions.MastersManage,
+            "contractors, suppliers and materials are entered where the work happens");
+        engineer.Should().NotContain([Permissions.ProjectsManage, Permissions.SitesManage]);
+    }
+
+    [Fact]
+    public void The_staff_register_is_not_an_engineers_business()
+    {
+        // It carries what his colleagues earn. Splitting it out of MastersManage is what makes it
+        // possible to let him add a supplier without also showing him the payroll.
+        Permissions.ForRole(UserRole.Engineer).Should().NotContain(Permissions.EmployeesManage);
+        Permissions.ForRole(UserRole.Supervisor).Should().NotContain(Permissions.EmployeesManage);
+
+        Permissions.ForRole(UserRole.Owner).Should().Contain(Permissions.EmployeesManage);
+        Permissions.ForRole(UserRole.SubOwner).Should().Contain(Permissions.EmployeesManage);
+        // The accountant pays them, so they have to be able to see them.
+        Permissions.ForRole(UserRole.Accountant).Should().Contain(Permissions.EmployeesManage);
     }
 
     [Fact]
@@ -44,7 +77,7 @@ public class RolePermissionTests
 
         engineer.Should().Contain([
             Permissions.InventoryView, Permissions.MaterialRequestCreate,
-            Permissions.PurchaseCreate, Permissions.ProjectsManage
+            Permissions.PurchaseCreate, Permissions.ExpenseCreate
         ]);
         engineer.Should().NotContain([
             Permissions.ApprovalsDecide, Permissions.DashboardView,

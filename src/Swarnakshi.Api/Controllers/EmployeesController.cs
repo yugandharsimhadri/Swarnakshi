@@ -8,10 +8,16 @@ using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Api.Controllers;
 
+/// <summary>
+/// The staff register. Gated at the class, reads included: "who works here and what do they earn"
+/// is the question being answered, and answering it only on the write path would leave the list
+/// readable by anyone with a login.
+/// </summary>
 [ApiController]
 [Route("api/employees")]
 [Authorize]
 [TenantOnly]
+[RequiresPermission(Permissions.EmployeesManage)]
 public class EmployeesController(IEmployeeService employees, IEmployeePaymentService payments) : ControllerBase
 {
     [HttpGet]
@@ -27,14 +33,12 @@ public class EmployeesController(IEmployeeService employees, IEmployeePaymentSer
     public async Task<IActionResult> Ledger(Guid id, CancellationToken ct)
         => this.Envelope(await payments.LedgerAsync(id, ct));
 
-    // The employee record is master data; the payments against it are money, and are gated separately.
+    // The payments against an employee are money, and are gated separately - see below.
     [HttpPost]
-    [RequiresPermission(Permissions.MastersManage)]
     public async Task<IActionResult> Create(SaveEmployeeRequest req, CancellationToken ct)
         => this.EnvelopeCreated(await employees.CreateAsync(req, ct));
 
     [HttpPut("{id:guid}")]
-    [RequiresPermission(Permissions.MastersManage)]
     public async Task<IActionResult> Update(Guid id, SaveEmployeeRequest req, CancellationToken ct)
         => this.Envelope(await employees.UpdateAsync(id, req, ct));
 }

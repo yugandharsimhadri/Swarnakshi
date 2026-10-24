@@ -14,7 +14,7 @@ import {
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function Employees() {
-  const canManage = useAuth((s) => s.can("masters.manage"));
+  const canManage = useAuth((s) => s.can("employees.manage"));
   const canPay = useAuth((s) => s.can("labour.create"));
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(false);
