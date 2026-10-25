@@ -22,7 +22,7 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-10-25 21:39:44 from commit 99cc7a4
+    Generated: 2026-10-25 22:14:09 from commit 82b779b
 */
 CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
     migration_id character varying(150) NOT NULL,
@@ -2256,6 +2256,71 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261013124900_OwnPocketExpenses') THEN
     INSERT INTO "__EFMigrationsHistory" (migration_id, product_version)
     VALUES ('20261013124900_OwnPocketExpenses', '10.0.4');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261025162805_CustomerAddOnRequests') THEN
+    CREATE TABLE add_on_requests (
+        id uuid NOT NULL,
+        txn_number character varying(512) NOT NULL,
+        project_id uuid NOT NULL,
+        date date NOT NULL,
+        expense_head_id uuid NOT NULL,
+        description character varying(1000) NOT NULL,
+        expected_amount numeric(18,2) NOT NULL,
+        status integer NOT NULL,
+        remarks character varying(512),
+        modified_at timestamp with time zone,
+        modified_by uuid,
+        company_id uuid NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        created_by uuid,
+        is_demo boolean NOT NULL,
+        CONSTRAINT pk_add_on_requests PRIMARY KEY (id),
+        CONSTRAINT fk_add_on_requests_expense_heads_expense_head_id FOREIGN KEY (expense_head_id) REFERENCES expense_heads (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_add_on_requests_projects_project_id FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261025162805_CustomerAddOnRequests') THEN
+    CREATE INDEX ix_add_on_requests_company_id ON add_on_requests (company_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261025162805_CustomerAddOnRequests') THEN
+    CREATE UNIQUE INDEX ix_add_on_requests_company_id_txn_number ON add_on_requests (company_id, txn_number);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261025162805_CustomerAddOnRequests') THEN
+    CREATE INDEX ix_add_on_requests_expense_head_id ON add_on_requests (expense_head_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261025162805_CustomerAddOnRequests') THEN
+    CREATE INDEX ix_add_on_requests_project_id_status ON add_on_requests (project_id, status);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "migration_id" = '20261025162805_CustomerAddOnRequests') THEN
+    INSERT INTO "__EFMigrationsHistory" (migration_id, product_version)
+    VALUES ('20261025162805_CustomerAddOnRequests', '10.0.4');
     END IF;
 END $EF$;
 COMMIT;
