@@ -108,6 +108,22 @@ public class TxnNumberConfigs :
 /// The settlement and its lines. Restrict on the expense deliberately: a claim that has been paid
 /// cannot have the row recording that it was paid quietly removed from under it.
 /// </summary>
+/// <summary>
+/// The customer-changes register. No foreign key into anything financial and nothing that sums it
+/// into cost - see AddOnRequest for why that is the whole design.
+/// </summary>
+public class AddOnRequestConfig : IEntityTypeConfiguration<AddOnRequest>
+{
+    public void Configure(EntityTypeBuilder<AddOnRequest> e)
+    {
+        e.HasIndex(x => new { x.CompanyId, x.TxnNumber }).IsUnique();
+        e.HasIndex(x => new { x.ProjectId, x.Status });
+        e.Property(x => x.Description).HasMaxLength(1000).IsRequired();
+        e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.Head).WithMany().HasForeignKey(x => x.ExpenseHeadId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 public class ExpenseSettlementConfig : IEntityTypeConfiguration<ExpenseSettlement>
 {
     public void Configure(EntityTypeBuilder<ExpenseSettlement> e)

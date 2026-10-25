@@ -13,6 +13,7 @@ import {
   type ProjectSummary
 } from "@/lib/types";
 import CustomerTab from "@/pages/project/CustomerTab";
+import AddOnsTab from "@/pages/project/AddOnsTab";
 import Overview from "@/pages/project/OverviewTab";
 import MaterialTab from "@/pages/project/MaterialTab";
 import Expenses from "@/pages/project/ExpensesTab";
@@ -31,7 +32,7 @@ import ContractorsTab from "@/pages/project/ContractorsTab";
  * material that arrived, money spent, and work given to a contractor. Overview and Customer
  * are for reading, not entering.
  */
-type Tab = "overview" | "material" | "expenses" | "contractors" | "customer";
+type Tab = "overview" | "material" | "expenses" | "contractors" | "addons" | "customer";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -56,7 +57,7 @@ export default function ProjectDetail() {
   // receipt and hidden from everyone else rather than shown read-only.
   const tabs: [Tab, string][] = [
     ["overview", "Overview"], ["material", "Material"], ["expenses", "Expenses"],
-    ["contractors", "Contractors"],
+    ["contractors", "Contractors"], ["addons", "Add-ons"],
     ...(canCustomer ? [["customer", "Customer"] as [Tab, string]] : []),
   ];
 
@@ -117,6 +118,7 @@ export default function ProjectDetail() {
       {tab === "material" && <MaterialTab projectId={p.id} />}
       {tab === "expenses" && <Expenses projectId={p.id} />}
       {tab === "contractors" && <ContractorsTab projectId={p.id} />}
+      {tab === "addons" && <AddOnsTab projectId={p.id} />}
       {tab === "customer" && <CustomerTab projectId={p.id} hasCustomer={!!p.customerId} summary={s} />}
     </div>
   );

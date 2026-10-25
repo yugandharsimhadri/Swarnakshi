@@ -4,6 +4,47 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-25 — What the customer asked for, written down where it cannot become a cost
+
+A customer asks for two extra points in the kitchen, granite instead of tile, a wall moved. Until
+today that conversation lived in somebody's phone. `AddOnRequest` is the register: the villa, the
+kind of work, what they asked for in their own words, what it was expected to come to, and whether
+it was agreed.
+
+The expected amount is the whole difficulty. It is a figure arrived at while standing in the room,
+and the money actually spent on the change turns up later as ordinary expenses for the materials
+and labour it took. Add the estimate to a cost roll-up and the same change is counted twice: once
+as a guess and once as the truth. So the register is its own table with no link into cost and
+nothing that sums it — there is no exclusion to remember, because nothing includes it. A test puts
+a real approved expense on a villa, then takes an add-on through requested, agreed and done, and
+asserts the villa's cost has not moved by a rupee.
+
+Four choices behind it, all taken with the user:
+
+**The request type is an expense head** rather than a list of its own, so an add-on sits under the
+same name as the expenses that will be booked for it and the two can be read side by side. Design
+is not a head yet; an Engineer can add it, having just been given `masters.manage`.
+
+**Tracking only.** It does not touch sale value or the customer's outstanding. Adding it there
+would make a typed number into a derived one, and that was not what was asked for.
+
+**Standalone for now.** No "this expense is for add-on X" field yet. The link is worth having once
+there is a month of real use to shape it, and leaving it out keeps the double-count risk at zero
+rather than merely managed.
+
+**Owner, Co-owner, Engineer** hold the new `addon.manage`; reading is open to anyone who can see
+the villa. A Supervisor cannot record one, which is a line worth revisiting if they turn out to be
+the ones taking the call.
+
+Zero is a valid expected amount, deliberately: a customer asks before anybody has a price, and
+refusing the record until somebody invents a number loses the request. Declining one has to say
+why. A change cannot be moved to another villa — that is a different request on a different house.
+
+Recorded one through the running app as the Engineer: ADD-2026-00001, Electrical, 50,000 expected,
+and "Spent so far" on the villa stayed at zero.
+
+314 tests pass. Schema: `20261025...CustomerAddOnRequests`, one new table, nothing altered.
+
 ## 2026-10-25 — The Engineer pays the gang, and stops seeing rooms he is not in
 
 Three more lines on the Engineer: labour payments and contractor payments yes, approvals and

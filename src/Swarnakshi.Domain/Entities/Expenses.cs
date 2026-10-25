@@ -43,6 +43,54 @@ public class ProjectExpense : AuditableEntity
 }
 
 /// <summary>
+/// A change the customer asked for on their villa: an extra point in the kitchen, a different
+/// floor, a wall moved. The register of what was asked, what it was expected to cost, and whether
+/// it was agreed.
+///
+/// <para><b>This is not a cost and must never become one.</b> <see cref="ExpectedAmount"/> is what
+/// somebody thought the change would come to while standing in the room — an estimate written down
+/// so the conversation is not lost. The money actually spent on it arrives the ordinary way, as
+/// <see cref="ProjectExpense"/> rows for the materials and labour it took, and those are what the
+/// villa is charged. Adding this figure to a cost roll-up would count the same change twice: once
+/// as somebody's guess and once as what it really cost.</para>
+///
+/// <para>Which is why it is its own table with no link into cost, rather than a flag on an
+/// expense. There is nothing to exclude from a sum, because nothing sums it.</para>
+/// </summary>
+public class AddOnRequest : BaseEntity
+{
+    public string TxnNumber { get; set; } = null!;
+
+    public Guid ProjectId { get; set; }
+    public Project Project { get; set; } = null!;
+
+    /// <summary>When the customer asked.</summary>
+    public DateOnly Date { get; set; }
+
+    /// <summary>
+    /// The kind of work — Plumbing, Electrical, Flooring. The expense heads rather than a list of
+    /// its own, so an add-on sits under the same name as the expenses that will be booked for it,
+    /// and the two can be read side by side without a translation table in between.
+    /// </summary>
+    public Guid ExpenseHeadId { get; set; }
+    public ExpenseHead Head { get; set; } = null!;
+
+    /// <summary>What the customer actually asked for, in words. The point of the record.</summary>
+    public string Description { get; set; } = null!;
+
+    /// <summary>What it is expected to come to. An estimate, never a charge.</summary>
+    public decimal ExpectedAmount { get; set; }
+
+    public AddOnStatus Status { get; set; } = AddOnStatus.Requested;
+
+    /// <summary>Why it was declined, what was agreed instead — the margin note.</summary>
+    public string? Remarks { get; set; }
+
+    public DateTimeOffset? ModifiedAt { get; set; }
+    public Guid? ModifiedBy { get; set; }
+}
+
+/// <summary>
 /// One payment that pays a person back for money they spent out of their own pocket, covering as
 /// many approved claims as it likes — which is how it actually happens: five bills over a fortnight,
 /// one transfer on Saturday.

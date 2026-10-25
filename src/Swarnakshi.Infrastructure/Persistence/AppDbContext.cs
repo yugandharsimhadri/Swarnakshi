@@ -67,6 +67,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<ProjectExpense> ProjectExpenses => Set<ProjectExpense>();
     public DbSet<SiteExpense> SiteExpenses => Set<SiteExpense>();
     public DbSet<LabourEntry> LabourEntries => Set<LabourEntry>();
+    public DbSet<AddOnRequest> AddOnRequests => Set<AddOnRequest>();
     public DbSet<ExpenseSettlement> ExpenseSettlements => Set<ExpenseSettlement>();
     public DbSet<ExpenseSettlementLine> ExpenseSettlementLines => Set<ExpenseSettlementLine>();
 

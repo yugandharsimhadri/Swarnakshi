@@ -45,6 +45,44 @@ public class ExpensesController(IProjectExpenseService expenses) : ControllerBas
 public record CancelBody(string Reason);
 
 /// <summary>
+/// Changes the customer has asked for on a villa: an extra point in the kitchen, a different floor,
+/// a wall moved. A register, not a ledger — reading it is open to anyone who can see the villa, and
+/// nothing here touches the villa's cost. What the change really costs arrives as ordinary expenses.
+/// </summary>
+[ApiController]
+[Route("api/add-ons")]
+[Authorize]
+[TenantOnly]
+public class AddOnsController(IAddOnRequestService addOns) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] Guid projectId, [FromQuery] AddOnStatus? status,
+        CancellationToken ct)
+        => this.Envelope(await addOns.ListAsync(projectId, status, ct));
+
+    [HttpGet("summary")]
+    public async Task<IActionResult> Summary([FromQuery] Guid projectId, CancellationToken ct)
+        => this.Envelope(await addOns.SummaryAsync(projectId, ct));
+
+    [HttpPost]
+    [RequiresPermission(Permissions.AddOnManage)]
+    public async Task<IActionResult> Create(SaveAddOnRequest req, CancellationToken ct)
+        => this.EnvelopeCreated(await addOns.CreateAsync(req, ct));
+
+    [HttpPut("{id:guid}")]
+    [RequiresPermission(Permissions.AddOnManage)]
+    public async Task<IActionResult> Update(Guid id, SaveAddOnRequest req, CancellationToken ct)
+        => this.Envelope(await addOns.UpdateAsync(id, req, ct));
+
+    [HttpPost("{id:guid}/status")]
+    [RequiresPermission(Permissions.AddOnManage)]
+    public async Task<IActionResult> SetStatus(Guid id, [FromBody] AddOnStatusBody body, CancellationToken ct)
+        => this.Envelope(await addOns.SetStatusAsync(id, body.Status, body.Remarks, ct));
+}
+
+public record AddOnStatusBody(AddOnStatus Status, string? Remarks);
+
+/// <summary>
 /// Money the company owes its own people, and the payments that clear it.
 ///
 /// <para>Reading is open to anyone signed in, because an engineer asking "what am I owed?" is the

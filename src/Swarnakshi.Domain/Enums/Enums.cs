@@ -57,6 +57,23 @@ public enum PaymentStatus { Unpaid = 0, PartiallyPaid = 1, Paid = 2 }
 /// </summary>
 public enum ReimbursementStatus { None = 0, Due = 1, Settled = 2 }
 
+/// <summary>
+/// Where a customer's add-on or modification stands. Deliberately not
+/// <see cref="TransactionStatus"/>: nothing here is submitted, approved or posted, because an
+/// add-on request is a note of a conversation and never moves money by itself.
+/// </summary>
+public enum AddOnStatus
+{
+    /// <summary>The customer has asked. Nobody has agreed a price.</summary>
+    Requested = 0,
+    /// <summary>Agreed with the customer and being built.</summary>
+    Agreed = 1,
+    /// <summary>Asked for and not going ahead.</summary>
+    Declined = 2,
+    /// <summary>Built.</summary>
+    Done = 3
+}
+
 public enum ProjectExpenseType
 {
     Material = 1,

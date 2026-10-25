@@ -453,6 +453,24 @@ export const ReimbursementStatusName: Record<number, string> = {
   0: "—", 1: "Due", 2: "Settled",
 };
 
+/** A change the customer asked for on a villa. An estimate, never a cost. */
+export interface AddOnRequest {
+  id: string; txnNumber: string; projectId: string; projectName: string; date: string;
+  expenseHeadId: string; expenseHeadName: string; description: string; expectedAmount: number;
+  status: number; remarks?: string | null; createdAt: string;
+}
+
+export const AddOnStatusName: Record<number, string> = {
+  0: "Requested", 1: "Agreed", 2: "Not going ahead", 3: "Done",
+};
+
+export interface AddOnSummary {
+  requested: number; requestedAmount: number;
+  agreed: number; agreedAmount: number;
+  done: number; doneAmount: number;
+  declined: number;
+}
+
 /** One own-pocket claim, as the reimbursements screen sees it. */
 export interface Claim {
   id: string; txnNumber: string; projectId: string; projectName: string; date: string;

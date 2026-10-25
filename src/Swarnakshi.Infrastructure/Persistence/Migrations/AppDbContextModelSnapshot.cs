@@ -22,6 +22,94 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.AddOnRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<decimal>("ExpectedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("expected_amount");
+
+                    b.Property<Guid>("ExpenseHeadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expense_head_id");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_demo");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_at");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modified_by");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("remarks");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TxnNumber")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("txn_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_add_on_requests");
+
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_add_on_requests_company_id");
+
+                    b.HasIndex("ExpenseHeadId")
+                        .HasDatabaseName("ix_add_on_requests_expense_head_id");
+
+                    b.HasIndex("CompanyId", "TxnNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_add_on_requests_company_id_txn_number");
+
+                    b.HasIndex("ProjectId", "Status")
+                        .HasDatabaseName("ix_add_on_requests_project_id_status");
+
+                    b.ToTable("add_on_requests", (string)null);
+                });
+
             modelBuilder.Entity("Swarnakshi.Domain.Entities.ApprovalHistory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3699,6 +3787,27 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_user_site_assignments_user_id");
 
                     b.ToTable("user_site_assignments", (string)null);
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.AddOnRequest", b =>
+                {
+                    b.HasOne("Swarnakshi.Domain.Entities.ExpenseHead", "Head")
+                        .WithMany()
+                        .HasForeignKey("ExpenseHeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_add_on_requests_expense_heads_expense_head_id");
+
+                    b.HasOne("Swarnakshi.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_add_on_requests_projects_project_id");
+
+                    b.Navigation("Head");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("Swarnakshi.Domain.Entities.ApprovalHistory", b =>

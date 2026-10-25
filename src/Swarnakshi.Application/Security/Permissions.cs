@@ -25,6 +25,12 @@ public static class Permissions
     /// </summary>
     public const string EmployeesManage = "employees.manage";
 
+    /// <summary>
+    /// Recording what a customer has asked to change on their villa. Held by the people who stand
+    /// in the room when they ask: the Owner, the Co-owner and the Engineer.
+    /// </summary>
+    public const string AddOnManage = "addon.manage";
+
     public const string ExpenseCreate = "expense.create";
     public const string LabourCreate = "labour.create";
     public const string ContractManage = "contract.manage";
@@ -48,7 +54,7 @@ public static class Permissions
     public static readonly IReadOnlyList<string> All =
     [
         MastersManage, SitesManage, ProjectsManage, EmployeesManage, InventoryView, InventoryAdjust,
-        MaterialRequestCreate, PurchaseCreate, ExpenseCreate, LabourCreate, ContractManage,
+        MaterialRequestCreate, PurchaseCreate, ExpenseCreate, AddOnManage, LabourCreate, ContractManage,
         ContractorPaymentCreate, CustomerPaymentCreate, ExpenseSettle, ApprovalsDecide, UsersManage,
         SettingsManage, ReportsView, DashboardView
     ];
@@ -90,7 +96,7 @@ public static class Permissions
     private static readonly string[] Engineer =
     [
         InventoryView, MaterialRequestCreate, PurchaseCreate, ExpenseCreate, MastersManage,
-        LabourCreate, ContractManage, ContractorPaymentCreate
+        LabourCreate, ContractManage, ContractorPaymentCreate, AddOnManage
     ];
 
     public static IReadOnlyCollection<string> ForRole(UserRole role) => role switch
