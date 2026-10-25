@@ -74,10 +74,11 @@ public static class Permissions
     /// office to add it for him. Contractors, suppliers, materials, customers — he types them as he
     /// meets them.</para>
     ///
-    /// <para>He pays the people doing the work in front of him: <see cref="LabourCreate"/> for the
-    /// day's gang and <see cref="ContractorPaymentCreate"/> for the mason's running account. Both
-    /// still go to the Owner for approval — recording what was spent and deciding it was right are
-    /// different jobs.</para>
+    /// <para>He gives out the work and pays for it: <see cref="ContractManage"/> to raise the work
+    /// order that says what a contractor will do and for how much, <see cref="LabourCreate"/> for
+    /// the day's gang, <see cref="ContractorPaymentCreate"/> for the mason's running account. The
+    /// work order moves no money by itself, and every payment against it still goes to the Owner
+    /// for approval — agreeing the work and deciding the money is right are different jobs.</para>
     ///
     /// <para>He does not get <see cref="ProjectsManage"/> or <see cref="SitesManage"/>. Which
     /// villas exist, and on which site, is the shape of the business rather than a day's work on
@@ -89,7 +90,7 @@ public static class Permissions
     private static readonly string[] Engineer =
     [
         InventoryView, MaterialRequestCreate, PurchaseCreate, ExpenseCreate, MastersManage,
-        LabourCreate, ContractorPaymentCreate
+        LabourCreate, ContractManage, ContractorPaymentCreate
     ];
 
     public static IReadOnlyCollection<string> ForRole(UserRole role) => role switch

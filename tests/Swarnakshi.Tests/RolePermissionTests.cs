@@ -61,9 +61,12 @@ public class RolePermissionTests
     {
         var engineer = Permissions.ForRole(UserRole.Engineer);
 
-        // The day's gang and the mason's running account. Both still go to the Owner for approval:
-        // recording what was spent and deciding it was right are different jobs.
-        engineer.Should().Contain([Permissions.LabourCreate, Permissions.ContractorPaymentCreate]);
+        // He gives out the work and pays for it: the work order, the day's gang, the mason's
+        // running account. The work order moves no money by itself, and every payment against it
+        // still goes to the Owner - agreeing the work and deciding the money are different jobs.
+        engineer.Should().Contain([
+            Permissions.ContractManage, Permissions.LabourCreate, Permissions.ContractorPaymentCreate
+        ]);
 
         // Money coming in from a buyer is the office's business, and he is never in that room.
         engineer.Should().NotContain(Permissions.CustomerPaymentCreate);

@@ -29,6 +29,11 @@ bar's column count had to stop being a two-way guess at four-or-five while that 
 Checked against the running API as a real Engineer: labour 201, contractor payment 201, customer
 payment 403, approvals 403, employee payment 403.
 
+And then  too, asked for straight after: he raises the work order that says what
+a contractor will do and for how much, as well as paying against it. It moves no money by itself,
+and the payments still go to the Owner. Verified the same way - a 2.5 lakh masonry work order
+created as the Engineer, while creating a villa stayed 403.
+
 307 tests pass. No schema change.
 
 ## 2026-10-24 — The Engineer types the masters, and never sees the payroll
