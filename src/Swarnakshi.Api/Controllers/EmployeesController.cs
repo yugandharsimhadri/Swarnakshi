@@ -43,10 +43,17 @@ public class EmployeesController(IEmployeeService employees, IEmployeePaymentSer
         => this.Envelope(await employees.UpdateAsync(id, req, ct));
 }
 
+/// <summary>
+/// Salary, advances and bonuses. Gated with the staff register rather than with labour.create:
+/// these used to share a key with a villa’s day labour, which was fine while the two were held by
+/// the same people, and stopped being fine the moment an Engineer was given labour.create to pay
+/// the gang in front of him. Paying the payroll belongs with seeing it.
+/// </summary>
 [ApiController]
 [Route("api/employee-payments")]
 [Authorize]
 [TenantOnly]
+[RequiresPermission(Permissions.EmployeesManage)]
 public class EmployeePaymentsController(IEmployeePaymentService payments) : ControllerBase
 {
     [HttpGet]
@@ -59,19 +66,15 @@ public class EmployeePaymentsController(IEmployeePaymentService payments) : Cont
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
         => this.Envelope(await payments.GetAsync(id, ct));
 
-    // Salary and advances are labour cost, so they reuse the labour permission the Accountant holds.
     [HttpPost]
-    [RequiresPermission(Permissions.LabourCreate)]
     public async Task<IActionResult> Create(SaveEmployeePaymentRequest req, CancellationToken ct)
         => this.EnvelopeCreated(await payments.CreateAsync(req, ct));
 
     [HttpPost("{id:guid}/submit")]
-    [RequiresPermission(Permissions.LabourCreate)]
     public async Task<IActionResult> Submit(Guid id, CancellationToken ct)
         => this.Envelope(await payments.SubmitAsync(id, ct));
 
     [HttpPost("{id:guid}/cancel")]
-    [RequiresPermission(Permissions.LabourCreate)]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
         => this.Envelope(await payments.CancelAsync(id, ct));
 }

@@ -57,6 +57,22 @@ public class RolePermissionTests
     }
 
     [Fact]
+    public void An_engineer_pays_the_people_working_in_front_of_him()
+    {
+        var engineer = Permissions.ForRole(UserRole.Engineer);
+
+        // The day's gang and the mason's running account. Both still go to the Owner for approval:
+        // recording what was spent and deciding it was right are different jobs.
+        engineer.Should().Contain([Permissions.LabourCreate, Permissions.ContractorPaymentCreate]);
+
+        // Money coming in from a buyer is the office's business, and he is never in that room.
+        engineer.Should().NotContain(Permissions.CustomerPaymentCreate);
+
+        // He is the one being approved, never the one approving.
+        engineer.Should().NotContain(Permissions.ApprovalsDecide);
+    }
+
+    [Fact]
     public void The_staff_register_is_not_an_engineers_business()
     {
         // It carries what his colleagues earn. Splitting it out of MastersManage is what makes it

@@ -74,13 +74,23 @@ public static class Permissions
     /// office to add it for him. Contractors, suppliers, materials, customers — he types them as he
     /// meets them.</para>
     ///
+    /// <para>He pays the people doing the work in front of him: <see cref="LabourCreate"/> for the
+    /// day's gang and <see cref="ContractorPaymentCreate"/> for the mason's running account. Both
+    /// still go to the Owner for approval — recording what was spent and deciding it was right are
+    /// different jobs.</para>
+    ///
     /// <para>He does not get <see cref="ProjectsManage"/> or <see cref="SitesManage"/>. Which
     /// villas exist, and on which site, is the shape of the business rather than a day's work on
     /// it; he records against them and does not create them. Nor <see cref="EmployeesManage"/> —
-    /// that register carries what his colleagues are paid.</para>
+    /// that register carries what his colleagues are paid. Nor
+    /// <see cref="CustomerPaymentCreate"/>: money coming in from a buyer is the office's business,
+    /// and he never meets it. Nor <see cref="ApprovalsDecide"/> — he is the one being approved.</para>
     /// </summary>
     private static readonly string[] Engineer =
-        [InventoryView, MaterialRequestCreate, PurchaseCreate, ExpenseCreate, MastersManage];
+    [
+        InventoryView, MaterialRequestCreate, PurchaseCreate, ExpenseCreate, MastersManage,
+        LabourCreate, ContractorPaymentCreate
+    ];
 
     public static IReadOnlyCollection<string> ForRole(UserRole role) => role switch
     {

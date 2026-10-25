@@ -19,7 +19,9 @@ const ALL_TABS: Tab[] = [
   { to: "/", label: "Home", Icon: IconHome, end: true, needs: "dashboard.view" },
   { to: "/projects", label: "Projects", Icon: IconProjects },
   { to: "/inventory", label: "Inventory", Icon: IconInventory },
-  { to: "/approvals", label: "Approvals", Icon: IconApprovals },
+  // Only for the people who decide. It carried no check at all, so an Engineer — who is the one
+  // being approved, never the one approving — opened it to an empty queue he could do nothing with.
+  { to: "/approvals", label: "Approvals", Icon: IconApprovals, needs: "approvals.decide" },
   { to: "/more", label: "More", Icon: IconMore },
 ];
 
@@ -42,7 +44,10 @@ export default function AppShell() {
       </main>
 
       <nav className="safe-b fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-surface/95 backdrop-blur lg:max-w-5xl">
-        <div className={tabs.length === 4 ? "grid grid-cols-4" : "grid grid-cols-5"}>
+        {/* The bar is as wide as the role is. Written as whole class names rather than built from
+            the count, because Tailwind reads the source for the classes it keeps and never sees a
+            string assembled at runtime. */}
+        <div className={{ 2: "grid grid-cols-2", 3: "grid grid-cols-3", 4: "grid grid-cols-4" }[tabs.length] ?? "grid grid-cols-5"}>
           {tabs.map(({ to, end, label, Icon }) => (
             <NavLink
               key={to}

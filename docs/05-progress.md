@@ -4,6 +4,33 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-25 — The Engineer pays the gang, and stops seeing rooms he is not in
+
+Three more lines on the Engineer: labour payments and contractor payments yes, approvals and
+customer payments no.
+
+The two he gains are the people working in front of him — the day's gang and the mason's running
+account. Both still go to the Owner for approval; recording what was spent and deciding it was
+right stay different jobs.
+
+Granting `labour.create` had a consequence worth catching: it also gated `api/employee-payments`,
+so paying the day gang would have carried the payroll with it, a week after that register was
+deliberately closed to him. Salary, advances and bonuses now sit behind `employees.manage` — paying
+the payroll belongs with seeing it. No role loses anything by the move: Owner, Sub-Owner and
+Accountant hold both keys, and the Supervisor held neither.
+
+The two he does not get, he already did not hold. What he could still *see* was the point. The
+Approvals tab carried no permission check at all, so he opened it to a queue the API answered 403
+for — the bar is now built from what the role can actually do, and his has three tabs instead of
+four. The Customer tab is the buyer's side of the villa, sale value and outstanding, so it is shown
+to whoever may record a receipt and hidden from everyone else rather than shown read-only. The tab
+bar's column count had to stop being a two-way guess at four-or-five while that happened.
+
+Checked against the running API as a real Engineer: labour 201, contractor payment 201, customer
+payment 403, approvals 403, employee payment 403.
+
+307 tests pass. No schema change.
+
 ## 2026-10-24 — The Engineer types the masters, and never sees the payroll
 
 Two requests that turned out to be one problem: an Engineer should be able to add contractors,

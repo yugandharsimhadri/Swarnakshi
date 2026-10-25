@@ -15,7 +15,8 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export default function Employees() {
   const canManage = useAuth((s) => s.can("employees.manage"));
-  const canPay = useAuth((s) => s.can("labour.create"));
+  // Paying the payroll goes with seeing it; labour.create is a villa’s day gang, not salary.
+  const canPay = useAuth((s) => s.can("employees.manage"));
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);

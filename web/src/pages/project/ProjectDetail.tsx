@@ -38,6 +38,7 @@ export default function ProjectDetail() {
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(false);
   const canManage = useAuth((st) => st.can("projects.manage"));
+  const canCustomer = useAuth((st) => st.can("customer_payment.create"));
   const { data, loading, error, reload } = useAsync(async () => {
     const [project, summary] = await Promise.all([
       api<Project>(`/projects/${id}`),
@@ -50,9 +51,13 @@ export default function ProjectDetail() {
   if (error || !data) return <ErrorText error={error} />;
   const { project: p, summary: s } = data;
 
+  // Customer is the buyer's side of the villa: the sale value, what they have paid, what they owe.
+  // That is the office's conversation, not the site's, so it is shown to whoever may record a
+  // receipt and hidden from everyone else rather than shown read-only.
   const tabs: [Tab, string][] = [
     ["overview", "Overview"], ["material", "Material"], ["expenses", "Expenses"],
-    ["contractors", "Contractors"], ["customer", "Customer"],
+    ["contractors", "Contractors"],
+    ...(canCustomer ? [["customer", "Customer"] as [Tab, string]] : []),
   ];
 
   return (
