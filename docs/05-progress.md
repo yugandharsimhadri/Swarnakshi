@@ -4,6 +4,34 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-30 — Which customers actually use it, on the operator's own screen
+
+The Enterprise console could say who had a licence and when it ran out. It could not say who had
+registered in March and never opened the thing since, which is the question being asked when
+renewals come round.
+
+`/api/platform/usage` answers it across every tenant: users, sites, projects and records entered,
+when anything was last entered, how much in the last seven and thirty days, and one word for where
+the customer stands — Just registered, Never started, Dormant, Active. The console leads with those
+four counts, sorts the list worst first, and puts a line under each company saying what it has
+actually done. A renewal is easy to see coming; a customer who has quietly stopped is not.
+
+Counts and dates only. No villa name, no supplier, no amount, nothing out of `AuditLog.DataJson`.
+A test asserts the shape of the DTO field by field, so adding a figure that is really somebody's
+data fails the build rather than the review. That line is why a platform token carries no
+CompanyId at all.
+
+The test caught the thing that would have made the screen useless. Registering a company seeds its
+units, materials and expense heads, and seeding writes audit rows like any other change — so
+counted naively every customer looks busy for their first month whether or not anyone opened the
+app. Activity is now writes by a user belonging to that company, which excludes both the anonymous
+seeding of a public registration and a company set up by the operator on someone's behalf.
+"Records" counts documents people type and not the catalogue every tenant is given, for the same
+reason.
+
+318 tests pass. No schema change — the audit trail already stamped every write with its company
+and the moment it happened, which is the whole reason this was a day's work rather than a month's.
+
 ## 2026-10-25 — What the customer asked for, written down where it cannot become a cost
 
 A customer asks for two extra points in the kitchen, granite instead of tile, a wall moved. Until

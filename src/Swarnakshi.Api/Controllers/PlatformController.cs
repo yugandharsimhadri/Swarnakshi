@@ -35,8 +35,17 @@ public record ChangeOwnPasswordRequest(string CurrentPassword, string NewPasswor
 [Route("api/platform")]
 [Authorize]
 [PlatformOnly]
-public class PlatformController(IPlatformAdminService platform) : ControllerBase
+public class PlatformController(IPlatformAdminService platform, IPlatformUsageService usage) : ControllerBase
 {
+    /// <summary>
+    /// Who is actually using the product. Counts and timestamps across every tenant — how many
+    /// projects, how many documents, when anything was last entered — and nothing from inside a
+    /// row. It answers the question a licence list cannot: which customers registered and then
+    /// never started.
+    /// </summary>
+    [HttpGet("usage")]
+    public async Task<IActionResult> Usage(CancellationToken ct) => this.Envelope(await usage.UsageAsync(ct));
+
     [HttpGet("companies")]
     public async Task<IActionResult> Companies([FromQuery] string? q, CancellationToken ct)
         => this.Envelope(await platform.ListCompaniesAsync(q, ct));

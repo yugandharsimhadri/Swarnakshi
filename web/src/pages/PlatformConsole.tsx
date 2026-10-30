@@ -6,7 +6,7 @@ import { dateStr } from "@/lib/format";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, Select, Sheet, SkeletonList,
 } from "@/components/ui";
-import type { CompanyAdmin, CompanyOverview } from "@/lib/types";
+import { EngagementName, type CompanyAdmin, type CompanyOverview, type CompanyUsage, type PlatformUsage } from "@/lib/types";
 
 /**
  * The EnterpriseAdmin console. Deliberately its own screen with its own shell — no bottom tab bar,
@@ -24,8 +24,13 @@ export default function PlatformConsole() {
     [q],
   );
 
-  const expiring = (data ?? []).filter((c) => !c.isExpired && c.daysToExpiry <= 30).length;
-  const expired = (data ?? []).filter((c) => c.isExpired).length;
+  // Loaded apart from the company list, and not re-run while somebody types in the search box:
+  // adoption is a property of the whole book of customers, not of the three rows being searched.
+  const { data: usage } = useAsync(() => api<PlatformUsage>("/platform/usage"), []);
+  const byId = new Map((usage?.items ?? []).map((u) => [u.id, u]));
+
+  const expiring = usage?.expiringSoon ?? 0;
+  const expired = usage?.expired ?? 0;
 
   return (
     <div className="mx-auto min-h-full max-w-3xl px-3 pb-16 pt-3">
@@ -39,10 +44,19 @@ export default function PlatformConsole() {
         <Button variant="ghost" onClick={logout}>Sign out</Button>
       </div>
 
-      <div className="mb-3 grid grid-cols-3 gap-2">
-        <Card className="py-3"><div className="text-xs text-text-dim">Companies</div><div className="text-xl font-semibold">{data?.length ?? "—"}</div></Card>
-        <Card className="py-3"><div className="text-xs text-text-dim">Expiring ≤30d</div><div className={`text-xl font-semibold ${expiring ? "text-warn" : ""}`}>{expiring}</div></Card>
-        <Card className="py-3"><div className="text-xs text-text-dim">Expired</div><div className={`text-xl font-semibold ${expired ? "text-danger" : ""}`}>{expired}</div></Card>
+      {/* Adoption first, licences second. A renewal is easy to see coming; a customer who
+          registered in March and has never entered a villa is not, and is the one worth a call. */}
+      <div className="mb-2 grid grid-cols-4 gap-2">
+        <Figure label="Companies" value={usage?.companies} />
+        <Figure label="Active" value={usage?.active} tone={usage && usage.active ? "ok" : undefined} hint="entered something in 30 days" />
+        <Figure label="Dormant" value={usage?.dormant} tone={usage && usage.dormant ? "warn" : undefined} hint="has data, nothing in 30 days" />
+        <Figure label="Never started" value={usage?.neverStarted} tone={usage && usage.neverStarted ? "danger" : undefined} hint="registered, never used" />
+      </div>
+      <div className="mb-3 grid grid-cols-4 gap-2">
+        <Figure label="New" value={usage?.justRegistered} hint="registered within a fortnight" />
+        <Figure label="Expiring ≤30d" value={expiring} tone={expiring ? "warn" : undefined} />
+        <Figure label="Expired" value={expired} tone={expired ? "danger" : undefined} />
+        <Figure label="Entries, 30d" value={usage?.writes30} hint={usage ? `${usage.totalProjects} projects, ${usage.totalRecords} records all time` : undefined} />
       </div>
 
       <Input placeholder="Search by company name or code…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -61,10 +75,12 @@ export default function PlatformConsole() {
                       {c.isExpired
                         ? <Chip tone="danger">Expired</Chip>
                         : c.daysToExpiry <= 30 && <Chip tone="warn">{c.daysToExpiry}d left</Chip>}
+                      <EngagementChip usage={byId.get(c.id)} />
                     </div>
                     <div className="mt-0.5 text-xs text-text-dim">
                       Licence to {dateStr(c.licenseExpiresOn)} · {c.userCount} users · {c.siteCount} sites · {c.projectCount} projects
                     </div>
+                    <UsageLine usage={byId.get(c.id)} />
                     {c.contactEmail && <div className="text-xs text-text-dim">{c.contactEmail}</div>}
                   </div>
                 </div>
@@ -114,6 +130,44 @@ export default function PlatformConsole() {
           onSaved={() => { setResetFor(null); reload(); }}
         />
       )}
+    </div>
+  );
+}
+
+/** One number on the console's header. Undefined while the usage call is still in flight. */
+function Figure({ label, value, tone, hint }: {
+  label: string; value?: number; tone?: "ok" | "warn" | "danger"; hint?: string;
+}) {
+  const colour = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "";
+  return (
+    <Card className="py-3">
+      <div className="text-xs text-text-dim">{label}</div>
+      <div className={`text-xl font-semibold ${colour}`}>{value ?? "—"}</div>
+      {hint && <div className="mt-0.5 text-[11px] leading-tight text-text-dim">{hint}</div>}
+    </Card>
+  );
+}
+
+function EngagementChip({ usage }: { usage?: CompanyUsage }) {
+  if (!usage) return null;
+  const tone = usage.engagement === 3 ? "ok" : usage.engagement === 2 ? "warn" : usage.engagement === 1 ? "danger" : "neutral";
+  return <Chip tone={tone}>{EngagementName[usage.engagement]}</Chip>;
+}
+
+/**
+ * What this customer has actually done. Written as a sentence rather than a row of figures,
+ * because the operator is reading it to decide whether to pick up the phone.
+ */
+function UsageLine({ usage }: { usage?: CompanyUsage }) {
+  if (!usage) return null;
+  const last = usage.daysSinceActivity == null
+    ? "nothing entered yet"
+    : usage.daysSinceActivity === 0
+      ? "last entry today"
+      : `last entry ${usage.daysSinceActivity}d ago`;
+  return (
+    <div className="text-xs text-text-dim">
+      {usage.records} records · {usage.writes30} entries in 30d · {last} · registered {usage.daysSinceRegistered}d ago
     </div>
   );
 }

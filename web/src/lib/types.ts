@@ -30,6 +30,29 @@ export interface CompanyAdmin {
   userId: string; name: string; username: string; login: string; email?: string | null; isActive: boolean;
 }
 
+/** How a tenant is getting on with the product. Mirrors the Engagement enum. */
+export const EngagementName: Record<number, string> = {
+  0: "Just registered", 1: "Never started", 2: "Dormant", 3: "Active",
+};
+
+export interface CompanyUsage {
+  id: string; code: string; name: string;
+  contactEmail?: string | null; contactMobile?: string | null;
+  registeredAt: string; daysSinceRegistered: number;
+  licenseExpiresOn: string; daysToExpiry: number; isExpired: boolean; isActive: boolean;
+  users: number; sites: number; projects: number; records: number;
+  lastActivityAt?: string | null; daysSinceActivity?: number | null;
+  writes7: number; writes30: number;
+  engagement: number;
+}
+
+export interface PlatformUsage {
+  companies: number; active: number; dormant: number; neverStarted: number; justRegistered: number;
+  expiringSoon: number; expired: number;
+  totalProjects: number; totalRecords: number; writes30: number;
+  items: CompanyUsage[];
+}
+
 export interface CompanyOverview {
   id: string; code: string; name: string;
   contactEmail?: string | null; contactMobile?: string | null;

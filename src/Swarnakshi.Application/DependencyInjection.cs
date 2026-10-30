@@ -70,6 +70,7 @@ public static class DependencyInjection
         // SaaS — tenant registration and the platform (EnterpriseAdmin) console
         services.AddScoped<Platform.ICompanyRegistrationService, Platform.CompanyRegistrationService>();
         services.AddScoped<Platform.IPlatformAdminService, Platform.PlatformAdminService>();
+        services.AddScoped<Platform.IPlatformUsageService, Platform.PlatformUsageService>();
 
         // Approval handlers. One per approvable document type, and ApprovalService resolves them by
         // EntityType — a type submitted with no handler registered here fails loudly rather than
