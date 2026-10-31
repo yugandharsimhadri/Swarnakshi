@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, dateStr } from "@/lib/format";
+import { money, dateStr, today } from "@/lib/format";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, Select, Sheet,
   Spinner
@@ -92,7 +92,7 @@ export default function ContractorsTab({ projectId }: { projectId: string }) {
 
 function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
   const { data: contractors } = useAsync(() => api<Paged<Contractor>>("/contractors", { query: { pageSize: 200, active: true } }), []);
-  const [form, setForm] = useState({ contractorId: "", workCategory: "", contractAmount: "" });
+  const [form, setForm] = useState({ contractorId: "", workCategory: "", contractAmount: "", startDate: today() });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -104,6 +104,7 @@ function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: st
         body: {
           projectId, contractorId: form.contractorId, workCategory: form.workCategory,
           contractAmount: Number(form.contractAmount), workStatus: 1,
+          startDate: form.startDate || null,
         },
       });
       onSaved();
@@ -121,6 +122,7 @@ function NewContractSheet({ projectId, open, onClose, onSaved }: { projectId: st
         </Field>
         <Field label="Work category"><Input value={form.workCategory} onChange={(e) => setForm({ ...form, workCategory: e.target.value })} placeholder="Plumbing" /></Field>
         <Field label="Contract amount"><Input inputMode="decimal" value={form.contractAmount} onChange={(e) => setForm({ ...form, contractAmount: e.target.value })} /></Field>
+        <Field label="Start date"><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Field>
         <ErrorText error={err} />
         <Button className="w-full" onClick={save} disabled={busy || !form.contractorId || !form.workCategory || !Number(form.contractAmount)}>Create</Button>
       </div>
@@ -136,7 +138,7 @@ function NewPaymentSheet({ projectId, open, onClose, onSaved }: { projectId: str
   // date nobody can correct quietly turns every late entry into a wrong one.
   const [form, setForm] = useState({
     contractorId: "", contractWorkId: "", amount: "", methodId: "", kind: "2", reference: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: today(),
   });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);

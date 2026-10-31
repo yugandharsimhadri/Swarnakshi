@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { num, money, dateStr } from "@/lib/format";
+import { num, money, dateStr, today } from "@/lib/format";
 import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { MaterialPicker } from "@/components/MaterialPicker";
@@ -58,6 +58,7 @@ export function NewMaterialRequest() {
   const [projectId, setProjectId] = useState(params.get("projectId") ?? "");
   const [rows, setRows] = useState<{ material: Material | null; qty: string }[]>([{ material: null, qty: "" }]);
   const [notes, setNotes] = useState("");
+  const [date, setDate] = useState(today());
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -99,7 +100,7 @@ export function NewMaterialRequest() {
       if (!projectId || items.length === 0) throw { message: "Pick a project and at least one material.", errors: [], status: 400 };
       const created = await api<MaterialRequest>("/material-requests", {
         method: "POST",
-        body: { projectId, requestType: 1, date: new Date().toISOString().slice(0, 10), notes: notes.trim() || null, items },
+        body: { projectId, requestType: 1, date, notes: notes.trim() || null, items },
       });
       if (submit) await api(`/material-requests/${created.id}/submit`, { method: "POST" });
       nav(`/inventory/requests/${created.id}`);
@@ -161,6 +162,10 @@ export function NewMaterialRequest() {
           + Add material
         </Button>
       </div>
+
+      <Field label="Date needed">
+        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </Field>
 
       <Field label="Remarks">
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What it is for — slab, plastering…" />

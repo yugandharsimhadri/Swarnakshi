@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, dateStr } from "@/lib/format";
+import { money, dateStr, today } from "@/lib/format";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, LabelRow, Select, Sheet,
   Spinner
@@ -74,7 +74,7 @@ export default function CustomerTab({ projectId, hasCustomer, summary }: { proje
 
 function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: (sentForApproval: boolean) => void }) {
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
-  const [form, setForm] = useState({ amount: "", methodId: "", reference: "", description: "" });
+  const [form, setForm] = useState({ amount: "", methodId: "", reference: "", description: "", date: today() });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -84,7 +84,7 @@ function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: 
       const created = await api<CustomerPayment>("/customer-payments", {
         method: "POST",
         body: {
-          projectId, date: new Date().toISOString().slice(0, 10), amount: Number(form.amount),
+          projectId, date: form.date, amount: Number(form.amount),
           paymentMethodId: form.methodId, reference: form.reference || null,
           description: form.description || null,
         },
@@ -97,6 +97,7 @@ function RecordReceiptSheet({ projectId, open, onClose, onSaved }: { projectId: 
     <Sheet open={open} onClose={onClose} title="Record customer receipt">
       <div className="space-y-3">
         <Field label="Amount"><Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+        <Field label="Date received"><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
         <Field label="Received via">
           <Select value={form.methodId} onChange={(e) => setForm({ ...form, methodId: e.target.value })}>
             <option value="">Select…</option>

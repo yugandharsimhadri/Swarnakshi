@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, dateStr } from "@/lib/format";
+import { money, dateStr, today } from "@/lib/format";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, SkeletonList,
 } from "@/components/ui";
@@ -11,7 +11,7 @@ import {
   type Employee, type EmployeeLedger, type Lookup, type Paged, type Project, type Site,
 } from "@/lib/types";
 
-const today = () => new Date().toISOString().slice(0, 10);
+
 
 export default function Employees() {
   const canManage = useAuth((s) => s.can("employees.manage"));
@@ -173,6 +173,7 @@ function PaymentSheet({ employee, onClose, onSaved }: { employee: Employee; onCl
   const [form, setForm] = useState({
     kind: "1", amount: String(employee.monthlySalary), advanceRecovered: "",
     periodStart: "", periodEnd: "", methodId: "", reference: "", projectId: "", remarks: "",
+    date: today(),
   });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -187,7 +188,7 @@ function PaymentSheet({ employee, onClose, onSaved }: { employee: Employee; onCl
       const created = await api<EmployeePayment>("/employee-payments", {
         method: "POST",
         body: {
-          employeeId: employee.id, date: today(), kind: Number(form.kind),
+          employeeId: employee.id, date: form.date, kind: Number(form.kind),
           amount: Number(form.amount), advanceRecovered: recovered,
           periodStart: form.periodStart || null, periodEnd: form.periodEnd || null,
           paymentMethodId: form.methodId || null, reference: form.reference || null,
@@ -232,6 +233,7 @@ function PaymentSheet({ employee, onClose, onSaved }: { employee: Employee; onCl
 
         {form.kind === "1" && (
           <div className="grid grid-cols-2 gap-3">
+            <Field label="Paid on"><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
             <Field label="Period from"><Input type="date" value={form.periodStart} onChange={(e) => setForm({ ...form, periodStart: e.target.value })} /></Field>
             <Field label="Period to"><Input type="date" value={form.periodEnd} onChange={(e) => setForm({ ...form, periodEnd: e.target.value })} /></Field>
           </div>

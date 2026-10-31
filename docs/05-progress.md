@@ -4,6 +4,39 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-31 — Every entry says when it happened, not when it was typed
+
+Site work gets written up a day or two later. Nine forms were stamping the day of entry into the
+document's own date and showing nobody they had done it, so a Saturday payment became a Monday
+payment, a bill dated the 3rd went into the books on the 6th, and a month's figures were quietly
+shifted by however long the paperwork took.
+
+Each of these now opens on today and lets the date be changed:
+
+| Screen | Field |
+|---|---|
+| Villa → Expenses → + Expense | Date spent |
+| Villa → Expenses → + Labour | Day worked |
+| Villa → Contractors → + Payment | Date paid *(done 31 Oct)* |
+| Villa → Contractors → + Work order | Start date — the API always took one; the form never sent it |
+| Villa → Customer → receipt | Date received |
+| Villa → Add-ons | Date asked |
+| Inventory → Purchases → new | Invoice date — the supplier's, which is never the typing day |
+| Inventory → Purchases → pay | beside the amount |
+| Inventory → Requests → new | Date needed |
+| Employees → Pay | Paid on, beside the period it covers |
+| More → Reimbursements → settle | Date paid |
+
+Already had one and were left alone: the stock adjustment, the material issue, and an employee's
+join and leave dates.
+
+One field each, defaulting to today, so a person who does not care types nothing and the screen
+reads as it did. `today()` moved to `lib/format` — three files had their own copy, and the point
+of the exercise was that the date stops being decided in nine places.
+
+No API changed: every one of these endpoints already took a date. The forms were deciding it.
+Checked in the running app — an expense back-dated to the 28th saved as EXP-2026-00003, 28 Oct.
+
 ## 2026-10-31 — A payment dated when it happened, and a list you can narrow to one site
 
 Two small things on screens people use every day. Both were front-end only; the API already took

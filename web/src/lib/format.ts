@@ -25,3 +25,14 @@ export function dateStr(s: string | null | undefined): string {
   if (!s) return "—";
   return new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
+
+/**
+ * Today, as an <input type="date"> wants it.
+ *
+ * Every entry form starts here and lets the date be changed, because the work and the typing are
+ * rarely the same day — a payment handed over on Saturday gets entered on Monday, and a date
+ * nobody can correct turns every late entry into a wrong one.
+ */
+export function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, dateStr } from "@/lib/format";
+import { money, dateStr, today } from "@/lib/format";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, Select, Sheet,
   Spinner
@@ -190,7 +190,7 @@ function ClaimDraftCard({ expense, onSent }: { expense: ProjectExpense; onSent: 
 function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: (status: number) => void }) {
   const { data: heads } = useAsync(() => api<Lookup[]>("/expense-heads"), []);
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
-  const [form, setForm] = useState({ headId: "", amount: "", description: "", type: "4", methodId: "" });
+  const [form, setForm] = useState({ headId: "", amount: "", description: "", type: "4", methodId: "", date: today() });
   const [paidByMe, setPaidByMe] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -201,7 +201,7 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
       const created = await api<ProjectExpense>("/expenses", {
         method: "POST",
         body: {
-          projectId, date: new Date().toISOString().slice(0, 10), expenseHeadId: form.headId,
+          projectId, date: form.date, expenseHeadId: form.headId,
           description: form.description || null, amount: Number(form.amount), expenseType: Number(form.type),
           paymentStatus: 2, paymentMethodId: paidByMe ? null : form.methodId || null,
           paidByMe,
@@ -250,6 +250,7 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
           </Select>
         </Field>
         <Field label="Amount"><Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+        <Field label="Date spent"><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
         <Field label="Description"><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
         {!paidByMe && (
           <Field label="Paid via">
@@ -270,10 +271,9 @@ function AddExpenseSheet({ projectId, open, onClose, onSaved }: { projectId: str
 
 function AddLabourSheet({ projectId, open, onClose, onSaved }: { projectId: string; open: boolean; onClose: () => void; onSaved: () => void }) {
   const { data: cats } = useAsync(() => api<Lookup[]>("/labour-categories"), []);
-  const [form, setForm] = useState({ categoryId: "", amount: "", remarks: "" });
+  const [form, setForm] = useState({ categoryId: "", amount: "", remarks: "", date: today() });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
-  const today = new Date().toISOString().slice(0, 10);
 
   async function save(submit: boolean) {
     setBusy(true); setErr(null);
@@ -282,7 +282,7 @@ function AddLabourSheet({ projectId, open, onClose, onSaved }: { projectId: stri
         method: "POST",
         body: {
           projectId, labourCategoryId: form.categoryId, periodType: 1,
-          periodStart: today, periodEnd: today, amount: Number(form.amount),
+          periodStart: form.date, periodEnd: form.date, amount: Number(form.amount),
           paymentType: "Daily", remarks: form.remarks || null,
         },
       });
@@ -301,6 +301,7 @@ function AddLabourSheet({ projectId, open, onClose, onSaved }: { projectId: stri
           </Select>
         </Field>
         <Field label="Amount (for the day)"><Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+        <Field label="Day worked"><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
         <Field label="Remarks"><Input value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Field>
         <ErrorText error={err} />
         <div className="flex gap-2">

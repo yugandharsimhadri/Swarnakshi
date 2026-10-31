@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
-import { money, moneyShort, num, dateStr } from "@/lib/format";
+import { money, moneyShort, num, dateStr, today } from "@/lib/format";
 import { useAuth } from "@/store/auth";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Sheet, Spinner, StatCard,
@@ -15,7 +15,7 @@ import {
   type MaterialInventoryDetail, type Paged,
 } from "@/lib/types";
 
-const today = () => new Date().toISOString().slice(0, 10);
+
 
 /**
  * The store, for one site. Stock on the screen, and one button to put more of it there.

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, dateStr } from "@/lib/format";
+import { money, dateStr, today } from "@/lib/format";
 import { Button, Card, Chip, Confirm, EmptyState, ErrorText, Field, Input, PageHeader, Select, SkeletonList, Spinner } from "@/components/ui";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { MaterialPicker } from "@/components/MaterialPicker";
@@ -61,6 +61,8 @@ export function NewPurchase() {
   // supplier, anything else is created. A builder logging a delivery shouldn't stop to add a master.
   const [supplierName, setSupplierName] = useState("");
   const [invoiceNumber, setInvoice] = useState("");
+  // The supplier's invoice date, which is rarely the day somebody types it in.
+  const [date, setDate] = useState(today());
   const [remarks, setRemarks] = useState("");
   const [rows, setRows] = useState<{ material: Material | null; qty: string; rate: string; deliverTo: string }[]>(
     [{ material: null, qty: "", rate: "", deliverTo: forProjectId }]);
@@ -102,7 +104,7 @@ export function NewPurchase() {
           supplierId: matched?.id ?? null,
           supplierName: matched ? null : typed,
           siteId, invoiceNumber: invoiceNumber || null,
-          date: new Date().toISOString().slice(0, 10), otherCharges: 0,
+          date, otherCharges: 0,
           remarks: remarks.trim() || null, items,
         },
       });
@@ -144,6 +146,7 @@ export function NewPurchase() {
         )}
       </Field>
       <Field label="Invoice no. (optional)"><Input value={invoiceNumber} onChange={(e) => setInvoice(e.target.value)} /></Field>
+      <Field label="Invoice date"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       <Field label="Remarks"><Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Vehicle number, who received it…" /></Field>
 
       <div className="space-y-2">
@@ -197,6 +200,7 @@ export function PurchaseDetail() {
   const { data, loading, error, reload } = useAsync(() => api<Purchase>(`/purchases/${id}`), [id]);
   const [busy, setBusy] = useState(false);
   const [pay, setPay] = useState("");
+  const [payDate, setPayDate] = useState(today());
   const [actErr, setActErr] = useState<ApiError | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
   const [payPending, setPayPending] = useState(false);
@@ -214,7 +218,7 @@ export function PurchaseDetail() {
     setBusy(true); setActErr(null); setPayPending(false);
     try {
       const before = data!.paidAmount;
-      const after = await api<Purchase>(`/purchases/${id}/payments`, { method: "POST", body: { amount: Number(pay), date: new Date().toISOString().slice(0, 10) } });
+      const after = await api<Purchase>(`/purchases/${id}/payments`, { method: "POST", body: { amount: Number(pay), date: payDate } });
       // Paid unchanged means the payment is waiting for the owner rather than applied. Reading it
       // off the returned invoice keeps the screen honest whichever side of the limit it fell.
       setPayPending(after.paidAmount === before);
@@ -259,7 +263,8 @@ export function PurchaseDetail() {
         <div className="space-y-2">
           <div className="flex gap-2">
             <Input placeholder="Payment amount" inputMode="decimal" value={pay} onChange={(e) => setPay(e.target.value)} />
-            <Button onClick={addPayment} disabled={busy || !Number(pay)}>Pay</Button>
+            <Input className="w-40 shrink-0" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+            <Button onClick={addPayment} disabled={busy || !Number(pay) || !payDate}>Pay</Button>
           </div>
           {payPending && (
             <div role="status" className="rounded-xl bg-warn/10 px-3 py-2 text-xs text-warn">

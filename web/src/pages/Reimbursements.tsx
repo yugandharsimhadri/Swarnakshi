@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { api, type ApiError } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useAuth } from "@/store/auth";
-import { money, dateStr } from "@/lib/format";
+import { money, dateStr, today } from "@/lib/format";
 import {
   Button, Card, Chip, EmptyState, ErrorText, Field, Input, PageHeader, Select, Sheet, Spinner,
 } from "@/components/ui";
@@ -165,7 +165,7 @@ function SettleSheet({ person, onClose, onSaved }: { person: ClaimsOwed; onClose
     [person.userId],
   );
   const [picked, setPicked] = useState<Record<string, boolean>>({});
-  const [form, setForm] = useState({ methodId: "", reference: "" });
+  const [form, setForm] = useState({ methodId: "", reference: "", date: today() });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -181,7 +181,7 @@ function SettleSheet({ person, onClose, onSaved }: { person: ClaimsOwed; onClose
         method: "POST",
         body: {
           paidToUserId: person.userId,
-          date: new Date().toISOString().slice(0, 10),
+          date: form.date,
           paymentMethodId: form.methodId || null,
           reference: form.reference || null,
           projectExpenseIds: chosen.map((c) => c.id),
@@ -223,6 +223,9 @@ function SettleSheet({ person, onClose, onSaved }: { person: ClaimsOwed; onClose
             placeholder="UPI reference or cheque number"
             onChange={(e) => setForm({ ...form, reference: e.target.value })}
           />
+        </Field>
+        <Field label="Date paid">
+          <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
         </Field>
 
         <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2">
