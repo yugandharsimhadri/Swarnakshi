@@ -4,6 +4,28 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-10-31 — A payment dated when it happened, and a list you can narrow to one site
+
+Two small things on screens people use every day. Both were front-end only; the API already took
+a date on a contractor payment and already filtered projects by site.
+
+**The contractor payment date was whatever day it was typed.** A payment handed over on Saturday
+and entered on Monday went in as Monday, and nothing on the form admitted it. The sheet has a date
+now, defaulting to today, and both buttons refuse an empty one.
+
+**Projects filter by site**, beside the search, because a site with thirty villas makes a flat
+list useless and "Villa 3" matches on two sites at once. The three counts above the list narrow
+with it — a figure reading "11 in progress" above a list of three would be worse than no figure.
+
+While wiring that: `Input` and `Select` spread their props *after* `className`, so a caller adding
+a width silently dropped the border, the padding and the 16px font that stops iOS zooming on
+focus. They merge now. The trap had never been sprung because nobody had passed a className to
+either, which is exactly how it would have gone unnoticed for another year.
+
+Checked in the running app: a payment back-dated to the 24th saved as the 24th, and picking
+Sunrise Villas took the list from three villas to two and the in-progress count from 3 to 2. No
+C# changed, so the 318 tests are untouched.
+
 ## 2026-10-30 — Which customers actually use it, on the operator's own screen
 
 The Enterprise console could say who had a licence and when it ran out. It could not say who had

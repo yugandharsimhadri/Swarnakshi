@@ -92,12 +92,15 @@ export function Field({ label, error, children }: { label: string; error?: strin
 const inputClass =
   "w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm";
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={inputClass} {...props} />;
+// className is pulled out and appended rather than spread over the base: written the other way
+// round, a caller adding a width would silently drop the border, the padding and the 16px font
+// that stops iOS zooming on focus, and would look broken for a reason nothing on screen explains.
+export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={`${inputClass} ${className}`} {...props} />;
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={inputClass} {...props} />;
+export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={`${inputClass} ${className}`} {...props} />;
 }
 
 /**

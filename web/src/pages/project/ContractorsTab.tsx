@@ -132,7 +132,12 @@ function NewPaymentSheet({ projectId, open, onClose, onSaved }: { projectId: str
   const { data: contractors } = useAsync(() => api<Paged<Contractor>>("/contractors", { query: { pageSize: 200, active: true } }), []);
   const { data: contracts } = useAsync(() => api<Paged<ContractWork>>("/contracts", { query: { projectId, pageSize: 100 } }), [projectId]);
   const { data: methods } = useAsync(() => api<Lookup[]>("/payment-methods"), []);
-  const [form, setForm] = useState({ contractorId: "", contractWorkId: "", amount: "", methodId: "", kind: "2", reference: "" });
+  // Today, but editable. A payment is often entered the morning after it was handed over, and a
+  // date nobody can correct quietly turns every late entry into a wrong one.
+  const [form, setForm] = useState({
+    contractorId: "", contractWorkId: "", amount: "", methodId: "", kind: "2", reference: "",
+    date: new Date().toISOString().slice(0, 10),
+  });
   const [err, setErr] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -143,7 +148,7 @@ function NewPaymentSheet({ projectId, open, onClose, onSaved }: { projectId: str
         method: "POST",
         body: {
           contractorId: form.contractorId, projectId,
-          contractWorkId: form.contractWorkId || null, date: new Date().toISOString().slice(0, 10),
+          contractWorkId: form.contractWorkId || null, date: form.date,
           amount: Number(form.amount), paymentMethodId: form.methodId,
           referenceNumber: form.reference || null, paymentKind: Number(form.kind),
         },
@@ -171,6 +176,9 @@ function NewPaymentSheet({ projectId, open, onClose, onSaved }: { projectId: str
           </Select>
         </Field>
         <Field label="Amount"><Input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+        <Field label="Date paid">
+          <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+        </Field>
         <Field label="Kind">
           <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
             <option value="1">Advance</option><option value="2">Partial</option>
@@ -186,8 +194,8 @@ function NewPaymentSheet({ projectId, open, onClose, onSaved }: { projectId: str
         <Field label="Reference"><Input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
         <ErrorText error={err} />
         <div className="flex gap-2">
-          <Button variant="ghost" className="flex-1" onClick={() => save(false)} disabled={busy || !form.contractorId || !form.methodId || !Number(form.amount)}>Draft</Button>
-          <Button className="flex-1" onClick={() => save(true)} disabled={busy || !form.contractorId || !form.methodId || !Number(form.amount)}>Submit</Button>
+          <Button variant="ghost" className="flex-1" onClick={() => save(false)} disabled={busy || !form.contractorId || !form.methodId || !Number(form.amount) || !form.date}>Draft</Button>
+          <Button className="flex-1" onClick={() => save(true)} disabled={busy || !form.contractorId || !form.methodId || !Number(form.amount) || !form.date}>Submit</Button>
         </div>
       </div>
     </Sheet>

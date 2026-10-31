@@ -10,13 +10,22 @@ import { ProjectStatusName, type Paged, type Project, type ProjectProgress, type
 export default function Projects() {
   const canManage = useAuth((s) => s.can("projects.manage"));
   const [q, setQ] = useState("");
+  const [siteId, setSiteId] = useState("");
   const [open, setOpen] = useState(false);
+
+  // The sites the filter can offer. Loaded once: a builder has a handful and they do not change
+  // while somebody is looking at a list of villas.
+  const { data: siteList } = useAsync(() => api<Paged<Site>>("/sites", { query: { pageSize: 200 } }), []);
+
   const { data, loading, error, reload } = useAsync(
-    () => api<Paged<Project>>("/projects", { query: { q, pageSize: 100 } }),
-    [q],
+    () => api<Paged<Project>>("/projects", { query: { q, siteId: siteId || undefined, pageSize: 100 } }),
+    [q, siteId],
   );
+  // The counts narrow with the filter too. A figure reading "11 in progress" above a list showing
+  // three would be worse than no figure at all.
   const { data: progress, reload: reloadProgress } = useAsync(
-    () => api<ProjectProgress>("/projects/progress-summary"), []);
+    () => api<ProjectProgress>("/projects/progress-summary", { query: { siteId: siteId || undefined } }),
+    [siteId]);
 
   const refreshAll = () => { reload(); reloadProgress(); };
 
@@ -39,10 +48,18 @@ export default function Projects() {
         </Card>
       )}
 
-      <Input placeholder="Search projects…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex gap-2">
+        <Input className="flex-1" placeholder="Search projects…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Select className="w-36 shrink-0" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+          <option value="">All sites</option>
+          {siteList?.items.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+        </Select>
+      </div>
 
       {loading ? <Spinner /> : error ? <ErrorText error={error} /> : (
-        (data?.items.length ?? 0) === 0 ? <EmptyState title="No projects" /> : (
+        (data?.items.length ?? 0) === 0
+          ? <EmptyState title="No projects" hint={siteId || q ? "Nothing matches this search and site." : undefined} />
+          : (
           <div className="space-y-2">
             {data!.items.map((p) => (
               <Link key={p.id} to={`/projects/${p.id}`}>
