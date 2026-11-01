@@ -50,7 +50,7 @@ export default function Projects() {
 
       <div className="flex gap-2">
         <Input className="flex-1" placeholder="Search projects…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select className="w-36 shrink-0" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+        <Select className="w-28 shrink-0" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
           <option value="">All sites</option>
           {siteList?.items.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
         </Select>

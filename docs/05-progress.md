@@ -4,6 +4,17 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-11-01 — A search box you can type in
+
+On a phone the Projects search shared its row with the site filter and was about as narrow as the
+filter itself. The cause was in `Input`/`Select`: both carried `w-full` and a caller's `w-36` landed
+on the same element, a tie the stylesheet's order settled in `w-full`'s favour. They now add
+`w-full` only when the caller names no width, so a width override works wherever one is written
+(the same tie sat in the payment row on Purchases). The site filter is `w-28`; the search is 231px
+on a 375px screen, up from 199. UI only — no API or database change.
+
+---
+
 ## 2026-10-31 — Every entry says when it happened, not when it was typed
 
 Site work gets written up a day or two later. Nine forms were stamping the day of entry into the
