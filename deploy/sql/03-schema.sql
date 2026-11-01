@@ -22,7 +22,7 @@
     operator, the founding company, expense heads, units and the material taxonomy are seeded in
     application code the first time the service starts, not here.
 
-    Generated: 2026-10-25 22:14:09 from commit 82b779b
+    Generated: 2026-11-01 07:06:29 from commit 82ca9d0
 */
 CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
     migration_id character varying(150) NOT NULL,
