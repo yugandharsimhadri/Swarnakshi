@@ -1,4 +1,4 @@
-﻿/*
+/*
     Swarnakshi - database upgrade.
 
     GENERATED FILE. Regenerate with

@@ -4,6 +4,20 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-11-07 — Upgrade scripts psql can read
+
+`psql -f` on the server stopped at the first statement: `syntax error at or near "ï»¿"`. That is a
+UTF-8 byte-order mark, which Windows PowerShell's `Out-File -Encoding utf8` always writes and psql
+reads as text. `New-UpgradeScript.ps1` and `New-SchemaScript.ps1` now write UTF-8 without one, and
+the mark is stripped from `03-schema.sql` and every committed upgrade script. Nothing was applied by
+the failed run: `-1` with `ON_ERROR_STOP` rolled it back.
+
+The earlier rehearsal missed it because it did not feed the file to psql the way the server does.
+Rehearse with exactly `psql -v ON_ERROR_STOP=1 -1 -f <file>`. Two `WARNING`s about a transaction
+already / not in progress are expected: the script carries its own `START TRANSACTION … COMMIT`.
+
+---
+
 ## 2026-11-07 — Correcting a contractor payment, and one contractor across every villa
 
 **Changing a posted payment goes through the Owner.** A posted payment has raised the work order's

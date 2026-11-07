@@ -1,4 +1,4 @@
-﻿/*
+/*
     Swarnakshi - complete database schema.
 
     GENERATED FILE. Do not edit by hand: regenerate with

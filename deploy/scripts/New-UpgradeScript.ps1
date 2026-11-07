@@ -106,7 +106,10 @@ try {
 
     $sql = Get-Content $body -Raw
     New-Item -ItemType Directory -Force -Path (Split-Path $Output) | Out-Null
-    ($header + $sql) | Out-File -FilePath $Output -Encoding utf8
+    # UTF-8 without a byte-order mark. Windows PowerShell's Out-File -Encoding utf8 always writes
+    # one, and psql reads it as text: the first statement fails with a syntax error at the very first character.
+    $full = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Output)
+    [IO.File]::WriteAllText($full, $header + $sql, (New-Object System.Text.UTF8Encoding $false))
 
     $item = Get-Item $Output
     Write-Host ("Wrote {0} - {1:N0} bytes" -f $item.FullName, $item.Length) -ForegroundColor Green
