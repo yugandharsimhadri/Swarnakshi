@@ -60,4 +60,28 @@ public class ContractorPaymentsController(IContractorPaymentService payments) : 
     [RequiresPermission(Permissions.ContractorPaymentCreate)]
     public async Task<IActionResult> Submit(Guid id, CancellationToken ct)
         => this.Envelope(await payments.SubmitAsync(id, ct));
+
+    [HttpPut("{id:guid}")]
+    [RequiresPermission(Permissions.ContractorPaymentCreate)]
+    public async Task<IActionResult> Update(Guid id, SaveContractorPaymentRequest req, CancellationToken ct)
+        => this.Envelope(await payments.UpdateAsync(id, req, ct));
+
+    [HttpPost("{id:guid}/cancel")]
+    [RequiresPermission(Permissions.ContractorPaymentCreate)]
+    public async Task<IActionResult> Cancel(Guid id, ReasonRequest req, CancellationToken ct)
+        => this.Envelope(await payments.CancelAsync(id, req.Reason, ct));
+
+    [HttpPost("{id:guid}/change-request")]
+    [RequiresPermission(Permissions.ContractorPaymentCreate)]
+    public async Task<IActionResult> RequestChange(Guid id, ChangeContractorPaymentRequest req, CancellationToken ct)
+        => this.Envelope(await payments.RequestChangeAsync(id, req.Payment, req.Reason, ct));
+
+    [HttpPost("{id:guid}/delete-request")]
+    [RequiresPermission(Permissions.ContractorPaymentCreate)]
+    public async Task<IActionResult> RequestDelete(Guid id, ReasonRequest req, CancellationToken ct)
+        => this.Envelope(await payments.RequestDeleteAsync(id, req.Reason, ct));
+
+    [HttpGet("changes/{changeId:guid}")]
+    public async Task<IActionResult> GetChange(Guid changeId, CancellationToken ct)
+        => this.Envelope(await payments.GetChangeAsync(changeId, ct));
 }

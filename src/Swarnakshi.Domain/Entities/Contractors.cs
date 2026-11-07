@@ -45,3 +45,41 @@ public class ContractorPayment : AuditableEntity
     public string? Description { get; set; }
     public ContractorPaymentKind PaymentKind { get; set; } = ContractorPaymentKind.Partial;
 }
+
+/// <summary>
+/// A request to correct or remove a contractor payment that has already been posted.
+///
+/// <para>A posted payment has moved money: it has raised the contract's paid figure and charged the
+/// villa. Editing it in place would rewrite all of that with nobody asked, so the payment is left
+/// exactly as it is and the person who spotted the mistake — usually the Engineer — raises one of
+/// these instead. It carries the proposed values and waits in the Owner's queue; only when it is
+/// approved is the payment changed and the contract and the villa's cost brought into line, in one
+/// transaction. Until then the books still say what they said yesterday.</para>
+///
+/// <para>For a <see cref="ContractorPaymentChangeKind.Delete"/> the proposed values are simply a copy
+/// of the payment as it stands, so the Owner is shown what is going to disappear.</para>
+/// </summary>
+public class ContractorPaymentChange : AuditableEntity
+{
+    public string TxnNumber { get; set; } = null!;
+    public Guid ContractorPaymentId { get; set; }
+    public ContractorPayment ContractorPayment { get; set; } = null!;
+    public ContractorPaymentChangeKind Kind { get; set; }
+
+    /// <summary>Why. Required: an Owner asked to approve a change to money already paid deserves to be told.</summary>
+    public string Reason { get; set; } = null!;
+
+    // What the payment looked like when the change was asked for. The payment cannot move while a
+    // change is pending, so this is also what the Owner is comparing against.
+    public decimal PreviousAmount { get; set; }
+    public DateOnly PreviousDate { get; set; }
+
+    // What it should become.
+    public Guid? ContractWorkId { get; set; }
+    public DateOnly Date { get; set; }
+    public decimal Amount { get; set; }
+    public Guid PaymentMethodId { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public string? Description { get; set; }
+    public ContractorPaymentKind PaymentKind { get; set; }
+}

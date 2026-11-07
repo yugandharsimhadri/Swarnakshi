@@ -13,6 +13,7 @@ public static class ApprovalEntityTypes
     public const string MaterialRequest = "MaterialRequest";
     public const string Purchase = "Purchase";
     public const string ContractorPayment = "ContractorPayment";
+    public const string ContractorPaymentChange = "ContractorPaymentChange";
     public const string LabourEntry = "LabourEntry";
     public const string CustomerPayment = "CustomerPayment";
     public const string InventoryAdjustment = "InventoryAdjustment";

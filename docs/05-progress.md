@@ -4,6 +4,45 @@ Newest first. Every PR appends an entry: date, area, what changed, what's next, 
 
 ---
 
+## 2026-11-07 — Correcting a contractor payment, and one contractor across every villa
+
+**Changing a posted payment goes through the Owner.** A posted payment has raised the work order's
+paid figure and charged the villa, so it is not edited in place. `ContractorPaymentChange` holds the
+proposed values and the reason, and waits in the approval queue; the payment does not move until it
+is approved, and then the payment, the work order and the villa's single cost row change in the
+approval's one transaction. The cost row is rewritten, never joined by a second one — that would be
+the double count. A delete marks the payment and its cost row Cancelled with the amount zeroed, and
+the change keeps what the figure was. A rejected change leaves everything as it was.
+
+Anyone holding `contractor_payment.create` can ask, the Engineer included. Only `approvals.decide`
+can decide, which by default is the Owner and the Co-owner. A change never auto-approves, whatever
+the limit says: the limit saves stamping small new invoices, and a change to money already paid is
+what the Owner wants to see. One change can wait on a payment at a time.
+
+A draft, or a payment the Owner rejected, moved no money: it is edited or withdrawn directly, and a
+rejected one can be sent again. A payment still waiting for approval has to be rejected first.
+Contractor and villa cannot be changed; moving money between villas is delete and enter again.
+
+The approval card shows what would change (`Amount: ₹15,000 → ₹12,000`), why, and who asked.
+
+**Contractor statement.** A new Contractor Payments report, and the contractor's name in it, in
+Contractor Outstanding and in Contractor Commitment opens `/reports/contractor/:id`: contracted,
+paid and balance overall, then villa by villa with the payments under each. `ReportTable` gained
+`KeyColumn`/`RowKeys` so a row can say what it opens. Paid there is every posted payment, while
+Contractor Outstanding counts only payments against a work order, so the statement says how much was
+paid outside one rather than letting the two figures silently disagree.
+
+**Deploying.** Migration `ContractorPaymentChanges`: one new table, nothing altered. A live database
+needs the upgrade script.
+
+**Still open.** Nothing tells the Engineer a change was rejected: the "waiting" line just goes away.
+The Approvals screen always sends `allowOverride: false`, so a correction past a work order's balance
+can be refused and not overridden, the same as a new payment.
+
+333 tests pass, 15 of them new in `ContractorPaymentChangeTests`.
+
+---
+
 ## 2026-11-01 — A search box you can type in
 
 On a phone the Projects search shared its row with the site filter and was about as narrow as the

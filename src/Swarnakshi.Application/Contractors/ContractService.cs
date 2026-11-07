@@ -101,10 +101,30 @@ public class ContractWorkService(IAppDbContext db, IValidator<SaveContractWorkRe
 public record ContractorPaymentDto(Guid Id, string TxnNumber, Guid ContractorId, string ContractorName,
     Guid ProjectId, string ProjectName, Guid? ContractWorkId, DateOnly Date, decimal Amount,
     Guid PaymentMethodId, string PaymentMethodName, string? ReferenceNumber, string? Description,
-    ContractorPaymentKind PaymentKind, TransactionStatus Status);
+    ContractorPaymentKind PaymentKind, TransactionStatus Status,
+    ContractorPaymentChangeKind? PendingChange = null);
 
 public record SaveContractorPaymentRequest(Guid ContractorId, Guid ProjectId, Guid? ContractWorkId, DateOnly Date,
     decimal Amount, Guid PaymentMethodId, string? ReferenceNumber, string? Description, ContractorPaymentKind PaymentKind);
+
+public record ReasonRequest(string Reason);
+
+/// <summary>The corrected payment, and why. Contractor and villa are not changeable: see <see cref="IContractorPaymentService.RequestChangeAsync"/>.</summary>
+public record ChangeContractorPaymentRequest(SaveContractorPaymentRequest Payment, string Reason);
+
+/// <summary>What a payment looks like, in the words an approver reads.</summary>
+public record PaymentFacts(DateOnly Date, decimal Amount, string Method, string? Reference, string? Work,
+    string? Description, ContractorPaymentKind Kind);
+
+/// <summary>
+/// A change waiting to be approved: what the payment is now beside what it would become. The
+/// "before" is read from the payment itself, which cannot move while a change is pending, so it is
+/// only the right comparison until the change is decided.
+/// </summary>
+public record ContractorPaymentChangeDto(Guid Id, string TxnNumber, ContractorPaymentChangeKind Kind, string Reason,
+    Guid ContractorPaymentId, string PaymentTxnNumber, string ContractorName, string ProjectName,
+    string? RequestedBy, DateTimeOffset RequestedAt, TransactionStatus Status,
+    PaymentFacts Before, PaymentFacts After);
 
 public class SaveContractorPaymentValidator : AbstractValidator<SaveContractorPaymentRequest>
 {
@@ -128,6 +148,27 @@ public interface IContractorPaymentService
     Task<ContractorPaymentDto> CreateAsync(SaveContractorPaymentRequest req, CancellationToken ct = default);
     Task<ContractorPaymentDto> SubmitAsync(Guid id, CancellationToken ct = default);
     Task<ContractorSummary> LedgerAsync(Guid contractorId, CancellationToken ct = default);
+
+    /// <summary>Corrects a payment nobody has acted on yet — a draft, or one the Owner sent back.</summary>
+    Task<ContractorPaymentDto> UpdateAsync(Guid id, SaveContractorPaymentRequest req, CancellationToken ct = default);
+
+    /// <summary>Withdraws a draft, or one the Owner sent back. Nothing was posted, so nothing needs approving.</summary>
+    Task<ContractorPaymentDto> CancelAsync(Guid id, string reason, CancellationToken ct = default);
+
+    /// <summary>
+    /// Asks for a posted payment to be corrected. The payment is untouched until an Owner approves;
+    /// then it is rewritten and the contract balance and the villa's cost follow it.
+    ///
+    /// <para>The contractor and the villa cannot be changed this way. Moving money from one villa to
+    /// another changes two villas' costs and is a different decision from fixing a typo; the honest
+    /// route is to delete the payment and enter it again against the right one.</para>
+    /// </summary>
+    Task<ContractorPaymentDto> RequestChangeAsync(Guid id, SaveContractorPaymentRequest req, string reason, CancellationToken ct = default);
+
+    /// <summary>Asks for a posted payment to be removed. Voided on approval, never deleted.</summary>
+    Task<ContractorPaymentDto> RequestDeleteAsync(Guid id, string reason, CancellationToken ct = default);
+
+    Task<ContractorPaymentChangeDto> GetChangeAsync(Guid changeId, CancellationToken ct = default);
 }
 
 public class ContractorPaymentService(
@@ -151,17 +192,10 @@ public class ContractorPaymentService(
     public async Task<ContractorPaymentDto> CreateAsync(SaveContractorPaymentRequest req, CancellationToken ct = default)
     {
         await validator.ValidateAndThrowAsync(req, ct);
-        var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == req.ProjectId, ct)
-                      ?? throw new NotFoundException("Project", req.ProjectId);
+        if (!await db.Projects.AnyAsync(p => p.Id == req.ProjectId, ct)) throw new NotFoundException("Project", req.ProjectId);
         if (!await db.Contractors.AnyAsync(c => c.Id == req.ContractorId && c.IsActive, ct))
             throw new AppException("Contractor not found or inactive.", 400);
-        if (req.ContractWorkId is { } wid)
-        {
-            var work = await db.ContractWorks.AsNoTracking().FirstOrDefaultAsync(w => w.Id == wid, ct)
-                       ?? throw new NotFoundException("ContractWork", wid);
-            if (work.ProjectId != req.ProjectId || work.ContractorId != req.ContractorId)
-                throw new AppException("The selected contract does not match this project/contractor.", 409);
-        }
+        await EnsureWorkMatchesAsync(req, ct);
 
         var payment = new ContractorPayment
         {
@@ -180,12 +214,167 @@ public class ContractorPaymentService(
     {
         var payment = await db.ContractorPayments.FirstOrDefaultAsync(p => p.Id == id, ct)
                       ?? throw new NotFoundException("ContractorPayment", id);
-        if (payment.Status != TransactionStatus.Draft) throw new AppException($"Payment is already {payment.Status}.", 409);
+        // A rejected payment goes round again once it has been corrected.
+        if (payment.Status is not (TransactionStatus.Draft or TransactionStatus.Rejected))
+            throw new AppException($"Payment is already {payment.Status}.", 409);
         payment.Status = TransactionStatus.PendingApproval;
         await db.SaveChangesAsync(ct);
         await approvals.SubmitAsync(ApprovalEntityTypes.ContractorPayment, payment.Id, payment.TxnNumber,
             null, payment.ProjectId, payment.Amount, ct);
         return await GetAsync(id, ct);
+    }
+
+    public async Task<ContractorPaymentDto> UpdateAsync(Guid id, SaveContractorPaymentRequest req, CancellationToken ct = default)
+    {
+        await validator.ValidateAndThrowAsync(req, ct);
+        var payment = await db.ContractorPayments.FirstOrDefaultAsync(p => p.Id == id, ct)
+                      ?? throw new NotFoundException("ContractorPayment", id);
+        if (payment.Status is not (TransactionStatus.Draft or TransactionStatus.Rejected))
+            throw new AppException(WhyNotDirect(payment), 409);
+        EnsureSameContractorAndVilla(payment, req);
+        await EnsureWorkMatchesAsync(req, ct);
+
+        payment.ContractWorkId = req.ContractWorkId; payment.Date = req.Date; payment.Amount = req.Amount;
+        payment.PaymentMethodId = req.PaymentMethodId; payment.ReferenceNumber = req.ReferenceNumber;
+        payment.Description = req.Description; payment.PaymentKind = req.PaymentKind;
+        payment.Status = TransactionStatus.Draft; // a sent-back payment is a draft again
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ContractorPaymentDto> CancelAsync(Guid id, string reason, CancellationToken ct = default)
+    {
+        var payment = await db.ContractorPayments.FirstOrDefaultAsync(p => p.Id == id, ct)
+                      ?? throw new NotFoundException("ContractorPayment", id);
+        if (payment.Status is not (TransactionStatus.Draft or TransactionStatus.Rejected))
+            throw new AppException(WhyNotDirect(payment), 409);
+        payment.Status = TransactionStatus.Cancelled;
+        payment.Remarks = reason;
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ContractorPaymentDto> RequestChangeAsync(Guid id, SaveContractorPaymentRequest req, string reason, CancellationToken ct = default)
+    {
+        await validator.ValidateAndThrowAsync(req, ct);
+        var payment = await LoadPostedForChangeAsync(id, ct);
+        EnsureSameContractorAndVilla(payment, req);
+        await EnsureWorkMatchesAsync(req, ct);
+
+        var unchanged = payment.Amount == req.Amount && payment.Date == req.Date
+            && payment.ContractWorkId == req.ContractWorkId && payment.PaymentMethodId == req.PaymentMethodId
+            && payment.PaymentKind == req.PaymentKind
+            && (payment.ReferenceNumber ?? "") == (req.ReferenceNumber ?? "")
+            && (payment.Description ?? "") == (req.Description ?? "");
+        if (unchanged) throw new AppException("Nothing is different from the payment as it stands.", 400);
+
+        await RaiseAsync(payment, ContractorPaymentChangeKind.Edit, reason, req, ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ContractorPaymentDto> RequestDeleteAsync(Guid id, string reason, CancellationToken ct = default)
+    {
+        var payment = await LoadPostedForChangeAsync(id, ct);
+        var asItStands = new SaveContractorPaymentRequest(payment.ContractorId, payment.ProjectId, payment.ContractWorkId,
+            payment.Date, payment.Amount, payment.PaymentMethodId, payment.ReferenceNumber, payment.Description, payment.PaymentKind);
+        await RaiseAsync(payment, ContractorPaymentChangeKind.Delete, reason, asItStands, ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ContractorPaymentChangeDto> GetChangeAsync(Guid changeId, CancellationToken ct = default)
+    {
+        var c = await db.ContractorPaymentChanges.AsNoTracking().Where(x => x.Id == changeId)
+            .Select(x => new
+            {
+                x.Id, x.TxnNumber, x.Kind, x.Reason, x.ContractorPaymentId, x.Status, x.CreatedAt,
+                x.PreviousAmount, x.PreviousDate,
+                PaymentTxn = x.ContractorPayment.TxnNumber,
+                Contractor = x.ContractorPayment.Contractor.Name,
+                Project = x.ContractorPayment.Project.Name,
+                NowMethod = x.ContractorPayment.PaymentMethod.Name,
+                NowReference = x.ContractorPayment.ReferenceNumber,
+                NowDescription = x.ContractorPayment.Description,
+                NowKind = x.ContractorPayment.PaymentKind,
+                NowWork = x.ContractorPayment.ContractWork == null ? null : x.ContractorPayment.ContractWork.WorkCategory,
+                x.Date, x.Amount, x.ReferenceNumber, x.Description, x.PaymentKind,
+                Method = db.PaymentMethods.Where(m => m.Id == x.PaymentMethodId).Select(m => m.Name).FirstOrDefault(),
+                Work = db.ContractWorks.Where(w => w.Id == x.ContractWorkId).Select(w => w.WorkCategory).FirstOrDefault(),
+                By = db.Users.Where(u => u.Id == x.CreatedBy).Select(u => u.Name).FirstOrDefault()
+            }).FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("ContractorPaymentChange", changeId);
+
+        return new ContractorPaymentChangeDto(c.Id, c.TxnNumber, c.Kind, c.Reason, c.ContractorPaymentId,
+            c.PaymentTxn, c.Contractor, c.Project, c.By, c.CreatedAt, c.Status,
+            new PaymentFacts(c.PreviousDate, c.PreviousAmount, c.NowMethod, c.NowReference, c.NowWork, c.NowDescription, c.NowKind),
+            new PaymentFacts(c.Date, c.Amount, c.Method ?? "", c.ReferenceNumber, c.Work, c.Description, c.PaymentKind));
+    }
+
+    private async Task<ContractorPayment> LoadPostedForChangeAsync(Guid id, CancellationToken ct)
+    {
+        var payment = await db.ContractorPayments.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
+                      ?? throw new NotFoundException("ContractorPayment", id);
+        if (payment.Status != TransactionStatus.Posted)
+            throw new AppException(
+                payment.Status is TransactionStatus.Draft or TransactionStatus.Rejected
+                    ? "This payment has not been posted yet: edit or withdraw it directly."
+                    : WhyNotDirect(payment), 409);
+        if (await db.ContractorPaymentChanges.AnyAsync(
+                c => c.ContractorPaymentId == id && c.Status == TransactionStatus.PendingApproval, ct))
+            throw new AppException("A change to this payment is already waiting for approval.", 409);
+        return payment;
+    }
+
+    private async Task RaiseAsync(ContractorPayment payment, ContractorPaymentChangeKind kind, string reason,
+        SaveContractorPaymentRequest proposed, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(reason)) throw new AppException("Say why — the Owner has to approve this.", 400);
+        if (reason.Trim().Length > 500) throw new AppException("The reason is too long (500 characters at most).", 400);
+
+        var change = new ContractorPaymentChange
+        {
+            TxnNumber = await sequences.NextAsync("CPCHG", ct),
+            ContractorPaymentId = payment.Id, Kind = kind, Reason = reason.Trim(),
+            PreviousAmount = payment.Amount, PreviousDate = payment.Date,
+            ContractWorkId = proposed.ContractWorkId, Date = proposed.Date, Amount = proposed.Amount,
+            PaymentMethodId = proposed.PaymentMethodId, ReferenceNumber = proposed.ReferenceNumber,
+            Description = proposed.Description, PaymentKind = proposed.PaymentKind,
+            Status = TransactionStatus.PendingApproval
+        };
+        db.ContractorPaymentChanges.Add(change);
+        await db.SaveChangesAsync(ct);
+
+        var siteId = await db.Projects.AsNoTracking().Where(p => p.Id == payment.ProjectId)
+            .Select(p => (Guid?)p.SiteId).FirstOrDefaultAsync(ct);
+
+        // allowAutoApprove: false — the limit exists so the Owner is not asked to stamp small new
+        // invoices. A change to money already paid out is exactly what they want to see.
+        await approvals.SubmitAsync(ApprovalEntityTypes.ContractorPaymentChange, change.Id,
+            $"{payment.TxnNumber} · {(kind == ContractorPaymentChangeKind.Edit ? "change" : "delete")}",
+            siteId, payment.ProjectId, kind == ContractorPaymentChangeKind.Edit ? proposed.Amount : payment.Amount,
+            ct, allowAutoApprove: false);
+    }
+
+    private static string WhyNotDirect(ContractorPayment p) => p.Status switch
+    {
+        TransactionStatus.PendingApproval => "This payment is waiting for approval. Ask the Owner to reject it, then correct it.",
+        TransactionStatus.Posted => "This payment has been posted. Ask for a change instead, and the Owner will approve it.",
+        _ => $"This payment is {p.Status} and cannot be changed."
+    };
+
+    private static void EnsureSameContractorAndVilla(ContractorPayment payment, SaveContractorPaymentRequest req)
+    {
+        if (req.ContractorId != payment.ContractorId || req.ProjectId != payment.ProjectId)
+            throw new AppException(
+                "A payment cannot be moved to another contractor or villa. Delete it and enter it against the right one.", 409);
+    }
+
+    private async Task EnsureWorkMatchesAsync(SaveContractorPaymentRequest req, CancellationToken ct)
+    {
+        if (req.ContractWorkId is not { } wid) return;
+        var work = await db.ContractWorks.AsNoTracking().FirstOrDefaultAsync(w => w.Id == wid, ct)
+                   ?? throw new NotFoundException("ContractWork", wid);
+        if (work.ProjectId != req.ProjectId || work.ContractorId != req.ContractorId)
+            throw new AppException("The selected contract does not match this project/contractor.", 409);
     }
 
     public async Task<ContractorSummary> LedgerAsync(Guid contractorId, CancellationToken ct = default)
@@ -208,9 +397,14 @@ public class ContractorPaymentService(
         return new ContractorSummary(contractor.Id, contractor.Name, contracted, paid, contracted - paid, rows);
     }
 
-    private static readonly Expression<Func<ContractorPayment, ContractorPaymentDto>> Projection = p => new ContractorPaymentDto(
+    // The change a payment is waiting on, if any, rides along with every row so the screen can say
+    // so without a second request per payment.
+    private Expression<Func<ContractorPayment, ContractorPaymentDto>> Projection => p => new ContractorPaymentDto(
         p.Id, p.TxnNumber, p.ContractorId, p.Contractor.Name, p.ProjectId, p.Project.Name, p.ContractWorkId,
-        p.Date, p.Amount, p.PaymentMethodId, p.PaymentMethod.Name, p.ReferenceNumber, p.Description, p.PaymentKind, p.Status);
+        p.Date, p.Amount, p.PaymentMethodId, p.PaymentMethod.Name, p.ReferenceNumber, p.Description, p.PaymentKind, p.Status,
+        db.ContractorPaymentChanges
+            .Where(c => c.ContractorPaymentId == p.Id && c.Status == TransactionStatus.PendingApproval)
+            .Select(c => (ContractorPaymentChangeKind?)c.Kind).FirstOrDefault());
 }
 
 public class ContractorPaymentApprovalHandler(IAppDbContext db, IProjectCostWriter costWriter) : IApprovalHandler
@@ -255,4 +449,91 @@ public class ContractorPaymentApprovalHandler(IAppDbContext db, IProjectCostWrit
         payment.Status = TransactionStatus.Rejected;
         await db.SaveChangesAsync(ct);
     }
+}
+
+/// <summary>
+/// Applies an approved change to a posted contractor payment. Runs inside the approval transaction,
+/// so the payment, the contract's paid figure and the villa's cost row move together or not at all.
+///
+/// <para>The cost row is rewritten rather than a second one added. A villa's cost is the sum of its
+/// expense rows and each payment owns exactly one; a correction written as a new row beside the old
+/// one is how the same payment gets counted twice.</para>
+/// </summary>
+public class ContractorPaymentChangeApprovalHandler(IAppDbContext db) : IApprovalHandler
+{
+    public string EntityType => ApprovalEntityTypes.ContractorPaymentChange;
+
+    public async Task OnApprovedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var change = await db.ContractorPaymentChanges.FirstOrDefaultAsync(c => c.Id == entityId, ct)
+                     ?? throw new NotFoundException("ContractorPaymentChange", entityId);
+        var payment = await db.ContractorPayments.FirstOrDefaultAsync(p => p.Id == change.ContractorPaymentId, ct)
+                      ?? throw new NotFoundException("ContractorPayment", change.ContractorPaymentId);
+        if (payment.Status != TransactionStatus.Posted)
+            throw new AppException($"This payment is {payment.Status} and can no longer be changed.", 409);
+
+        var cost = await db.ProjectExpenses.FirstOrDefaultAsync(
+            e => e.SourceType == "ContractorPayment" && e.SourceId == payment.Id
+                 && e.Status == TransactionStatus.Posted, ct);
+
+        // Take the payment off the contract it is on, then put it back wherever it now belongs.
+        if (await WorkAsync(payment.ContractWorkId, ct) is { } current)
+        {
+            current.TotalPaid -= payment.Amount;
+            current.Balance = current.ContractAmount - current.TotalPaid;
+        }
+
+        if (change.Kind == ContractorPaymentChangeKind.Delete)
+        {
+            payment.Status = TransactionStatus.Cancelled;
+            payment.Remarks = change.Reason;
+            payment.Amount = 0m; // the row stays for audit; the figure it held is on the change
+            if (cost is not null)
+            {
+                cost.Status = TransactionStatus.Cancelled;
+                cost.Remarks = change.Reason;
+                cost.Amount = 0m;
+            }
+        }
+        else
+        {
+            if (await WorkAsync(change.ContractWorkId, ct) is { } target)
+            {
+                if (change.Amount > target.Balance && !decision.AllowOverride)
+                    throw new AppException(
+                        $"Payment {change.Amount:0.00} exceeds contract balance {target.Balance:0.00}. Approve with override to allow an advance/overpayment.", 409);
+                target.TotalPaid += change.Amount;
+                target.Balance = target.ContractAmount - target.TotalPaid;
+            }
+
+            payment.ContractWorkId = change.ContractWorkId; payment.Date = change.Date; payment.Amount = change.Amount;
+            payment.PaymentMethodId = change.PaymentMethodId; payment.ReferenceNumber = change.ReferenceNumber;
+            payment.Description = change.Description; payment.PaymentKind = change.PaymentKind;
+            if (cost is not null)
+            {
+                cost.Amount = change.Amount;
+                cost.Date = change.Date;
+            }
+        }
+
+        change.Status = TransactionStatus.Posted;
+        change.ApprovedBy = decidedBy;
+        change.ApprovedAt = DateTimeOffset.UtcNow;
+        change.Remarks = decision.Remarks;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task OnRejectedAsync(Guid entityId, ApprovalDecision decision, Guid decidedBy, CancellationToken ct)
+    {
+        var change = await db.ContractorPaymentChanges.FirstOrDefaultAsync(c => c.Id == entityId, ct);
+        if (change is null) return;
+        change.Status = TransactionStatus.Rejected;
+        change.Remarks = decision.Remarks;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // Found through the change tracker's identity map, so the same contract loaded twice is one
+    // object and releasing and re-adding on it see each other's arithmetic.
+    private async Task<ContractWork?> WorkAsync(Guid? id, CancellationToken ct)
+        => id is { } wid ? await db.ContractWorks.FirstOrDefaultAsync(w => w.Id == wid, ct) : null;
 }

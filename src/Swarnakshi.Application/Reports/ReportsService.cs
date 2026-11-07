@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Swarnakshi.Application.Abstractions;
+using Swarnakshi.Application.Common;
 using Swarnakshi.Domain.Enums;
 
 namespace Swarnakshi.Application.Reports;
@@ -9,8 +10,24 @@ namespace Swarnakshi.Application.Reports;
 /// cap. A report that quietly returns the first N rows and looks complete is worse than one that
 /// is slow, so anything that trims says so here and the UI shows it.
 /// </param>
+/// <param name="KeyColumn">
+/// The column a row can be opened from, when it can. Named here so a screen can link the cell
+/// without guessing; a CSV ignores it.
+/// </param>
+/// <param name="RowKeys">The id behind each row, parallel to <paramref name="Rows"/>.</param>
 public record ReportTable(string Title, IReadOnlyList<string> Columns,
-    IReadOnlyList<IReadOnlyList<object?>> Rows, string? Note = null);
+    IReadOnlyList<IReadOnlyList<object?>> Rows, string? Note = null,
+    string? KeyColumn = null, IReadOnlyList<Guid>? RowKeys = null);
+
+public record ContractorStatementPayment(Guid Id, string TxnNumber, DateOnly Date, decimal Amount, string? Work,
+    string Method, string? Reference, ContractorPaymentKind Kind, TransactionStatus Status);
+
+public record ContractorStatementVilla(Guid ProjectId, string ProjectName, string SiteName, decimal Contracted,
+    decimal Paid, decimal Balance, decimal AwaitingApproval, IReadOnlyList<ContractorStatementPayment> Payments);
+
+public record ContractorStatement(Guid ContractorId, string ContractorName, string? Mobile, decimal Contracted,
+    decimal Paid, decimal Balance, decimal AwaitingApproval, int PaymentCount, decimal PaidOutsideWorkOrders,
+    IReadOnlyList<ContractorStatementVilla> Villas);
 
 public interface IReportsService
 {
@@ -28,6 +45,8 @@ public interface IReportsService
     Task<ReportTable> SiteSummaryAsync(CancellationToken ct = default);
     Task<ReportTable> ContractorCommitmentAsync(CancellationToken ct = default);
     Task<ReportTable> SupplierOutstandingAsync(CancellationToken ct = default);
+    Task<ReportTable> ContractorPaymentsAsync(CancellationToken ct = default);
+    Task<ContractorStatement> ContractorStatementAsync(Guid contractorId, CancellationToken ct = default);
 }
 
 public class ReportsService(IAppDbContext db) : IReportsService
@@ -157,13 +176,15 @@ public class ReportsService(IAppDbContext db) : IReportsService
             .GroupBy(w => new { w.ContractorId, w.Contractor.Name })
             .Select(g => new
             {
+                g.Key.ContractorId,
                 g.Key.Name,
                 Contracted = g.Sum(x => x.ContractAmount),
                 Paid = g.Sum(x => x.TotalPaid),
                 Balance = g.Sum(x => x.Balance)
             }).OrderByDescending(x => x.Balance).ToListAsync(ct);
         var rows = data.Select(x => (IReadOnlyList<object?>)new object?[] { x.Name, x.Contracted, x.Paid, x.Balance }).ToList();
-        return new("Contractor Outstanding", ["Contractor", "Contracted", "Paid", "Outstanding"], rows);
+        return new("Contractor Outstanding", ["Contractor", "Contracted", "Paid", "Outstanding"], rows,
+            KeyColumn: "Contractor", RowKeys: data.Select(x => x.ContractorId).ToList());
     }
 
     public async Task<ReportTable> CustomerOutstandingAsync(CancellationToken ct = default)
@@ -389,7 +410,7 @@ public class ReportsService(IAppDbContext db) : IReportsService
             .OrderBy(w => w.Project.Site.Name).ThenBy(w => w.Project.Name).ThenBy(w => w.WorkCategory)
             .Select(w => new
             {
-                Site = w.Project.Site.Name, Project = w.Project.Name, Contractor = w.Contractor.Name,
+                Site = w.Project.Site.Name, Project = w.Project.Name, w.ContractorId, Contractor = w.Contractor.Name,
                 w.WorkCategory, w.ContractAmount, w.TotalPaid, w.Balance, w.WorkStatus,
             }).ToListAsync(ct);
 
@@ -400,7 +421,8 @@ public class ReportsService(IAppDbContext db) : IReportsService
         }).ToList();
 
         return new("Contractor Commitment",
-            ["Villa", "Site", "Contractor", "Work", "Status", "Contracted", "Paid", "Committed Unpaid"], rows);
+            ["Villa", "Site", "Contractor", "Work", "Status", "Contracted", "Paid", "Committed Unpaid"], rows,
+            KeyColumn: "Contractor", RowKeys: data.Select(x => x.ContractorId).ToList());
     }
 
     /// <summary>What is owed to suppliers, by supplier. The other half of the payables picture.</summary>
@@ -423,5 +445,95 @@ public class ReportsService(IAppDbContext db) : IReportsService
             .ToList();
 
         return new("Supplier Outstanding", ["Supplier", "Bills", "Invoiced", "Paid", "Outstanding"], rows);
+    }
+
+    /// <summary>
+    /// Every contractor who has been paid, with what they have had across all villas. The way into
+    /// <see cref="ContractorStatementAsync"/>: each row opens that contractor's statement.
+    /// </summary>
+    public async Task<ReportTable> ContractorPaymentsAsync(CancellationToken ct = default)
+    {
+        var data = await db.ContractorPayments.AsNoTracking()
+            .Where(p => p.Status == TransactionStatus.Posted || p.Status == TransactionStatus.PendingApproval)
+            .GroupBy(p => new { p.ContractorId, p.Contractor.Name })
+            .Select(g => new
+            {
+                g.Key.ContractorId, g.Key.Name,
+                Villas = g.Select(p => p.ProjectId).Distinct().Count(),
+                Payments = g.Count(p => p.Status == TransactionStatus.Posted),
+                Paid = g.Where(p => p.Status == TransactionStatus.Posted).Sum(p => (decimal?)p.Amount) ?? 0m,
+                Waiting = g.Where(p => p.Status == TransactionStatus.PendingApproval).Sum(p => (decimal?)p.Amount) ?? 0m,
+                Last = g.Where(p => p.Status == TransactionStatus.Posted).Max(p => (DateOnly?)p.Date),
+            })
+            .OrderByDescending(x => x.Paid).ToListAsync(ct);
+
+        var rows = data.Select(x => (IReadOnlyList<object?>)new object?[]
+            { x.Name, x.Villas, x.Payments, x.Paid, x.Waiting, x.Last }).ToList();
+
+        return new("Contractor Payments",
+            ["Contractor", "Villas", "Payments", "Paid", "Awaiting Approval", "Last Paid"], rows,
+            KeyColumn: "Contractor", RowKeys: data.Select(x => x.ContractorId).ToList());
+    }
+
+    /// <summary>
+    /// One contractor across every villa: the totals, then villa by villa with the payments under
+    /// each.
+    ///
+    /// <para>Paid here is every posted payment, including one not tied to a work order. The balance
+    /// on a work order counts only the payments made against it, so a payment with no work order
+    /// shows here and not there — <see cref="ContractorStatement.PaidOutsideWorkOrders"/> says how
+    /// much, so the two figures can be reconciled rather than merely disagree. Money still waiting
+    /// for approval is listed and totalled apart: it has not left the company yet.</para>
+    /// </summary>
+    public async Task<ContractorStatement> ContractorStatementAsync(Guid contractorId, CancellationToken ct = default)
+    {
+        var contractor = await db.Contractors.AsNoTracking().Where(c => c.Id == contractorId)
+            .Select(c => new { c.Id, c.Name, c.Mobile }).FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("Contractor", contractorId);
+
+        var works = await db.ContractWorks.AsNoTracking()
+            .Where(w => w.ContractorId == contractorId && w.WorkStatus != ContractWorkStatus.Cancelled)
+            .Select(w => new { w.ProjectId, Project = w.Project.Name, Site = w.Project.Site.Name, w.ContractAmount })
+            .ToListAsync(ct);
+
+        var payments = await db.ContractorPayments.AsNoTracking()
+            .Where(p => p.ContractorId == contractorId
+                        && (p.Status == TransactionStatus.Posted || p.Status == TransactionStatus.PendingApproval))
+            .OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
+            .Select(p => new
+            {
+                p.ProjectId, Project = p.Project.Name, Site = p.Project.Site.Name, p.ContractWorkId,
+                Row = new ContractorStatementPayment(p.Id, p.TxnNumber, p.Date, p.Amount,
+                    p.ContractWork == null ? null : p.ContractWork.WorkCategory, p.PaymentMethod.Name,
+                    p.ReferenceNumber, p.PaymentKind, p.Status),
+            }).ToListAsync(ct);
+
+        static decimal Posted(IEnumerable<ContractorStatementPayment> rows)
+            => rows.Where(r => r.Status == TransactionStatus.Posted).Sum(r => r.Amount);
+        static decimal Waiting(IEnumerable<ContractorStatementPayment> rows)
+            => rows.Where(r => r.Status == TransactionStatus.PendingApproval).Sum(r => r.Amount);
+
+        var villas = works.Select(w => new { w.ProjectId, w.Project, w.Site })
+            .Concat(payments.Select(p => new { p.ProjectId, p.Project, p.Site }))
+            .DistinctBy(v => v.ProjectId)
+            .OrderBy(v => v.Site).ThenBy(v => v.Project)
+            .Select(v =>
+            {
+                var rows = payments.Where(p => p.ProjectId == v.ProjectId).Select(p => p.Row).ToList();
+                var contracted = works.Where(w => w.ProjectId == v.ProjectId).Sum(w => w.ContractAmount);
+                var paid = Posted(rows);
+                return new ContractorStatementVilla(v.ProjectId, v.Project, v.Site, contracted, paid,
+                    contracted - paid, Waiting(rows), rows);
+            }).ToList();
+
+        var allRows = payments.Select(p => p.Row).ToList();
+        var totalContracted = works.Sum(w => w.ContractAmount);
+        var totalPaid = Posted(allRows);
+
+        return new ContractorStatement(contractor.Id, contractor.Name, contractor.Mobile,
+            totalContracted, totalPaid, totalContracted - totalPaid, Waiting(allRows),
+            allRows.Count(r => r.Status == TransactionStatus.Posted),
+            payments.Where(p => p.ContractWorkId == null && p.Row.Status == TransactionStatus.Posted).Sum(p => p.Row.Amount),
+            villas);
     }
 }

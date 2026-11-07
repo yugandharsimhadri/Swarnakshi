@@ -40,6 +40,14 @@ public class ReportsController(IReportsService reports) : ControllerBase
     public Task<IActionResult> ContractorOutstanding([FromQuery] string? format, CancellationToken ct)
         => Result(reports.ContractorOutstandingAsync(ct), format);
 
+    [HttpGet("contractor/payments")]
+    public Task<IActionResult> ContractorPayments([FromQuery] string? format, CancellationToken ct)
+        => Result(reports.ContractorPaymentsAsync(ct), format);
+
+    [HttpGet("contractor/{contractorId:guid}/statement")]
+    public async Task<IActionResult> ContractorStatement(Guid contractorId, CancellationToken ct)
+        => this.Envelope(await reports.ContractorStatementAsync(contractorId, ct));
+
     [HttpGet("customer/outstanding")]
     public Task<IActionResult> CustomerOutstanding([FromQuery] string? format, CancellationToken ct)
         => Result(reports.CustomerOutstandingAsync(ct), format);

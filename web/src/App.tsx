@@ -50,6 +50,7 @@ const NewPurchase = named(() => import("@/pages/Purchases"), "NewPurchase");
 const PurchaseDetail = named(() => import("@/pages/Purchases"), "PurchaseDetail");
 const ReportsHub = named(() => import("@/pages/Reports"), "ReportsHub");
 const ReportView = named(() => import("@/pages/Reports"), "ReportView");
+const ContractorStatementView = named(() => import("@/pages/Reports"), "ContractorStatementView");
 
 const Loading = () => <div className="grid min-h-40 place-items-center"><Spinner /></div>;
 
@@ -113,6 +114,7 @@ export default function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="reports" element={canReports ? <ReportsHub /> : <Navigate to="/" replace />} />
             <Route path="reports/:slug" element={canReports ? <ReportView /> : <Navigate to="/" replace />} />
+            <Route path="reports/contractor/:id" element={canReports ? <ContractorStatementView /> : <Navigate to="/" replace />} />
             <Route path="users" element={<Users />} />
             <Route path="employees" element={canEmployees ? <Employees /> : <Navigate to="/more" replace />} />
             <Route path="reimbursements" element={<Reimbursements />} />

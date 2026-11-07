@@ -805,6 +805,135 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.ToTable("contractor_payments", (string)null);
                 });
 
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ContractorPaymentChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<Guid?>("ContractWorkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contract_work_id");
+
+                    b.Property<Guid>("ContractorPaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contractor_payment_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_demo");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_at");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modified_by");
+
+                    b.Property<int>("PaymentKind")
+                        .HasColumnType("integer")
+                        .HasColumnName("payment_kind");
+
+                    b.Property<Guid>("PaymentMethodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_method_id");
+
+                    b.Property<decimal>("PreviousAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("previous_amount");
+
+                    b.Property<DateOnly>("PreviousDate")
+                        .HasColumnType("date")
+                        .HasColumnName("previous_date");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("reference_number");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("remarks");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TxnNumber")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("txn_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contractor_payment_changes");
+
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_contractor_payment_changes_company_id");
+
+                    b.HasIndex("CompanyId", "TxnNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_contractor_payment_changes_company_id_txn_number");
+
+                    b.HasIndex("ContractorPaymentId", "Status")
+                        .HasDatabaseName("ix_contractor_payment_changes_contractor_payment_id_status");
+
+                    b.ToTable("contractor_payment_changes", (string)null);
+                });
+
             modelBuilder.Entity("Swarnakshi.Domain.Entities.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3879,6 +4008,18 @@ namespace Swarnakshi.Infrastructure.Persistence.Migrations
                     b.Navigation("PaymentMethod");
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Swarnakshi.Domain.Entities.ContractorPaymentChange", b =>
+                {
+                    b.HasOne("Swarnakshi.Domain.Entities.ContractorPayment", "ContractorPayment")
+                        .WithMany()
+                        .HasForeignKey("ContractorPaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_contractor_payment_changes_contractor_payments_contractor_p");
+
+                    b.Navigation("ContractorPayment");
                 });
 
             modelBuilder.Entity("Swarnakshi.Domain.Entities.CustomerPayment", b =>

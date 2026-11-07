@@ -91,6 +91,9 @@ public enum ContractWorkStatus { Planned = 0, Active = 1, Completed = 2, Cancell
 
 public enum ContractorPaymentKind { Advance = 1, Partial = 2, Final = 3, Adjustment = 4 }
 
+/// <summary>What is being asked of a posted contractor payment.</summary>
+public enum ContractorPaymentChangeKind { Edit = 1, Delete = 2 }
+
 public enum InventoryValuationMethod { WeightedAverage = 1, Fifo = 2, ManualRate = 3 }
 
 // AutoApproved is deliberately its own action rather than an Approved row with a remark. A history

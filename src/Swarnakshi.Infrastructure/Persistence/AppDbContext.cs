@@ -73,6 +73,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
 
     public DbSet<ContractWork> ContractWorks => Set<ContractWork>();
     public DbSet<ContractorPayment> ContractorPayments => Set<ContractorPayment>();
+    public DbSet<ContractorPaymentChange> ContractorPaymentChanges => Set<ContractorPaymentChange>();
     public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
 
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();

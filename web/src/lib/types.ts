@@ -280,7 +280,10 @@ export interface RecentTxn { type: string; ref: string; date: string; amount: nu
 export interface DashboardPayload {
   role: string; kpis: KpiCard[]; recent: RecentTxn[]; pendingApprovals: number;
 }
-export interface ReportTable { title: string; columns: string[]; rows: (string | number | null)[][] }
+export interface ReportTable {
+  title: string; columns: string[]; rows: (string | number | null)[][]; note?: string | null;
+  keyColumn?: string | null; rowKeys?: string[] | null;
+}
 export interface Unit { id: string; code: string; name: string; isActive: boolean }
 
 export interface InventoryBalance {
@@ -536,8 +539,10 @@ export const ContractStatusName: Record<number, string> = {
 export interface ContractorPayment {
   id: string; txnNumber: string; contractorId: string; contractorName: string;
   projectId: string; projectName: string; contractWorkId?: string | null;
-  date: string; amount: number; paymentMethodName: string; referenceNumber?: string | null;
+  date: string; amount: number; paymentMethodId: string; paymentMethodName: string; referenceNumber?: string | null;
   description?: string | null; paymentKind: number; status: number;
+  /** 1 = a correction, 2 = a removal, waiting for the Owner. Absent when nothing is waiting. */
+  pendingChange?: number | null;
 }
 
 export interface CostByHead { expenseHeadId: string; expenseHeadName: string; amount: number }
@@ -602,4 +607,33 @@ export interface EmployeeLedger {
   employeeId: string; employeeName: string; phone: string; monthlySalary: number;
   totalPaid: number; advancesGiven: number; advancesRecovered: number; advanceOutstanding: number;
   rows: { kind: string; ref: string; date: string; amount: number; advanceRecovered: number; netPaid: number; status: string }[];
+}
+
+export interface PaymentFacts {
+  date: string; amount: number; method: string; reference?: string | null; work?: string | null;
+  description?: string | null; kind: number;
+}
+
+/** A change to a posted contractor payment, as the person approving it reads it. */
+export interface ContractorPaymentChange {
+  id: string; txnNumber: string; kind: number; reason: string; contractorPaymentId: string;
+  paymentTxnNumber: string; contractorName: string; projectName: string;
+  requestedBy?: string | null; requestedAt: string; status: number;
+  before: PaymentFacts; after: PaymentFacts;
+}
+
+export interface ContractorStatementPayment {
+  id: string; txnNumber: string; date: string; amount: number; work?: string | null;
+  method: string; reference?: string | null; kind: number; status: number;
+}
+
+export interface ContractorStatementVilla {
+  projectId: string; projectName: string; siteName: string; contracted: number; paid: number;
+  balance: number; awaitingApproval: number; payments: ContractorStatementPayment[];
+}
+
+export interface ContractorStatement {
+  contractorId: string; contractorName: string; mobile?: string | null; contracted: number; paid: number;
+  balance: number; awaitingApproval: number; paymentCount: number; paidOutsideWorkOrders: number;
+  villas: ContractorStatementVilla[];
 }

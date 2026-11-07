@@ -182,3 +182,18 @@ public class ContractWorkConfig : IEntityTypeConfiguration<ContractWork>
         e.HasOne(x => x.Contractor).WithMany().HasForeignKey(x => x.ContractorId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+/// <summary>
+/// Requests to change or remove a posted contractor payment. Restrict on the payment: the record of
+/// who asked for what, and who approved it, must not vanish with the row it was about.
+/// </summary>
+public class ContractorPaymentChangeConfig : IEntityTypeConfiguration<ContractorPaymentChange>
+{
+    public void Configure(EntityTypeBuilder<ContractorPaymentChange> e)
+    {
+        e.HasIndex(x => new { x.CompanyId, x.TxnNumber }).IsUnique();
+        e.HasIndex(x => new { x.ContractorPaymentId, x.Status });
+        e.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+        e.HasOne(x => x.ContractorPayment).WithMany().HasForeignKey(x => x.ContractorPaymentId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

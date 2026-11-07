@@ -55,6 +55,7 @@ public interface IAppDbContext
 
     DbSet<ContractWork> ContractWorks { get; }
     DbSet<ContractorPayment> ContractorPayments { get; }
+    DbSet<ContractorPaymentChange> ContractorPaymentChanges { get; }
     DbSet<CustomerPayment> CustomerPayments { get; }
 
     DbSet<ApprovalRequest> ApprovalRequests { get; }

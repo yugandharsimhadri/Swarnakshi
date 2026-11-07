@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<IApprovalHandler, MaterialRequestApprovalHandler>();
         services.AddScoped<IApprovalHandler, LabourApprovalHandler>();
         services.AddScoped<IApprovalHandler, ContractorPaymentApprovalHandler>();
+        services.AddScoped<IApprovalHandler, ContractorPaymentChangeApprovalHandler>();
         services.AddScoped<IApprovalHandler, ProjectExpenseApprovalHandler>();
         services.AddScoped<IApprovalHandler, SiteExpenseApprovalHandler>();
         services.AddScoped<IApprovalHandler, Customers.CustomerPaymentApprovalHandler>();

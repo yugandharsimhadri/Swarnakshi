@@ -3,10 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { tokens } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
-import { num } from "@/lib/format";
-import { Card, ErrorText, PageHeader, Spinner } from "@/components/ui";
+import { dateStr, money, moneyShort, num } from "@/lib/format";
+import { Card, Chip, ErrorText, PageHeader, Spinner, StatCard } from "@/components/ui";
 import { IconChevron } from "@/components/icons";
-import type { ReportTable } from "@/lib/types";
+import type { ContractorStatement, ReportTable } from "@/lib/types";
 
 type Report = { slug: string; path: string; label: string; group: string; hint?: string };
 
@@ -21,6 +21,8 @@ const REPORTS: Report[] = [
 
   { slug: "customer-outstanding", path: "customer/outstanding", label: "Customer Outstanding", group: "Money" },
   { slug: "supplier-outstanding", path: "supplier/outstanding", label: "Supplier Outstanding", group: "Money" },
+  { slug: "contractor-payments", path: "contractor/payments", label: "Contractor Payments", group: "Money",
+    hint: "What each contractor has been paid, across all villas" },
   { slug: "contractor-outstanding", path: "contractor/outstanding", label: "Contractor Outstanding", group: "Money" },
   { slug: "contractor-commitment", path: "contractor/commitment", label: "Contractor Commitment", group: "Money",
     hint: "Promised under work orders but not yet paid" },
@@ -143,14 +145,20 @@ export function ReportView() {
               <tbody>
                 {data.rows.map((row, i) => (
                   <tr key={i} className="border-b border-border/60 last:border-0">
-                    {row.map((cell, j) => (
-                      <td
-                        key={j}
-                        className={`whitespace-nowrap px-3 py-2 ${isNum(cell) ? "text-right tabular-nums" : ""} ${cellClass(cell, data.columns[j] ?? "")}`}
-                      >
-                        {fmt(cell)}
-                      </td>
-                    ))}
+                    {row.map((cell, j) => {
+                      // The only reports that name a key column are the contractor ones.
+                      const key = data.columns[j] === data.keyColumn ? data.rowKeys?.[i] : undefined;
+                      return (
+                        <td
+                          key={j}
+                          className={`whitespace-nowrap px-3 py-2 ${isNum(cell) ? "text-right tabular-nums" : ""} ${cellClass(cell, data.columns[j] ?? "")}`}
+                        >
+                          {key
+                            ? <Link to={`/reports/contractor/${key}`} className="font-medium text-brand underline">{fmt(cell)}</Link>
+                            : fmt(cell)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -158,6 +166,78 @@ export function ReportView() {
           </div>
         )
       )}
+    </div>
+  );
+}
+
+/**
+ * One contractor across every villa: the totals first, then villa by villa with the payments under
+ * each. Reached by tapping the contractor's name in a report, so the back arrow is the browser's —
+ * there are three reports it could have come from.
+ */
+export function ContractorStatementView() {
+  const { id } = useParams<{ id: string }>();
+  const { data: s, loading, error } = useAsync(
+    () => api<ContractorStatement>(`/reports/contractor/${id}/statement`),
+    [id],
+  );
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorText error={error} />;
+  if (!s) return null;
+
+  return (
+    <div className="space-y-3">
+      <PageHeader title={s.contractorName} subtitle={s.mobile ?? undefined} />
+
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard label="Contracted" value={moneyShort(s.contracted)} />
+        <StatCard label="Paid" value={moneyShort(s.paid)} sub={`${s.paymentCount} payment${s.paymentCount === 1 ? "" : "s"}`} />
+        <StatCard label="Balance" value={moneyShort(s.balance)} tone={s.balance > 0 ? "warn" : undefined} />
+      </div>
+
+      {s.awaitingApproval > 0 && (
+        <div className="px-1 text-xs text-text-dim">{money(s.awaitingApproval)} more is waiting for approval and is not counted as paid.</div>
+      )}
+      {s.paidOutsideWorkOrders > 0 && (
+        <div className="px-1 text-xs text-text-dim">
+          {money(s.paidOutsideWorkOrders)} of what was paid is not against a work order, so Contractor Outstanding does not count it.
+        </div>
+      )}
+
+      <div className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-text-dim">Villa by villa</div>
+      {s.villas.length === 0 && <Card><div className="text-sm text-text-dim">Nothing given or paid yet.</div></Card>}
+      {s.villas.map((v) => (
+        <Card key={v.projectId} className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <Link to={`/projects/${v.projectId}`} className="truncate text-sm font-semibold underline">{v.projectName}</Link>
+            <span className="shrink-0 truncate text-xs text-text-dim">{v.siteName}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div><div className="text-text-dim">Contracted</div><div className="tabular-nums">{money(v.contracted)}</div></div>
+            <div><div className="text-text-dim">Paid</div><div className="tabular-nums">{money(v.paid)}</div></div>
+            <div><div className="text-text-dim">Balance</div><div className={`tabular-nums ${v.balance > 0 ? "text-warn" : ""}`}>{money(v.balance)}</div></div>
+          </div>
+          {v.payments.length > 0 && (
+            <div className="divide-y divide-border/60 border-t border-border/60">
+              {v.payments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 py-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="shrink-0">{dateStr(p.date)}</span>
+                      {p.status === 2 && <Chip tone="brand">Waiting</Chip>}
+                    </div>
+                    <div className="truncate text-xs text-text-dim">
+                      {[p.work, p.method, p.reference, p.txnNumber].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-sm tabular-nums">{money(p.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      ))}
     </div>
   );
 }
